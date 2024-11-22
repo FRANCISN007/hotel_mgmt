@@ -280,6 +280,103 @@ def list_all_reservations(db: Session = Depends(get_db), current_user: schemas.U
     
     return reservations
 
+@app.post("/reservations/check-in/", tags=["Reservations"])
+def check_in_guest(
+    check_in_request: schemas.CheckInSchema,  # Full details about the guest and room
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
+):
+    room_number = check_in_request.room_number
+
+    # Check if the room exists
+    room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # Ensure the room is available
+    if room.status != "available":
+        raise HTTPException(status_code=400, detail="Room is not available for check-in")
+
+    try:
+        # Create the reservation and mark it as "checked-in"
+        new_reservation = models.Reservation(
+            room_number=room_number,
+            guest_name=check_in_request.guest_name,
+            arrival_date=check_in_request.arrival_date,
+            departure_date=check_in_request.departure_date,
+            status="checked-in",
+        )
+        db.add(new_reservation)
+        db.commit()
+        db.refresh(new_reservation)
+
+        # Update the room status to "booked"
+        room.status = "booked"
+        db.commit()
+
+        return {
+            "message": f"Guest {check_in_request.guest_name} successfully checked into room {room_number}",
+            "reservation": {
+                "guest_name": new_reservation.guest_name,
+                "room_number": new_reservation.room_number,
+                "arrival_date": new_reservation.arrival_date,
+                "departure_date": new_reservation.departure_date,
+                "status": new_reservation.status
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@app.put("/reservations/check-out/{room_number}", tags=["Reservations"])
+def check_out_guest(
+    room_number: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
+):
+    # Check if the room exists
+    room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
+    if not room:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Room with room number {room_number} does not exist."
+        )
+
+    # Check if there's an active reservation (checked-in status) for this room
+    reservation = db.query(models.Reservation).filter(
+        models.Reservation.room_number == room_number,
+        models.Reservation.status == "booked"  # Ensure the reservation is for a checked-in guest
+    ).first()
+
+    if not reservation:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {room_number} is not booked, it's still available."
+        )
+
+    try:
+        # Update the reservation status to "checked-out"
+        reservation.status = "checked-out"
+        db.commit()
+
+        # Update the room status to "available"
+        room.status = "available"
+        db.commit()
+
+        return {
+            "message": f"Guest {reservation.guest_name} successfully checked out of room {room_number}",
+            "reservation": {
+                "guest_name": reservation.guest_name,
+                "room_number": reservation.room_number,
+                "arrival_date": reservation.arrival_date,
+                "departure_date": reservation.departure_date,
+                "status": reservation.status
+            }
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 
 
 @app.delete("/reservations/{room_number}", tags=["Reservations"])
@@ -316,3 +413,4 @@ def cancel_reservation(
     except Exception as e:
         db.rollback()  # Roll back in case of error
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+

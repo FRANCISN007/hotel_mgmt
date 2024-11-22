@@ -50,3 +50,11 @@ class ReservationSchema(BaseModel):
     class Config:
         orm_mode = True
 
+class CheckInSchema(BaseModel):
+    room_number: str
+    guest_name: str
+    arrival_date: datetime
+    departure_date: datetime
+
+    class Config:
+        orm_mode = True
