@@ -2,16 +2,15 @@ from sqlalchemy.orm import Session
 import models, schemas
 
 def create_user(db: Session, user: schemas.UserSchema, hashed_password: str):
-    db_user = models.User(
+    new_user = models.User(
         username=user.username,
-        #email=user.email,
         hashed_password=hashed_password,
-        role=user.role
+        role=user.role  # Set the role here
     )
-    db.add(db_user)
+    db.add(new_user)
     db.commit()
-    db.refresh(db_user)
-    return db_user
+    db.refresh(new_user)
+    return new_user
 
 
 def get_user_by_username(db: Session, username: str):
