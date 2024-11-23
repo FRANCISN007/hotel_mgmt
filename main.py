@@ -14,6 +14,7 @@ from typing import List
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from schemas import UserDisplaySchema
+from sqlalchemy.orm import aliased
 #from logger import get_logger
 
 
@@ -142,45 +143,122 @@ def list_available_rooms(
         "available_rooms": available_rooms
     }
 
-
-
-@app.get("/rooms/checked-in", tags=["Rooms"])
-def list_checked_in_rooms(db: Session = Depends(get_db)):
+@app.post("/check-in/", tags=["Guests"])
+def check_in_guest(
+    check_in_request: schemas.CheckInSchema,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
+):
     """
-    List all rooms that are currently checked in, along with check-in and departure dates.
+    Check a guest into a room.
+    Ensures no duplicate check-ins occur for the same room.
     """
-    # Query for rooms with status "checked-in" and fetch associated reservation data
-    checked_in_rooms = (
-        db.query(
-            models.Room.room_number,
-            models.Room.room_type,
-            models.Reservation.guest_name,
-            func.date(models.Reservation.arrival_date).label("check_in_date"),  # Extract date part only
-            func.date(models.Reservation.departure_date).label("departure_date")  # Extract date part only
+    room_number = check_in_request.room_number
+
+    # Check if the room exists
+    room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # Check if the room already has a checked-in reservation
+    existing_reservation = (
+        db.query(models.Reservation)
+        .filter(
+            models.Reservation.room_number == room_number,
+            models.Reservation.status == "checked-in"
         )
-        .join(models.Reservation, models.Room.room_number == models.Reservation.room_number)
-        .filter(models.Reservation.status == "checked-in")
-        .all()
+        .first()
     )
+    if existing_reservation:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {room_number} is already checked in by {existing_reservation.guest_name}"
+        )
 
-    # If no rooms are checked in, return a message
-    if not checked_in_rooms:
-        return {"message": "No rooms are currently checked in."}
+    # Ensure the room is available
+    if room.status != "available":
+        raise HTTPException(status_code=400, detail="Room is not available for check-in")
 
-    # Format the response with detailed information
-    return {
-        "total_checked_in_rooms": len(checked_in_rooms),
-        "checked_in_rooms": [
-            {
-                "room_number": room[0],  # room_number is the first element in the tuple
-                "room_type": room[1],    # room_type is the second element
-                "guest_name": room[2],   # guest_name is the third element
-                "check_in_date": room[3],  # check_in_date (arrival_date) is the fourth element
-                "departure_date": room[4]  # departure_date is the fifth element
+    try:
+        # Create the reservation and mark it as "checked-in"
+        new_reservation = models.Reservation(
+            room_number=room_number,
+            guest_name=check_in_request.guest_name,
+            arrival_date=check_in_request.arrival_date,
+            departure_date=check_in_request.departure_date,
+            status="checked-in",
+        )
+        db.add(new_reservation)
+
+        # Update the room status to "checked-in"
+        room.status = "checked-in"
+
+        # Commit the changes to the database
+        db.commit()
+        db.refresh(new_reservation)
+
+        return {
+            "message": f"Guest {check_in_request.guest_name} successfully checked into room {room_number}",
+            "reservation": {
+                "guest_name": new_reservation.guest_name,
+                "room_number": new_reservation.room_number,
+                "arrival_date": new_reservation.arrival_date,
+                "departure_date": new_reservation.departure_date,
+                "status": new_reservation.status
             }
-            for room in checked_in_rooms
-        ]
-    }
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+
+@app.get("/guests/checked-in", tags=["Guests"])
+def list_checked_in_guests(db: Session = Depends(get_db)):
+    """
+    List all guests currently checked into rooms, along with their room numbers
+    and check-in/check-out dates.
+    """
+    try:
+        # Query for guests who are currently checked in
+        checked_in_guests = (
+            db.query(
+                models.Reservation.guest_name,
+                models.Reservation.room_number,
+                func.date(models.Reservation.arrival_date).label("check_in_date"),
+                func.date(models.Reservation.departure_date).label("departure_date")
+            )
+            .filter(models.Reservation.status == "checked-in")
+            .all()
+        )
+
+        # If no guests are checked in, return a message
+        if not checked_in_guests:
+            return {"message": "No guests are currently checked in."}
+
+        # Format the response
+        return {
+            "total_checked_in_guests": len(checked_in_guests),
+            "checked_in_guests": [
+                {
+                    "guest_name": guest.guest_name,
+                    "room_number": guest.room_number,
+                    "check_in_date": guest.check_in_date,
+                    "departure_date": guest.departure_date,
+                }
+                for guest in checked_in_guests
+            ],
+        }
+
+    except Exception as e:
+        # Handle unexpected errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving checked-in guests: {str(e)}"
+        )
+
+
 
 @app.put("/rooms/{room_number}", tags=["Rooms"])
 def update_room(
@@ -219,30 +297,6 @@ def update_room(
     # Return the updated room details
     return {"message": "Room updated successfully", "room": room}
 
-@app.delete("/rooms/{room_number}", tags=["Rooms"])
-def delete_room(
-    room_number: str, 
-    db: Session = Depends(get_db), 
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
-):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
-    # Proceed with the delete logic
-
-    # Fetch the room by its room_number
-    room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
-
-    # If the room does not exist, raise a 404 error
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-
-    # Delete the room from the database
-    db.delete(room)
-    db.commit()
-
-    # Return a success message
-    return {"message": f"Room with room number {room_number} has been deleted successfully"}
-
 @app.get("/rooms/summary", tags=["Rooms"])
 def room_summary(
     db: Session = Depends(get_db), 
@@ -272,7 +326,34 @@ def room_summary(
         "message": message
     }
 
-@app.get("/rooms/reserved", tags=["Rooms"])
+
+@app.delete("/rooms/{room_number}", tags=["Rooms"])
+def delete_room(
+    room_number: str, 
+    db: Session = Depends(get_db), 
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    # Proceed with the delete logic
+
+    # Fetch the room by its room_number
+    room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
+
+    # If the room does not exist, raise a 404 error
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    # Delete the room from the database
+    db.delete(room)
+    db.commit()
+
+    # Return a success message
+    return {"message": f"Room with room number {room_number} has been deleted successfully"}
+
+
+
+@app.get("/reserved", tags=["Reservations"])
 def list_reserved_rooms(db: Session = Depends(get_db)):
     # Query reserved rooms and include arrival and departure dates
     reserved_rooms = (
@@ -357,56 +438,6 @@ def create_reservation(reservation: schemas.ReservationSchema, db: Session = Dep
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
-
-@app.post("/check-in/", tags=["Rooms"])
-def check_in_guest(
-    check_in_request: schemas.CheckInSchema,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
-):
-    room_number = check_in_request.room_number
-
-    # Check if the room exists
-    room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-
-    # Ensure the room is available
-    if room.status != "available":
-        raise HTTPException(status_code=400, detail="Room is not available for check-in")
-
-    try:
-        # Create the reservation and mark it as "checked-in"
-        new_reservation = models.Reservation(
-            room_number=room_number,
-            guest_name=check_in_request.guest_name,
-            arrival_date=check_in_request.arrival_date,
-            departure_date=check_in_request.departure_date,
-            status="checked-in",
-        )
-        db.add(new_reservation)
-        db.commit()
-        db.refresh(new_reservation)
-
-        # Update the room status to "checked-in"
-        room.status = "checked-in"
-        db.commit()
-
-        return {
-            "message": f"Guest {check_in_request.guest_name} successfully checked into room {room_number}",
-            "reservation": {
-                "guest_name": new_reservation.guest_name,
-                "room_number": new_reservation.room_number,
-                "arrival_date": new_reservation.arrival_date,
-                "departure_date": new_reservation.departure_date,
-                "status": new_reservation.status
-            }
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 
 
