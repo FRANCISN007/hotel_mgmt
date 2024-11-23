@@ -22,19 +22,27 @@ class UserDisplaySchema(BaseModel):
         orm_mode = True
 
 
+from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel
+from typing import Literal
+
 class RoomSchema(BaseModel):
     room_number: str
     room_type: str
-    amount: int
-    status: Literal["available", "booked", "maintenance"]  # Only these values allowed
-    
+    amount: float
+    status: Literal["available", "checked-in", "maintenance", "reserved"]  # Updated status options
+
     class Config:
         orm_mode = True
+
+
         
 class RoomUpdateSchema(BaseModel):
     room_type: Optional[str] = None
     amount: Optional[int] = None
-    status: Optional[Literal["available", "booked", "maintenance"]] = None
+    status: Optional[Literal["available", "booked", "maintenance", "reserved"]] = None
 
     class Config:
         orm_mode = True
