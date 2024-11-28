@@ -1,0 +1,29 @@
+HOTEL MGMT SYS/
+│
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── database.py
+│   ├── users/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── auth.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   ├── rooms/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   ├── reservations/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   ├── guest/
+│       ├── __init__.py
+│       ├── router.py
+│       ├── models.py
+│       ├── schemas.py
+│
+├── env/  # Your virtual environment
