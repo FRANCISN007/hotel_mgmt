@@ -4,68 +4,84 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.users.auth import get_current_user
 from app.database import get_db
 from app.reservations import schemas, models  # Import reservation-specific schemas and models
+from app.rooms import schemas, models
+from app.reservations import schemas as reservation_schemas, models as reservation_models
+from app.rooms import schemas as room_schemas, models as room_models
+
 
 router = APIRouter()
 
 
-@router.get("/reserved")
-def list_reserved_rooms(db: Session = Depends(get_db)):
-    reserved_rooms = (
-        db.query(
-            models.Room.room_number,
-            models.Room.room_type,
-            models.Reservation.guest_name,
-            models.Reservation.arrival_date,
-            models.Reservation.departure_date,
+@router.get("/reserved", response_model=reservation_schemas.ReservedRoomsListSchema)
+def list_reserved_rooms(db: Session = Depends(get_db), 
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    try:
+        # Querying the reserved rooms
+        reserved_rooms = (
+            db.query(
+                room_models.Room.room_number,
+                room_models.Room.room_type,
+                reservation_models.Reservation.guest_name,
+                reservation_models.Reservation.arrival_date,
+                reservation_models.Reservation.departure_date,
+            )
+            .join(
+                reservation_models.Reservation,
+                room_models.Room.room_number == reservation_models.Reservation.room_number
+            )
+            .filter(room_models.Room.status == "reserved")
+            .all()
         )
-        .join(models.Reservation, models.Room.room_number == models.Reservation.room_number)
-        .filter(models.Room.status == "reserved")
-        .all()
-    )
 
-    total_reserved_rooms = len(reserved_rooms)
-    return {
-        "total_reserved_rooms": total_reserved_rooms,
-        "reserved_rooms": [
-            {
-                "room_number": room.room_number,
-                "room_type": room.room_type,
-                "guest_name": room.guest_name,
-                "arrival_date": room.arrival_date,
-                "departure_date": room.departure_date,
-            }
-            for room in reserved_rooms
-        ],
-    }
+        # Structuring the response
+        return {
+            "total_reserved_rooms": len(reserved_rooms),
+            "reserved_rooms": [
+                {
+                    "room_number": room.room_number,
+                    "room_type": room.room_type,
+                    "guest_name": room.guest_name,
+                    "arrival_date": room.arrival_date,
+                    "departure_date": room.departure_date,
+                }
+                for room in reserved_rooms
+            ],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
 @router.post("/")
-def create_reservation(reservation: schemas.ReservationSchema, db: Session = Depends(get_db)):
+def create_reservation(reservation: reservation_schemas.ReservationSchema, db: Session = Depends(get_db)):
     if not reservation.room_number or not reservation.guest_name:
         raise HTTPException(status_code=400, detail="Room number and guest name are required.")
-
-    room = db.query(models.Room).filter(models.Room.room_number == reservation.room_number).first()
+    
+    if reservation.arrival_date > reservation.departure_date:
+        raise HTTPException(status_code=400, detail="Arrival date must be before or on the same day as the departure date.")
+    
+    room = db.query(room_models.Room).filter(room_models.Room.room_number == reservation.room_number).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-
+    
     if room.status != "available":
         raise HTTPException(status_code=400, detail=f"Room {reservation.room_number} is not available for reservation.")
 
-    existing_reservation = db.query(models.Reservation).filter(
-        models.Reservation.room_number == reservation.room_number,
-        models.Reservation.arrival_date <= reservation.departure_date,
-        models.Reservation.departure_date >= reservation.arrival_date,
+    overlapping_reservation = db.query(reservation_models.Reservation).filter(
+        reservation_models.Reservation.room_number == reservation.room_number,
+        reservation_models.Reservation.arrival_date <= reservation.departure_date,
+        reservation_models.Reservation.departure_date >= reservation.arrival_date,
     ).first()
-
-    if existing_reservation:
+    
+    if overlapping_reservation:
         raise HTTPException(
             status_code=400,
             detail=f"Room {reservation.room_number} is already reserved from "
-                   f"{existing_reservation.arrival_date} to {existing_reservation.departure_date}.",
+                   f"{overlapping_reservation.arrival_date} to {overlapping_reservation.departure_date}.",
         )
-
+    
     try:
-        new_reservation = models.Reservation(
+        new_reservation = reservation_models.Reservation(
             room_number=reservation.room_number,
             guest_name=reservation.guest_name,
             arrival_date=reservation.arrival_date,
@@ -75,7 +91,7 @@ def create_reservation(reservation: schemas.ReservationSchema, db: Session = Dep
         db.add(new_reservation)
         db.commit()
         db.refresh(new_reservation)
-
+        
         room.status = "reserved"
         db.commit()
 
@@ -85,70 +101,58 @@ def create_reservation(reservation: schemas.ReservationSchema, db: Session = Dep
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.put("/check-out-group/")
-def check_out_multiple_rooms(
-    room_numbers: list[str],
+
+@router.delete("/{room_number}")
+def delete_or_cancel_reservation(
+    room_number: str,
     db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+    current_user: reservation_schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    results = []
-
-    for room_number in room_numbers:
-        room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
-        if not room:
-            results.append({"room_number": room_number, "status": "error", "message": "Room does not exist."})
-            continue
-
-        reservation = db.query(models.Reservation).filter(
-            models.Reservation.room_number == room_number,
-            models.Reservation.status == "booked",
+    """
+    Deletes or cancels a reservation for a given room number. 
+    Admins can delete any reservation, while users can only cancel their own reservations.
+    """
+    try:
+        # Fetch the reservation
+        reservation = db.query(reservation_models.Reservation).filter(
+            reservation_models.Reservation.room_number == room_number
         ).first()
 
         if not reservation:
-            results.append({"room_number": room_number, "status": "error", "message": "Room is not currently booked."})
-            continue
+            raise HTTPException(
+                status_code=404, detail=f"No reservation found for room number {room_number}."
+            )
 
-        try:
-            reservation.status = "checked-out"
-            db.commit()
+        # Admins can delete any reservation; regular users can cancel their own
+        if current_user.role != "admin" and reservation.guest_name != current_user.username:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to delete this reservation.",
+            )
 
-            room.status = "available"
-            db.commit()
+        # Fetch the associated room
+        room = db.query(room_models.Room).filter(
+            room_models.Room.room_number == room_number
+        ).first()
 
-            results.append({"room_number": room_number, "status": "success", "message": f"Room {room_number} successfully checked out."})
-        except Exception as e:
-            db.rollback()
-            results.append({"room_number": room_number, "status": "error", "message": str(e)})
-
-    return {"results": results}
-
-
-@router.delete("/{room_number}")
-def delete_reservation_or_check_in(
-    room_number: str,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="You do not have permission to delete reservations.")
-
-    reservation = db.query(models.Reservation).filter(models.Reservation.room_number == room_number).first()
-    if not reservation:
-        raise HTTPException(status_code=404, detail="No reservation found for the specified room number.")
-
-    try:
-        room = db.query(models.Room).filter(models.Room.room_number == room_number).first()
         if not room:
-            raise HTTPException(status_code=404, detail="Room not found for the specified room number.")
+            raise HTTPException(
+                status_code=404, detail=f"No room found for room number {room_number}."
+            )
 
+        # Delete the reservation and update the room's status
         db.delete(reservation)
-        room.status = "available"
+        room.status = "available"  # Assumes room is now free; adjust if needed
         db.commit()
 
         return {
-            "message": f"Reservation or check-in for room {room_number} has been successfully deleted.",
+            "message": f"Reservation for room {room_number} successfully deleted/canceled.",
             "room_status": room.status,
         }
+
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred while deleting the reservation: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while deleting the reservation: {str(e)}",
+        )

@@ -6,9 +6,6 @@ from typing import Literal
 from decimal import Decimal
 from datetime import date
 
-from pydantic import BaseModel
-from typing import Optional
-
 class UserSchema(BaseModel):
     username: str
     password: str
@@ -23,11 +20,6 @@ class UserDisplaySchema(BaseModel):
 
     class Config:
         orm_mode = True
-
-
-from pydantic import BaseModel
-from typing import Literal
-
 
 
 class RoomSchema(BaseModel):
@@ -60,11 +52,3 @@ class ReservationSchema(BaseModel):
     class Config:
         orm_mode = True
 
-class CheckInSchema(BaseModel):
-    room_number: str
-    guest_name: str
-    arrival_date: date
-    departure_date: date
-
-    class Config:
-        orm_mode = True

@@ -5,9 +5,8 @@ from typing import Optional
 from typing import Literal
 from decimal import Decimal
 from datetime import date
+from typing import List, Dict
 
-from pydantic import BaseModel
-from typing import Optional
 
 class UserSchema(BaseModel):
     username: str
@@ -23,10 +22,6 @@ class UserDisplaySchema(BaseModel):
 
     class Config:
         orm_mode = True
-
-
-from pydantic import BaseModel
-from typing import Literal
 
 
 
@@ -60,11 +55,17 @@ class ReservationSchema(BaseModel):
     class Config:
         orm_mode = True
 
-class CheckInSchema(BaseModel):
+
+# Schema for a single reserved room
+class ReservedRoomSchema(BaseModel):
     room_number: str
+    room_type: str
     guest_name: str
     arrival_date: date
     departure_date: date
 
-    class Config:
-        orm_mode = True
+
+# Schema for the list of reserved rooms
+class ReservedRoomsListSchema(BaseModel):
+    total_reserved_rooms: int
+    reserved_rooms: List[ReservedRoomSchema]

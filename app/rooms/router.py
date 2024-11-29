@@ -9,6 +9,7 @@ from app.rooms import models
 from app.reservations import models
 from app.rooms import schemas, models, crud  # Import room-specific schemas, models, and CRUD
 
+
 router = APIRouter()
 
 
@@ -67,6 +68,13 @@ def update_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
+    # Prevent updates if the room is checked-in
+    if room.status == "checked-in":
+        raise HTTPException(
+            status_code=400,
+            detail="Room cannot be updated as it is currently checked-in"
+        )
+
     # Update fields only if provided
     if room_update.room_type:
         room.room_type = room_update.room_type
@@ -83,6 +91,7 @@ def update_room(
     db.refresh(room)
 
     return {"message": "Room updated successfully", "room": room}
+
 
 
 @router.get("/summary")
@@ -119,7 +128,26 @@ def delete_room(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    db.delete(room)
-    db.commit()
+    if room.status != "available":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {room_number} cannot be deleted as it is not available (current status: {room.status})."
+        )
 
-    return {"message": f"Room with room number {room_number} has been deleted successfully"}
+    # Use relationship to check for reservations
+    if room.reservations:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {room_number} cannot be deleted because it has associated reservations."
+        )
+
+    try:
+        db.delete(room)
+        db.commit()
+        return {"message": f"Room {room_number} deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while deleting the room: {str(e)}"
+        )

@@ -40,17 +40,23 @@ def check_in_guest(
         db.query(reservation_models.Reservation)
         .filter(
             reservation_models.Reservation.room_number == room_number,
-            or_(
-                reservation_models.Reservation.arrival_date < check_in_request.departure_date,
-                reservation_models.Reservation.departure_date > check_in_request.arrival_date,
-            ),
+            reservation_models.Reservation.departure_date > check_in_request.arrival_date,
+            reservation_models.Reservation.arrival_date < check_in_request.departure_date,
         )
         .first()
     )
+
+    # Debug output (log for debugging purpose)
+    print(f"Overlapping reservation: {overlapping_reservation}")
+
     if overlapping_reservation:
         raise HTTPException(
             status_code=400,
-            detail=f"Room {room_number} is reserved or occupied during the requested dates.",
+            detail=(
+                f"Room {room_number} is reserved or occupied during the requested dates. "
+                f"Existing reservation: {overlapping_reservation.arrival_date} to "
+                f"{overlapping_reservation.departure_date}"
+            ),
         )
 
     try:
@@ -84,7 +90,10 @@ def check_in_guest(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @router.get("/checked-in/")
-def list_checked_in_guests(db: Session = Depends(get_db)):
+def list_checked_in_guests(
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
     """
     List all guests currently checked into rooms, along with their room numbers
     and check-in/check-out dates.

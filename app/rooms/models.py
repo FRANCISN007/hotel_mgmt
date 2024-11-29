@@ -1,5 +1,5 @@
    
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -15,3 +15,4 @@ class Room(Base):
 
     # Establish relationship with reservations
     reservations = relationship("Reservation", back_populates="room")
+

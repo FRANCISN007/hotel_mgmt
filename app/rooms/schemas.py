@@ -6,15 +6,6 @@ from typing import Literal
 from decimal import Decimal
 from datetime import date
 
-from pydantic import BaseModel
-from typing import Optional
-
-class UserSchema(BaseModel):
-    username: str
-    password: str
-    role: Optional[str] = "user"  # Default role is "user"
-    admin_password: Optional[str] = None  # Optional field for admin registration
-
         
 class UserDisplaySchema(BaseModel):
     id: int
@@ -23,11 +14,6 @@ class UserDisplaySchema(BaseModel):
 
     class Config:
         orm_mode = True
-
-
-from pydantic import BaseModel
-from typing import Literal
-
 
 
 class RoomSchema(BaseModel):
@@ -49,16 +35,6 @@ class RoomUpdateSchema(BaseModel):
     class Config:
         orm_mode = True
 
-
-class ReservationSchema(BaseModel):
-    room_number: str  # Use room_number instead of room_id
-    guest_name: str
-    arrival_date: date
-    departure_date: date
-    status: Optional[str] = "booked"  # Default value
-
-    class Config:
-        orm_mode = True
 
 class CheckInSchema(BaseModel):
     room_number: str
