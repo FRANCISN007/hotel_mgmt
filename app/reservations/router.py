@@ -7,9 +7,81 @@ from app.reservations import schemas, models  # Import reservation-specific sche
 from app.rooms import schemas, models
 from app.reservations import schemas as reservation_schemas, models as reservation_models
 from app.rooms import schemas as room_schemas, models as room_models
+from sqlalchemy import and_
 
 
 router = APIRouter()
+
+
+
+def check_overlapping_reservations(db: Session, room_number: str, arrival_date, departure_date):
+    """
+    Checks if a given room has overlapping reservations within the specified date range.
+    """
+    overlapping_reservation = db.query(reservation_models.Reservation).filter(
+        reservation_models.Reservation.room_number == room_number,
+        and_(
+            reservation_models.Reservation.arrival_date <= departure_date,
+            reservation_models.Reservation.departure_date >= arrival_date
+        )
+    ).first()
+    return overlapping_reservation
+
+@router.post("/")
+def create_reservation(reservation: reservation_schemas.ReservationSchema, db: Session = Depends(get_db)):
+    if not reservation.room_number or not reservation.guest_name:
+        raise HTTPException(status_code=400, detail="Room number and guest name are required.")
+    
+    if reservation.arrival_date > reservation.departure_date:
+        raise HTTPException(status_code=400, detail="Arrival date must be before or on the same day as the departure date.")
+    
+    room = db.query(room_models.Room).filter(room_models.Room.room_number == reservation.room_number).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Check for overlapping reservations
+    overlapping_reservation = check_overlapping_reservations(
+        db=db,
+        room_number=reservation.room_number,
+        arrival_date=reservation.arrival_date,
+        departure_date=reservation.departure_date
+    )
+    
+    if room.status == "reserved" and overlapping_reservation:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {reservation.room_number} is already reserved from "
+                   f"{overlapping_reservation.arrival_date} to {overlapping_reservation.departure_date}.",
+        )
+    
+    if room.status == "maintenance":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {reservation.room_number} is under maintenance and cannot be reserved.",
+        )
+    
+    try:
+        # Create a new reservation
+        new_reservation = reservation_models.Reservation(
+            room_number=reservation.room_number,
+            guest_name=reservation.guest_name,
+            arrival_date=reservation.arrival_date,
+            departure_date=reservation.departure_date,
+            status="reserved",
+        )
+        db.add(new_reservation)
+        db.commit()
+        db.refresh(new_reservation)
+        
+        # Update room status to reserved
+        room.status = "reserved"
+        db.commit()
+
+        return {"message": "Reservation created successfully", "reservation": new_reservation}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 
 
 @router.get("/reserved", response_model=reservation_schemas.ReservedRoomsListSchema)
@@ -51,54 +123,6 @@ def list_reserved_rooms(db: Session = Depends(get_db),
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-
-@router.post("/")
-def create_reservation(reservation: reservation_schemas.ReservationSchema, db: Session = Depends(get_db)):
-    if not reservation.room_number or not reservation.guest_name:
-        raise HTTPException(status_code=400, detail="Room number and guest name are required.")
-    
-    if reservation.arrival_date > reservation.departure_date:
-        raise HTTPException(status_code=400, detail="Arrival date must be before or on the same day as the departure date.")
-    
-    room = db.query(room_models.Room).filter(room_models.Room.room_number == reservation.room_number).first()
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    
-    if room.status != "available":
-        raise HTTPException(status_code=400, detail=f"Room {reservation.room_number} is not available for reservation.")
-
-    overlapping_reservation = db.query(reservation_models.Reservation).filter(
-        reservation_models.Reservation.room_number == reservation.room_number,
-        reservation_models.Reservation.arrival_date <= reservation.departure_date,
-        reservation_models.Reservation.departure_date >= reservation.arrival_date,
-    ).first()
-    
-    if overlapping_reservation:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Room {reservation.room_number} is already reserved from "
-                   f"{overlapping_reservation.arrival_date} to {overlapping_reservation.departure_date}.",
-        )
-    
-    try:
-        new_reservation = reservation_models.Reservation(
-            room_number=reservation.room_number,
-            guest_name=reservation.guest_name,
-            arrival_date=reservation.arrival_date,
-            departure_date=reservation.departure_date,
-            status="reserved",
-        )
-        db.add(new_reservation)
-        db.commit()
-        db.refresh(new_reservation)
-        
-        room.status = "reserved"
-        db.commit()
-
-        return {"message": "Reservation created successfully", "reservation": new_reservation}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
 

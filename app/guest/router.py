@@ -8,7 +8,7 @@ from app.users.auth import get_current_user
 from sqlalchemy import or_
 from app.rooms import models as room_models  # Import room models
 from app.reservations import models as reservation_models  # Import reservation models
-
+from app.reservations.router import check_overlapping_reservations
 router = APIRouter()
 
 
@@ -30,32 +30,26 @@ def check_in_guest(
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
     # Step 2: Validate room status
-    if room.status != "available":
+    if room.status == "maintenance":
         raise HTTPException(
-            status_code=400, detail=f"Room {room_number} is not available for check-in."
+            status_code=400, detail=f"Room {room_number} is under maintenance and cannot be checked into."
         )
 
-    # Step 3: Check for overlapping reservations
-    overlapping_reservation = (
-        db.query(reservation_models.Reservation)
-        .filter(
-            reservation_models.Reservation.room_number == room_number,
-            reservation_models.Reservation.departure_date > check_in_request.arrival_date,
-            reservation_models.Reservation.arrival_date < check_in_request.departure_date,
-        )
-        .first()
+    # Step 3: Check for overlapping reservations using helper function
+    overlapping_reservation = check_overlapping_reservations(
+        db=db,
+        room_number=room_number,
+        arrival_date=check_in_request.arrival_date,
+        departure_date=check_in_request.departure_date
     )
-
-    # Debug output (log for debugging purpose)
-    print(f"Overlapping reservation: {overlapping_reservation}")
 
     if overlapping_reservation:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Room {room_number} is reserved or occupied during the requested dates. "
+                f"Room {room_number} is reserved during the requested dates. "
                 f"Existing reservation: {overlapping_reservation.arrival_date} to "
-                f"{overlapping_reservation.departure_date}"
+                f"{overlapping_reservation.departure_date}."
             ),
         )
 
