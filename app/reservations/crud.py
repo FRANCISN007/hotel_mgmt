@@ -1,6 +1,48 @@
 from sqlalchemy.orm import Session
-from reservations import models, schemas
-from rooms.models import Room
+from app.reservations import models, schemas
+from app.rooms.models import Room
+from app.reservations import models as reservation_models
+from sqlalchemy import and_
+from app.guest import models as guest_models
+
+def check_overlapping_check_in(
+    db: Session, 
+    room_number: str, 
+    arrival_date, 
+    departure_date
+):
+    """
+    Checks if a given room has overlapping active check-ins within the specified date range.
+    """
+    overlapping_check_in = db.query(guest_models.Check_in).filter(
+        guest_models.Check_in.room_number == room_number,
+        and_(
+            guest_models.Check_in.arrival_date <= departure_date,
+            guest_models.Check_in.departure_date >= arrival_date
+        ),
+        guest_models.Check_in.status.in_(["reserved", "checked-in"])
+        #reservation_models.Reservation.status == "checked_in"
+    ).first()
+    return overlapping_check_in
+
+
+
+def check_overlapping_reservations(db: Session, room_number: str, arrival_date, departure_date):
+    """
+    Checks if a given room has overlapping reservations or is currently checked in within the specified date range.
+    """
+    overlapping_reservation = db.query(reservation_models.Reservation).filter(
+        reservation_models.Reservation.room_number == room_number,
+        and_(
+            reservation_models.Reservation.arrival_date <= departure_date,
+            reservation_models.Reservation.departure_date >= arrival_date
+        ),
+        reservation_models.Reservation.status.in_(["reserved", "checked_in"])
+    ).first()
+    return overlapping_reservation
+
+
+
 
 def create_reservation(db: Session, reservation: schemas.ReservationSchema):
     """Create a new reservation."""
@@ -11,6 +53,7 @@ def create_reservation(db: Session, reservation: schemas.ReservationSchema):
         departure_date=reservation.departure_date,
         status=reservation.status,
     )
+     
     # Mark the room as reserved
     room = db.query(Room).filter(Room.room_number == reservation.room_number).first()
     if room:
@@ -22,27 +65,8 @@ def create_reservation(db: Session, reservation: schemas.ReservationSchema):
     db.refresh(db_reservation)
     return db_reservation
 
-def get_reservation_by_id(db: Session, reservation_id: int):
-    """Fetch a reservation by its ID."""
-    return db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
 
-def get_reservations_by_room_number(db: Session, room_number: str):
-    """Fetch all reservations for a specific room."""
-    return db.query(models.Reservation).filter(models.Reservation.room_number == room_number).all()
 
-def get_all_reservations(db: Session, skip: int = 0, limit: int = 10):
-    """Fetch all reservations with optional pagination."""
-    return db.query(models.Reservation).offset(skip).limit(limit).all()
-
-def update_reservation_status(db: Session, reservation_id: int, status: str):
-    """Update the status of a reservation."""
-    reservation = get_reservation_by_id(db, reservation_id)
-    if reservation:
-        reservation.status = status
-        db.commit()
-        db.refresh(reservation)
-        return reservation
-    return None
 
 def delete_reservation(db: Session, room_number: str):
     """Delete a reservation and free up the associated room."""

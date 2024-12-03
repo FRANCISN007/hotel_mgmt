@@ -7,13 +7,7 @@ from decimal import Decimal
 from datetime import date
 
         
-class UserDisplaySchema(BaseModel):
-    id: int
-    username: str
-    role: str
 
-    class Config:
-        orm_mode = True
 
 
 class RoomSchema(BaseModel):
@@ -24,8 +18,17 @@ class RoomSchema(BaseModel):
 
     class Config:
         orm_mode = True
+        
 
+class RoomList(BaseModel):
+    room_number: str
+    room_type: str
+    amount: float
+    
 
+    class Config:
+        orm_mode = True
+        
         
 class RoomUpdateSchema(BaseModel):
     room_type: Optional[str] = None

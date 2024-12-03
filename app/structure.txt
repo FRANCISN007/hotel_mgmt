@@ -27,3 +27,68 @@ HOTEL MGMT SYS/
 │       ├── schemas.py
 │
 ├── env/  # Your virtual environment
+
+
+
+@router.get("/", response_model=list[dict])
+def list_rooms(db: Session = Depends(get_db)):
+    # Query all rooms from the Room table
+    all_rooms = db.query(room_models.Room).all()
+    
+    # Query all reservations
+    reservations = db.query(reservation_models.Reservation).all()
+    
+    # Query all check-ins
+    check_ins = db.query(check_in_models.Check_in).all()
+
+    # Prepare the combined result
+    result = []
+
+    # Add all rooms with their current status
+    for room in all_rooms:
+        result.append({
+            "room_number": room.room_number,
+            "room_type": room.room_type,
+            "amount": room.amount,
+            "status": room.status,
+        })
+
+    # Add all reservations with arrival and departure dates
+    for reservation in reservations:
+        result.append({
+            "room_number": reservation.room_number,
+            "status": "reserved",
+            "arrival_date": reservation.arrival_date,
+            "departure_date": reservation.departure_date,
+        })
+
+    # Add all check-ins with arrival and departure dates
+    for check_in in check_ins:
+        result.append({
+            "room_number": check_in.room_number,
+            "status": "checked-in",
+            "arrival_date": check_in.arrival_date,
+            "departure_date": check_in.departure_date,
+        })
+
+    return result
+
+
+
+
+@router.get("/available")
+def list_available_rooms(db: Session = Depends(get_db)):
+    available_rooms = db.query(models.Room).filter(models.Room.status == "available").all()
+    total_available_rooms = len(available_rooms)
+
+    if total_available_rooms == 0:
+        return {
+            "message": "We are fully booked!",
+            "total_available_rooms": 0,
+            "available_rooms": []
+        }
+
+    return {
+        "total_available_rooms": total_available_rooms,
+        "available_rooms": available_rooms
+    }

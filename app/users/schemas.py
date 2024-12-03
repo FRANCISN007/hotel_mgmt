@@ -32,6 +32,8 @@ class RoomSchema(BaseModel):
         orm_mode = True
 
 
+    class Config:
+        orm_mode = True
         
 class RoomUpdateSchema(BaseModel):
     room_type: Optional[str] = None
