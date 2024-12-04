@@ -3,7 +3,7 @@ from app.reservations import models, schemas
 from app.rooms.models import Room
 from app.reservations import models as reservation_models
 from sqlalchemy import and_
-from app.guest import models as guest_models
+from app.check_in_guest import models as check_in_guest_models
 
 def check_overlapping_check_in(
     db: Session, 
@@ -14,13 +14,13 @@ def check_overlapping_check_in(
     """
     Checks if a given room has overlapping active check-ins within the specified date range.
     """
-    overlapping_check_in = db.query(guest_models.Check_in).filter(
-        guest_models.Check_in.room_number == room_number,
+    overlapping_check_in = db.query(check_in_guest_models.Check_in).filter(
+        check_in_guest_models.Check_in.room_number == room_number,
         and_(
-            guest_models.Check_in.arrival_date <= departure_date,
-            guest_models.Check_in.departure_date >= arrival_date
+            check_in_guest_models.Check_in.arrival_date <= departure_date,
+            check_in_guest_models.Check_in.departure_date >= arrival_date
         ),
-        guest_models.Check_in.status.in_(["reserved", "checked-in"])
+        check_in_guest_models.Check_in.status.in_(["reserved", "checked-in"])
         #reservation_models.Reservation.status == "checked_in"
     ).first()
     return overlapping_check_in

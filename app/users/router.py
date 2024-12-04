@@ -1,12 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-#from auth import pwd_context, authenticate_user, create_access_token, get_current_user
 from app.users.auth import pwd_context, authenticate_user, create_access_token, get_current_user
-
 from app.database import get_db
-from . import crud, schemas  # Import user-specific CRUD and schemas
-from app.users import crud as user_crud  # Correct import for user CRUD operations
+from app.users import crud as user_crud, schemas  # Correct import for user CRUD operations
 import os
 
 
@@ -53,8 +50,8 @@ def list_all_users(
     limit: int = 10,
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    #if current_user.role != "admin":
-        #raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     users = user_crud.get_all_users(db)
     return users

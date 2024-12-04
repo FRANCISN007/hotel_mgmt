@@ -50,7 +50,7 @@ class ReservationSchema(BaseModel):
     guest_name: str
     arrival_date: date
     departure_date: date
-    status: Optional[str] = "booked"  # Default value
+    status: Optional[str] = "reserved"  # Default value
 
     class Config:
         orm_mode = True
@@ -69,3 +69,12 @@ class ReservedRoomSchema(BaseModel):
 class ReservedRoomsListSchema(BaseModel):
     total_reserved_rooms: int
     reserved_rooms: List[ReservedRoomSchema]
+    
+
+
+class ReservationUpdateSchema(BaseModel):
+    room_number: str
+    guest_name: str
+    arrival_date: Optional[date]
+    departure_date: Optional[date]
+

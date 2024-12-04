@@ -36,3 +36,10 @@ class UserDisplaySchema(BaseModel):
 
     class Config:
         orm_mode = True
+        
+
+class CheckInUpdateSchema(BaseModel):
+    room_number: str
+    guest_name: str
+    arrival_date: Optional[date]
+    departure_date: Optional[date]

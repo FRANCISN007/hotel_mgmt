@@ -3,16 +3,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.users.auth import get_current_user
 from sqlalchemy.sql import func
-#from . import schemas, models, crud  # Import room-specific schemas, models, and CRUD
 from sqlalchemy import or_
-from app.rooms import models
-from app.reservations import models
-#from app.rooms import schemas, models, crud  # Import room-specific schemas, models, and CRUD
 from app.rooms import schemas as room_schemas, models as room_models, crud
-
-from app.rooms import models as room_models, schemas
 from app.reservations import models as reservation_models
-from app.guest import models as check_in_models  # Adjust path if needed
+from app.check_in_guest import models as check_in_guest_models  # Adjust path if needed
 from app.users import schemas
 router = APIRouter()
 
@@ -69,7 +63,11 @@ def list_rooms(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
 
 
 @router.get("/transactions", response_model=list[dict])
-def history(db: Session = Depends(get_db)):
+def history(
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
+            
+):
     """
     Lists all rooms along with their current and past transactions, including:
     - Reservations
@@ -90,11 +88,11 @@ def history(db: Session = Depends(get_db)):
 
     # Query all check-ins
     check_ins = db.query(
-        check_in_models.Check_in.room_number,
-        check_in_models.Check_in.guest_name,
-        check_in_models.Check_in.arrival_date,
-        check_in_models.Check_in.departure_date,
-        check_in_models.Check_in.status
+        check_in_guest_models.Check_in.room_number,
+        check_in_guest_models.Check_in.guest_name,
+        check_in_guest_models.Check_in.arrival_date,
+        check_in_guest_models.Check_in.departure_date,
+        check_in_guest_models.Check_in.status
     ).all()
 
     # Build a list of transactions for each room

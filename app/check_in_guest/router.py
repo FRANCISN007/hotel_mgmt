@@ -3,19 +3,19 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from datetime import date
 from app.database import get_db
-from app.guest import schemas, models  # Import guest-specific schemas and models
+#from app.guest import schemas, models  # Import guest-specific schemas and models
 from app.users.auth import get_current_user
 from sqlalchemy import or_
 from app.rooms import models as room_models  # Import room models
 from app.reservations import models as reservation_models  # Import reservation models
-from app.guest.crud import check_overlapping_check_in  # Import the function
-from app.guest import schemas, models as guest_models
+from app.check_in_guest.crud import check_overlapping_check_in  # Import the function
+from app.check_in_guest import schemas, models as check_in_guest_models
 
 router = APIRouter()
 
 
 
-@router.post("/check-in/")
+@router.post("/create/")
 def check_in_guest(
     check_in_request: schemas.CheckInSchema,
     db: Session = Depends(get_db),
@@ -68,7 +68,7 @@ def check_in_guest(
 
     # Step 4: Create new check-in record
     try:
-        new_check_in = guest_models.Check_in(
+        new_check_in = check_in_guest_models.Check_in(
             room_number=room_number,
             guest_name=check_in_request.guest_name,
             arrival_date=check_in_request.arrival_date,
@@ -96,7 +96,7 @@ def check_in_guest(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-@router.get("/checked-in/")
+@router.get("/list/")
 def list_checked_in_guests(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
@@ -109,12 +109,12 @@ def list_checked_in_guests(
         # Query for guests who are currently checked in
         checked_in_guests = (
             db.query(
-                guest_models.Check_in.guest_name,
-                guest_models.Check_in.room_number,
-                func.date(guest_models.Check_in.arrival_date).label("check_in_date"),
-                func.date(guest_models.Check_in.departure_date).label("departure_date"),
+                check_in_guest_models.Check_in.guest_name,
+                check_in_guest_models.Check_in.room_number,
+                func.date(check_in_guest_models.Check_in.arrival_date).label("check_in_date"),
+                func.date(check_in_guest_models.Check_in.departure_date).label("departure_date"),
             )
-            .filter(guest_models.Check_in.status == "checked-in")
+            .filter(check_in_guest_models.Check_in.status == "checked-in")
             .all()
         )
 
@@ -148,6 +148,60 @@ def list_checked_in_guests(
             detail=f"An error occurred while retrieving checked-in guests: {str(e)}",
         )
 
+@router.put("/update/")
+def update_check_in(
+    room_number: str,
+    guest_name: str,
+    updated_data: schemas.CheckInSchema,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Update check-in details for a specific room number and guest name.
+    """
+    # Step 1: Fetch the check-in record
+    check_in_record = db.query(check_in_guest_models.Check_in).filter(
+        check_in_guest_models.Check_in.room_number == room_number,
+        check_in_guest_models.Check_in.guest_name == guest_name,
+    ).first()
+
+    if not check_in_record:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No check-in record found for room {room_number} and guest {guest_name}.",
+        )
+
+    # Step 2: Validate the new arrival date
+    if updated_data.arrival_date > date.today():
+        raise HTTPException(
+            status_code=400,
+            detail="Check-in arrival date cannot be in the future.",
+        )
+
+    # Step 3: Update the fields with the new data
+    check_in_record.room_number = updated_data.room_number
+    check_in_record.guest_name = updated_data.guest_name
+    check_in_record.arrival_date = updated_data.arrival_date
+    check_in_record.departure_date = updated_data.departure_date
+
+    # Step 4: Save the updated record
+    try:
+        db.commit()
+        db.refresh(check_in_record)  # Refresh to reflect the updated record
+        return {
+            "message": "Check-in details updated successfully.",
+            "updated_check_in": {
+                "room_number": check_in_record.room_number,
+                "guest_name": check_in_record.guest_name,
+                "arrival_date": check_in_record.arrival_date,
+                "departure_date": check_in_record.departure_date,
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
 @router.post("/check-out/")
 def check_out_guest(
     room_number: str,
@@ -166,17 +220,17 @@ def check_out_guest(
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
     # Step 2: Find active reservations/check-ins for the room
-    query = db.query(guest_models.Check_in).filter(
-        guest_models.Check_in.room_number == room_number,
-        guest_models.Check_in.status == "checked-in",
+    query = db.query(check_in_guest_models.Check_in).filter(
+        check_in_guest_models.Check_in.room_number == room_number,
+        check_in_guest_models.Check_in.status == "checked-in",
     )
 
     if guest_name:
         # Target specific guest
-        query = query.filter(guest_models.Check_in.guest_name == guest_name)
+        query = query.filter(check_in_guest_models.Check_in.guest_name == guest_name)
     else:
         # Target guests due for check-out today
-        query = query.filter(func.date(guest_models.Check_in.departure_date) == func.current_date())
+        query = query.filter(func.date(check_in_guest_models.Check_in.departure_date) == func.current_date())
 
     check_ins = query.all()
 
@@ -194,9 +248,9 @@ def check_out_guest(
             db.delete(check_in)  # Remove the record after checking out
 
         # Step 4: Update room status
-        active_check_ins = db.query(guest_models.Check_in).filter(
-            guest_models.Check_in.room_number == room_number,
-            guest_models.Check_in.status == "checked-in",
+        active_check_ins = db.query(check_in_guest_models.Check_in).filter(
+            check_in_guest_models.Check_in.room_number == room_number,
+            check_in_guest_models.Check_in.status == "checked-in",
         ).count()
 
         if active_check_ins == 0:
@@ -213,3 +267,6 @@ def check_out_guest(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+

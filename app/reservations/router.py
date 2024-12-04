@@ -10,14 +10,12 @@ from app.rooms import schemas as room_schemas, models as room_models
 from sqlalchemy import and_
 from app.reservations.crud import check_overlapping_check_in, check_overlapping_reservations
 from app.users import schemas
-
+from datetime import date
 
 router = APIRouter()
 
 
 
-
-from datetime import date
 
 @router.post("/")
 def create_reservation(
@@ -144,7 +142,61 @@ def list_reserved_rooms(db: Session = Depends(get_db),
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.delete("/delete-reservation/")
+@router.put("/update/")
+def update_reservation(
+    room_number: str,
+    guest_name: str,
+    updated_data: reservation_schemas.ReservationSchema,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Update reservation details for a specific room number and guest name.
+    """
+    # Step 1: Fetch the reservation record
+    reservation_record = db.query(reservation_models.Reservation).filter(
+        reservation_models.Reservation.room_number == room_number,
+        reservation_models.Reservation.guest_name == guest_name,
+    ).first()
+
+    if not reservation_record:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No reservation record found for room {room_number} and guest {guest_name}.",
+        )
+
+    # Step 2: Validate the new arrival date
+    if updated_data.arrival_date <= date.today():
+        raise HTTPException(
+            status_code=400,
+            detail="Reservation arrival date must be a future date.",
+        )
+
+    # Step 3: Update the fields with the new data
+    reservation_record.room_number = updated_data.room_number
+    reservation_record.guest_name = updated_data.guest_name
+    reservation_record.arrival_date = updated_data.arrival_date
+    reservation_record.departure_date = updated_data.departure_date
+
+    # Step 4: Save the updated record
+    try:
+        db.commit()
+        db.refresh(reservation_record)  # Refresh to reflect the updated record
+        return {
+            "message": "Reservation details updated successfully.",
+            "updated_reservation": {
+                "room_number": reservation_record.room_number,
+                "guest_name": reservation_record.guest_name,
+                "arrival_date": reservation_record.arrival_date,
+                "departure_date": reservation_record.departure_date,
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.delete("/delete/")
 def delete_reservation(
     room_number: str,
     guest_name: str,
@@ -205,3 +257,4 @@ def delete_reservation(
             status_code=500,
             detail=f"An error occurred while deleting the reservation: {str(e)}",
         )
+
