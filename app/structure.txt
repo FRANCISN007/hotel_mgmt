@@ -28,6 +28,8 @@ HOTEL MGMT SYS/
 │
 ├── env/  # Your virtual environment
 
+1. check out endpoint does not actually require the guest name because all the entry are done that day
+2. the check out list and reservation list should be "check in History and Reservation History
 
 
 @router.get("/", response_model=list[dict])

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from app.users.auth import get_current_user
 from app.database import get_db
+from typing import Optional
 from app.reservations import schemas, models  # Import reservation-specific schemas and models
 from app.rooms import schemas, models
 from app.reservations import schemas as reservation_schemas, models as reservation_models
@@ -11,6 +12,8 @@ from sqlalchemy import and_
 from app.reservations.crud import check_overlapping_check_in, check_overlapping_reservations
 from app.users import schemas
 from datetime import date
+from app.users.schemas import UserDisplaySchema  # Ensure correct import
+from app.check_in_guest import models as check_in_models  # Ensure this exists
 
 router = APIRouter()
 
@@ -36,7 +39,7 @@ def create_reservation(
     if reservation.arrival_date <= date.today():
         raise HTTPException(
             status_code=400,
-            detail="Reservations cannot be made for today or past dates. Use the check-in functionality instead."
+            detail="Reservations can only be used for future dates. Use the check-in functionality instead."
         )
     
     # Validate if the room exists
@@ -102,12 +105,13 @@ def create_reservation(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.get("/reserved", response_model=reservation_schemas.ReservedRoomsListSchema)
-def list_reserved_rooms(db: Session = Depends(get_db), 
+@router.get("/list/", response_model=reservation_schemas.ReservedRoomsListSchema)
+def list_reserved_rooms(
+    db: Session = Depends(get_db), 
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     try:
-        # Querying the reserved rooms
+        # Querying the reserved rooms, excluding canceled reservations
         reserved_rooms = (
             db.query(
                 room_models.Room.room_number,
@@ -120,7 +124,10 @@ def list_reserved_rooms(db: Session = Depends(get_db),
                 reservation_models.Reservation,
                 room_models.Room.room_number == reservation_models.Reservation.room_number
             )
-            .filter(room_models.Room.status == "reserved")
+            .filter(
+                room_models.Room.status == "reserved",
+                reservation_models.Reservation.is_deleted == False  # Exclude canceled reservations
+            )
             .all()
         )
 
@@ -140,7 +147,6 @@ def list_reserved_rooms(db: Session = Depends(get_db),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 @router.put("/update/")
 def update_reservation(
@@ -196,22 +202,22 @@ def update_reservation(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.delete("/delete/")
-def delete_reservation(
+@router.delete("/cancel/")
+def cancel_reservation(
     room_number: str,
     guest_name: str,
+    cancellation_reason: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Deletes a reservation for a specific guest and room number.
-    Only admins or the guest who made the reservation can delete it.
+    Cancel a reservation with a reason.
     """
     try:
-        # Fetch the reservation by room number and guest name
         reservation = db.query(reservation_models.Reservation).filter(
             reservation_models.Reservation.room_number == room_number,
             reservation_models.Reservation.guest_name == guest_name,
+            reservation_models.Reservation.is_deleted == False
         ).first()
 
         if not reservation:
@@ -220,34 +226,32 @@ def delete_reservation(
                 detail=f"No reservation found for room {room_number} and guest {guest_name}."
             )
 
-        # Admins can delete any reservation; regular users can delete their own
         if current_user.role != "admin" and reservation.guest_name != current_user.username:
             raise HTTPException(
                 status_code=403,
-                detail="You do not have permission to delete this reservation.",
+                detail="You do not have permission to cancel this reservation."
             )
 
-        # Delete the reservation
-        db.delete(reservation)
+        reservation.is_deleted = True
+        reservation.cancellation_reason = cancellation_reason
         db.commit()
 
-        # Check if other reservations exist for the same room
         remaining_reservations = db.query(reservation_models.Reservation).filter(
-            reservation_models.Reservation.room_number == room_number
+            reservation_models.Reservation.room_number == room_number,
+            reservation_models.Reservation.is_deleted == False
         ).count()
 
         if remaining_reservations == 0:
-            # If no other reservations exist, update the room status
             room = db.query(room_models.Room).filter(
                 room_models.Room.room_number == room_number
             ).first()
-
             if room:
                 room.status = "available"
                 db.commit()
 
         return {
-            "message": f"Reservation for room {room_number} and guest {guest_name} successfully deleted.",
+            "message": f"Reservation for room {room_number} and guest {guest_name} canceled successfully.",
+            "cancellation_reason": cancellation_reason,
             "room_status": "available" if remaining_reservations == 0 else "reserved",
         }
 
@@ -255,6 +259,82 @@ def delete_reservation(
         db.rollback()
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while deleting the reservation: {str(e)}",
+            detail=f"An error occurred while canceling the reservation: {str(e)}",
         )
 
+
+
+
+@router.get("/transaction-history/")
+def transaction_history(
+    start_date: date = None,
+    end_date: date = None,
+    db: Session = Depends(get_db),
+    current_user: UserDisplaySchema = Depends(get_current_user),
+):
+    try:
+        if start_date and end_date and start_date > end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Start date must be earlier than or equal to end date."
+            )
+
+        checked_out_query = db.query(
+            check_in_models.Check_in.room_number,
+            check_in_models.Check_in.guest_name,
+            check_in_models.Check_in.arrival_date,
+            check_in_models.Check_in.departure_date,
+            check_in_models.Check_in.checkout_reason,
+        ).filter(check_in_models.Check_in.is_checked_out.is_(True))
+
+        deleted_reservation_query = db.query(
+            reservation_models.Reservation.room_number,
+            reservation_models.Reservation.guest_name,
+            reservation_models.Reservation.arrival_date,
+            reservation_models.Reservation.departure_date,
+            reservation_models.Reservation.cancellation_reason,
+        ).filter(reservation_models.Reservation.is_deleted.is_(True))
+
+        if start_date:
+            checked_out_query = checked_out_query.filter(check_in_models.Check_in.departure_date >= start_date)
+            deleted_reservation_query = deleted_reservation_query.filter(
+                reservation_models.Reservation.departure_date >= start_date
+            )
+        if end_date:
+            checked_out_query = checked_out_query.filter(check_in_models.Check_in.departure_date <= end_date)
+            deleted_reservation_query = deleted_reservation_query.filter(
+                reservation_models.Reservation.departure_date <= end_date
+            )
+
+        checked_out_records = checked_out_query.all()
+        deleted_reservation_records = deleted_reservation_query.all()
+
+        transaction_history = [
+            {
+                "transaction_type": "checked-out",
+                "room_number": record.room_number,
+                "guest_name": record.guest_name,
+                "arrival_date": record.arrival_date,
+                "departure_date": record.departure_date,
+                "checkout_reason": record.checkout_reason,
+            }
+            for record in checked_out_records
+        ] + [
+            {
+                "transaction_type": "deleted-reservation",
+                "room_number": record.room_number,
+                "guest_name": record.guest_name,
+                "arrival_date": record.arrival_date,
+                "departure_date": record.departure_date,
+                "cancellation_reason": record.cancellation_reason,  # Include cancellation reason
+            }
+            for record in deleted_reservation_records
+        ]
+
+        return {
+            "total_transactions": len(transaction_history),
+            "transactions": transaction_history,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")

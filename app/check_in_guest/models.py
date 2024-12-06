@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -14,3 +14,5 @@ class Check_in(Base):
     #status = Column(String(20))  # e.g., "checked-in", "checked-out"
     status = Column(String, default="checked-in")  # Ensure this defaults to "checked-in"
     room = relationship("Room", back_populates="check_in")
+    is_checked_out = Column(Boolean, default=False)
+    checkout_reason = Column(String, nullable=True)

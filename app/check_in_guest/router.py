@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from datetime import date
 from app.database import get_db
+from typing import Optional  # Import for optional parameters
 #from app.guest import schemas, models  # Import guest-specific schemas and models
 from app.users.auth import get_current_user
 from sqlalchemy import or_
@@ -10,6 +11,8 @@ from app.rooms import models as room_models  # Import room models
 from app.reservations import models as reservation_models  # Import reservation models
 from app.check_in_guest.crud import check_overlapping_check_in  # Import the function
 from app.check_in_guest import schemas, models as check_in_guest_models
+from datetime import date
+
 
 router = APIRouter()
 
@@ -202,34 +205,31 @@ def update_check_in(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
+
 @router.post("/check-out/")
 def check_out_guest(
     room_number: str,
-    guest_name: str = None,  # Optional: Specific guest for backdated check-out
+    guest_name: Optional[str] = None,
+    reason: Optional[str] = None,  # Optional parameter for checkout reason
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Check out a guest from a room.
-    - If `guest_name` is provided, targets a specific guest.
-    - Without `guest_name`, checks out the guest(s) due today.
+    Check a guest out of a room.
+    Optionally, a reason for checkout can be provided.
     """
-    # Step 1: Validate room existence
     room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
     if not room:
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
-    # Step 2: Find active reservations/check-ins for the room
     query = db.query(check_in_guest_models.Check_in).filter(
         check_in_guest_models.Check_in.room_number == room_number,
         check_in_guest_models.Check_in.status == "checked-in",
     )
 
     if guest_name:
-        # Target specific guest
         query = query.filter(check_in_guest_models.Check_in.guest_name == guest_name)
     else:
-        # Target guests due for check-out today
         query = query.filter(func.date(check_in_guest_models.Check_in.departure_date) == func.current_date())
 
     check_ins = query.all()
@@ -237,17 +237,16 @@ def check_out_guest(
     if not check_ins:
         raise HTTPException(
             status_code=404,
-            detail=(f"No active check-in found for room {room_number} "
-                    + (f"and guest {guest_name}." if guest_name else "due for check-out today.")),
+            detail=f"No active check-in found for room {room_number} and guest {guest_name or 'due for check-out today'}.",
         )
 
     try:
-        # Step 3: Mark check-in records as 'checked-out'
         for check_in in check_ins:
             check_in.status = "checked-out"
-            db.delete(check_in)  # Remove the record after checking out
+            check_in.is_checked_out = True  # Mark as checked out
+            if reason:
+                check_in.checkout_reason = reason  # Save the reason if provided
 
-        # Step 4: Update room status
         active_check_ins = db.query(check_in_guest_models.Check_in).filter(
             check_in_guest_models.Check_in.room_number == room_number,
             check_in_guest_models.Check_in.status == "checked-in",
@@ -262,11 +261,11 @@ def check_out_guest(
             "message": f"Guest(s) successfully checked out of room {room_number}.",
             "checked_out_guests": [ci.guest_name for ci in check_ins],
             "room_status": room.status,
+            "reason": reason if reason else "No reason provided",  # Include the reason in the response
         }
 
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 

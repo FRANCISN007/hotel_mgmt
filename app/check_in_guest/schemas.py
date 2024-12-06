@@ -25,7 +25,7 @@ class CheckInSchema(BaseModel):
     guest_name: str
     arrival_date: date
     departure_date: date
-
+    is_checked_out: bool = False
     class Config:
         orm_mode = True
 

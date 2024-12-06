@@ -137,33 +137,61 @@ def history(
     return result
 
 
-
+from datetime import date
 
 @router.get("/available")
 def list_available_rooms(db: Session = Depends(get_db)):
     """
-    List all available rooms. If no rooms are available, return a message stating the hotel is fully booked.
+    List all available rooms. A room is available if it is not checked in for the current date, 
+    even if it is reserved for a future date.
     """
-    # Query for rooms with 'available' status
-    available_rooms = db.query(room_models.Room).filter(room_models.Room.status == "available").all()
-    
-    # Count the total number of rooms
+    today = date.today()
+
+    # Get all room numbers currently checked in for today
+    checked_in_rooms_today = (
+        db.query(check_in_guest_models.Check_in.room_number)
+        .filter(
+            check_in_guest_models.Check_in.status == "checked-in",
+            check_in_guest_models.Check_in.arrival_date <= today,
+            check_in_guest_models.Check_in.departure_date >= today
+        )
+        .distinct()
+        .all()
+    )
+    # Extract room numbers from the query result
+    checked_in_room_numbers = {room.room_number for room in checked_in_rooms_today}
+
+    # Query all rooms that are not checked in today
+    available_rooms = (
+        db.query(room_models.Room)
+        .filter(room_models.Room.room_number.not_in(checked_in_room_numbers))
+        .all()
+    )
+
+    # Total number of rooms
     total_rooms = db.query(room_models.Room).count()
-    
+
     # If no available rooms, display fully booked message
     if not available_rooms:
         return {
-            "message": "We are fully booked!",
+            "message": "We are fully booked! All rooms are currently occupied for today.",
             "total_rooms": total_rooms,
             "total_available_rooms": 0,
             "available_rooms": []
         }
 
-    # Return the list of available rooms and their count
+    # Return the list of available rooms
     return {
         "total_rooms": total_rooms,
         "total_available_rooms": len(available_rooms),
-        "available_rooms": available_rooms
+        "available_rooms": [
+            {
+                "room_number": room.room_number,
+                "room_type": room.room_type,
+                "amount": room.amount,
+            }
+            for room in available_rooms
+        ]
     }
 
 
@@ -213,20 +241,66 @@ def room_summary(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    total_rooms = db.query(room_models.Room).count()
-    total_checked_in_rooms = db.query(room_models.Room).filter(room_models.Room.status == "checked-in").count()
-    total_reserved_rooms = db.query(room_models.Room).filter(room_models.Room.status == "reserved").count()
-    total_available_rooms = db.query(room_models.Room).filter(room_models.Room.status == "available").count()
+    """
+    Generate a summary of all rooms, including counts of checked-in, reserved, and available rooms.
+    Excludes cancelled reservations and counts availability based on current check-ins only.
+    """
+    from datetime import date
 
-    message = "Fully booked!" if total_available_rooms == 0 else f"{total_available_rooms} room(s) available."
+    today = date.today()
 
-    return {
-        "total_rooms": total_rooms,
-        "rooms_checked_in": total_checked_in_rooms,
-        "rooms_reserved": total_reserved_rooms,
-        "rooms_available": total_available_rooms,
-        "message": message,
-    }
+    try:
+        # Refresh session to ensure fresh data
+        db.commit()
+
+        # Total number of rooms
+        total_rooms = db.query(room_models.Room).count()
+
+        # Count rooms currently checked in for today
+        total_checked_in_rooms = (
+            db.query(check_in_guest_models.Check_in)
+            .filter(
+                check_in_guest_models.Check_in.status == "checked-in",
+                check_in_guest_models.Check_in.arrival_date <= today,
+                check_in_guest_models.Check_in.departure_date >= today
+            )
+            .distinct(check_in_guest_models.Check_in.room_number)
+            .count()
+        )
+
+        # Count reserved rooms for future dates, excluding cancelled ones
+        total_reserved_rooms = (
+            db.query(reservation_models.Reservation)
+            .filter(
+                reservation_models.Reservation.arrival_date > today,
+                reservation_models.Reservation.is_deleted == False  # Exclude cancelled reservations
+            )
+            .distinct(reservation_models.Reservation.room_number)
+            .count()
+        )
+
+        # Calculate available rooms: Total rooms minus currently checked-in rooms
+        total_available_rooms = total_rooms - total_checked_in_rooms
+
+        # Determine the appropriate message
+        if total_checked_in_rooms == total_rooms:
+            message = "Fully booked!"  # All rooms are checked in
+        else:
+            message = f"{total_available_rooms} room(s) available."
+
+        return {
+            "total_rooms": total_rooms,
+            "rooms_checked_in": total_checked_in_rooms,
+            "rooms_reserved": total_reserved_rooms,
+            "rooms_available": total_available_rooms,
+            "message": message,
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while fetching room summary: {str(e)}"
+        )
 
 
 @router.delete("/{room_number}")
