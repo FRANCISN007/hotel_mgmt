@@ -12,11 +12,12 @@ from app.reservations import models as reservation_models  # Import reservation 
 from app.check_in_guest.crud import check_overlapping_check_in  # Import the function
 from app.check_in_guest import schemas, models as check_in_guest_models
 from datetime import date
-
+from loguru import logger
 
 router = APIRouter()
 
 
+logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 @router.post("/create/")
 def check_in_guest(

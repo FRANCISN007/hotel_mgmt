@@ -31,6 +31,7 @@ class RoomList(BaseModel):
         
         
 class RoomUpdateSchema(BaseModel):
+    room_number: str
     room_type: Optional[str] = None
     amount: Optional[int] = None
     status: Optional[Literal["available", "booked", "maintenance", "reserved"]] = None

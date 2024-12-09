@@ -5,7 +5,7 @@ from app.users.router import router as user_router
 from app.rooms.router import router as rooms_router
 from app.reservations.router import router as reservations_router
 from app.check_in_guest.router import router as check_in_guest_router
-
+from loguru import logger
 
 app = FastAPI(
     title="Hotel Management System",
@@ -13,6 +13,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
+logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 # Database initialization
 @app.on_event("startup")

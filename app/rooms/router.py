@@ -8,8 +8,14 @@ from app.rooms import schemas as room_schemas, models as room_models, crud
 from app.reservations import models as reservation_models
 from app.check_in_guest import models as check_in_guest_models  # Adjust path if needed
 from app.users import schemas
+from loguru import logger
+
+
 router = APIRouter()
 
+
+
+logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 @router.post("/")
 def create_room(
@@ -35,32 +41,19 @@ def list_rooms(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     Also include the total number of rooms in the hotel.
     """
     # Fetch the list of rooms with pagination
-    rooms = (
-        db.query(room_models.Room.room_number, room_models.Room.room_type, room_models.Room.amount)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    rooms = crud.get_rooms_with_pagination(skip=skip, limit=limit, db=db)
     
     # Convert SQLAlchemy rows to dictionaries
-    serialized_rooms = [
-        {
-            "room_number": room.room_number,
-            "room_type": room.room_type,
-            "amount": room.amount,
-        }
-        for room in rooms
-    ]
+    serialized_rooms = crud.serialize_rooms(rooms)
     
     # Get the total count of rooms
-    total_rooms = db.query(room_models.Room).count()
+    total_rooms = crud.get_total_room_count(db=db)
     
     # Return the response as a dictionary
     return {
         "total_rooms": total_rooms,  # Total number of rooms in the hotel
         "rooms": serialized_rooms,   # List of rooms
     }
-
 
 @router.get("/transactions", response_model=list[dict])
 def history(
@@ -199,13 +192,14 @@ def list_available_rooms(db: Session = Depends(get_db)):
 @router.put("/{room_number}")
 def update_room(
     room_number: str,
-    room_update: schemas.RoomUpdateSchema,
+    room_update: room_schemas.RoomUpdateSchema,
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
+    # Fetch the room by the current room_number
     room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -217,7 +211,14 @@ def update_room(
             detail="Room cannot be updated as it is currently checked-in"
         )
 
-    # Update fields only if provided
+    # If a new room_number is provided, check for conflicts
+    if room_update.room_number and room_update.room_number != room.room_number:
+        existing_room = db.query(room_models.Room).filter(room_models.Room.room_number == room_update.room_number).first()
+        if existing_room:
+            raise HTTPException(status_code=400, detail="Room with this number already exists")
+        room.room_number = room_update.room_number  # Update the room number
+
+    # Update other fields only if provided
     if room_update.room_type:
         room.room_type = room_update.room_type
 
@@ -225,10 +226,11 @@ def update_room(
         room.amount = room_update.amount
 
     if room_update.status:
-        if room_update.status not in ["available", "booked", "maintenance"]:
+        if room_update.status not in ["available", "booked", "maintenance", "reserved"]:
             raise HTTPException(status_code=400, detail="Invalid status value")
         room.status = room_update.status
 
+    # Commit the changes to the database
     db.commit()
     db.refresh(room)
 

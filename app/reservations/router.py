@@ -14,11 +14,13 @@ from app.users import schemas
 from datetime import date
 from app.users.schemas import UserDisplaySchema  # Ensure correct import
 from app.check_in_guest import models as check_in_models  # Ensure this exists
+from loguru import logger
+
 
 router = APIRouter()
 
 
-
+logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 @router.post("/")
 def create_reservation(
