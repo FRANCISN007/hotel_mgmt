@@ -238,6 +238,8 @@ def update_room(
 
 
 
+from datetime import date
+
 @router.get("/summary")
 def room_summary(
     db: Session = Depends(get_db),
@@ -247,8 +249,6 @@ def room_summary(
     Generate a summary of all rooms, including counts of checked-in, reserved, and available rooms.
     Excludes cancelled reservations and counts availability based on current check-ins only.
     """
-    from datetime import date
-
     today = date.today()
 
     try:
@@ -270,15 +270,14 @@ def room_summary(
             .count()
         )
 
-        # Count reserved rooms for future dates, excluding cancelled ones
+        # Count all reservations for future dates (even if a room is reserved multiple times)
         total_reserved_rooms = (
             db.query(reservation_models.Reservation)
             .filter(
                 reservation_models.Reservation.arrival_date > today,
                 reservation_models.Reservation.is_deleted == False  # Exclude cancelled reservations
             )
-            .distinct(reservation_models.Reservation.room_number)
-            .count()
+            .count()  # No distinct here, count all reservations
         )
 
         # Calculate available rooms: Total rooms minus currently checked-in rooms
@@ -293,7 +292,7 @@ def room_summary(
         return {
             "total_rooms": total_rooms,
             "rooms_checked_in": total_checked_in_rooms,
-            "rooms_reserved": total_reserved_rooms,
+            "rooms_reserved": total_reserved_rooms,  # Count all reserved rooms (even if reserved multiple times)
             "rooms_available": total_available_rooms,
             "message": message,
         }
