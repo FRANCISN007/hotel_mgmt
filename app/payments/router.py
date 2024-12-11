@@ -10,6 +10,7 @@ from app.check_in_guest import models as check_in_models  # Import check-in mode
 router = APIRouter()
 
 # Create Payment Endpoint
+# Create Payment Endpoint
 @router.post("/create/")
 def create_payment(
     payment_request: payment_schemas.PaymentCreateSchema,
@@ -39,97 +40,149 @@ def create_payment(
         )
 
     if existing_payment:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Payment for room {payment_request.room_number} by guest {payment_request.guest_name} already exists."
-        )
-
-    # Step 3: Compare the payment amount with the room price
-    if payment_request.amount_paid < room.amount:
-        # Calculate the balance remaining if payment is less than room price
-        balance_due = room.amount - payment_request.amount_paid
-        logger.info(f"Balance remaining: {balance_due}")
-        
-        # Create the payment and set it as incomplete
-        try:
-            # Update balance_due and set status to "payment incomplete"
-            new_payment = crud.create_payment(db=db, payment=payment_request, balance_due=balance_due, status="payment incomplete")
-            logger.info(f"Payment of {new_payment.amount_paid} for room {new_payment.room_number} created successfully.")
-
-            # Step 4: Update the check-in status to 'payment incomplete'
-            check_in_record = db.query(check_in_models.Check_in).filter(
-                check_in_models.Check_in.room_number == payment_request.room_number,
-                check_in_models.Check_in.guest_name == payment_request.guest_name,
-                check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
-            ).first()
-
-            if check_in_record:
-                check_in_record.payment_status = "payment incomplete"
-                db.commit()
-                logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name} in room {payment_request.room_number}.")
+        if existing_payment.status == "payment completed":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Payment for room {payment_request.room_number} by guest {payment_request.guest_name} already exists and is completed."
+            )
+        elif existing_payment.status == "payment incomplete":
+            # If the payment is incomplete, we allow another payment.
+            balance_due = existing_payment.balance_due
+            if payment_request.amount_paid + existing_payment.amount_paid > room.amount:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Payment amount exceeds the room price."
+                )
             else:
-                logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
+                # Add the new payment and update the balance.
+                new_balance_due = balance_due - payment_request.amount_paid
+                # Update the payment record
+                updated_payment = crud.update_payment_with_new_amount(
+                    db=db,
+                    payment_id=existing_payment.id,
+                    amount_paid=payment_request.amount_paid,
+                    balance_due=new_balance_due
+                )
+                logger.info(f"Updated payment of {updated_payment.amount_paid} for room {updated_payment.room_number}.")
 
-            # Commit the incomplete payment
-            db.commit()
-            logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name}.")
+                # Step 4: Update the check-in status to 'payment incomplete' if still incomplete
+                check_in_record = db.query(check_in_models.Check_in).filter(
+                    check_in_models.Check_in.room_number == payment_request.room_number,
+                    check_in_models.Check_in.guest_name == payment_request.guest_name,
+                    check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+                ).first()
 
-            return {
-                "message": "Payment amount is lesser than the room price. Balance due.",
-                "room_number": payment_request.room_number,
-                "guest_name": payment_request.guest_name,
-                "room_price": room.amount,
-                "amount_paid": payment_request.amount_paid,
-                "balance_due": balance_due,
-                "status": "payment incomplete"
-            }
+                if check_in_record:
+                    check_in_record.payment_status = "payment incomplete"
+                    db.commit()
+                    logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name} in room {payment_request.room_number}.")
+                else:
+                    logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
 
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error processing payment: {str(e)}")
-            raise HTTPException(status_code=500, detail="An error occurred while processing the payment.")
-    
-    # Step 5: Create the new payment in the database if payment is complete
-    try:
-        balance_due = 0  # Full payment, no balance due
-        new_payment = crud.create_payment(db=db, payment=payment_request, balance_due=balance_due, status="payment completed")
-        logger.info(f"Payment of {new_payment.amount_paid} for room {new_payment.room_number} created successfully.")
-
-        # Step 6: Update check-in status to 'payment completed' if the full amount is paid
-        check_in_record = db.query(check_in_models.Check_in).filter(
-            check_in_models.Check_in.room_number == payment_request.room_number,
-            check_in_models.Check_in.guest_name == payment_request.guest_name,
-            check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
-        ).first()
-
-        if check_in_record:
-            check_in_record.payment_status = "payment completed"
-            db.commit()
-            logger.info(f"Payment status updated to 'payment completed' for guest {payment_request.guest_name} in room {payment_request.room_number}.")
+                # Commit the updated payment
+                db.commit()
+                return {
+                    "message": "Additional payment made successfully, balance updated.",
+                    "payment_details": {
+                        "room_number": updated_payment.room_number,
+                        "guest_name": updated_payment.guest_name,
+                        "amount_paid": updated_payment.amount_paid,
+                        "payment_method": updated_payment.payment_method,
+                        "payment_date": updated_payment.payment_date.isoformat(),
+                        "status": updated_payment.status,
+                        "balance_due": updated_payment.balance_due
+                    }
+                }
         else:
-            logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown payment status for guest {payment_request.guest_name} in room {payment_request.room_number}."
+            )
+    else:
+        # Step 3: Compare the payment amount with the room price for a first-time payment
+        if payment_request.amount_paid < room.amount:
+            balance_due = room.amount - payment_request.amount_paid
+            logger.info(f"Balance remaining: {balance_due}")
 
-        # Commit the completed payment
-        db.commit()
-        logger.info(f"Payment status updated to 'payment completed' for guest {payment_request.guest_name}.")
+            try:
+                # Create the payment and set it as incomplete
+                new_payment = crud.create_payment(db=db, payment=payment_request, balance_due=balance_due, status="payment incomplete")
+                logger.info(f"Payment of {new_payment.amount_paid} for room {new_payment.room_number} created successfully.")
 
-        return {
-            "message": "Payment processed successfully.",
-            "payment_details": {
-                "room_number": new_payment.room_number,
-                "guest_name": new_payment.guest_name,
-                "amount_paid": new_payment.amount_paid,
-                "payment_method": new_payment.payment_method,
-                "payment_date": new_payment.payment_date.isoformat(),
-                "status": new_payment.status,
-                "balance_due": new_payment.balance_due  # Include balance_due in the response
-            }
-        }
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error processing payment: {str(e)}")
-        raise HTTPException(status_code=500, detail="An error occurred while processing the payment.")
+                # Step 4: Update the check-in status to 'payment incomplete'
+                check_in_record = db.query(check_in_models.Check_in).filter(
+                    check_in_models.Check_in.room_number == payment_request.room_number,
+                    check_in_models.Check_in.guest_name == payment_request.guest_name,
+                    check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+                ).first()
 
+                if check_in_record:
+                    check_in_record.payment_status = "payment incomplete"
+                    db.commit()
+                    logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name} in room {payment_request.room_number}.")
+                else:
+                    logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
+
+                # Commit the incomplete payment
+                db.commit()
+                logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name}.")
+
+                return {
+                    "message": "Payment amount is lesser than the room price. Balance due.",
+                    "room_number": payment_request.room_number,
+                    "guest_name": payment_request.guest_name,
+                    "room_price": room.amount,
+                    "amount_paid": payment_request.amount_paid,
+                    "balance_due": balance_due,
+                    "status": "payment incomplete"
+                }
+
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Error processing payment: {str(e)}")
+                raise HTTPException(status_code=500, detail="An error occurred while processing the payment.")
+    
+        else:
+            # Full payment received
+            balance_due = 0  # Full payment, no balance due
+            try:
+                new_payment = crud.create_payment(db=db, payment=payment_request, balance_due=balance_due, status="payment completed")
+                logger.info(f"Payment of {new_payment.amount_paid} for room {new_payment.room_number} created successfully.")
+
+                # Step 6: Update check-in status to 'payment completed' if the full amount is paid
+                check_in_record = db.query(check_in_models.Check_in).filter(
+                    check_in_models.Check_in.room_number == payment_request.room_number,
+                    check_in_models.Check_in.guest_name == payment_request.guest_name,
+                    check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+                ).first()
+
+                if check_in_record:
+                    check_in_record.payment_status = "payment completed"
+                    db.commit()
+                    logger.info(f"Payment status updated to 'payment completed' for guest {payment_request.guest_name} in room {payment_request.room_number}.")
+                else:
+                    logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
+
+                # Commit the completed payment
+                db.commit()
+                logger.info(f"Payment status updated to 'payment completed' for guest {payment_request.guest_name}.")
+
+                return {
+                    "message": "Payment processed successfully.",
+                    "payment_details": {
+                        "room_number": new_payment.room_number,
+                        "guest_name": new_payment.guest_name,
+                        "amount_paid": new_payment.amount_paid,
+                        "payment_method": new_payment.payment_method,
+                        "payment_date": new_payment.payment_date.isoformat(),
+                        "status": new_payment.status,
+                        "balance_due": new_payment.balance_due
+                    }
+                }
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Error processing payment: {str(e)}")
+                raise HTTPException(status_code=500, detail="An error occurred while processing the payment.")
 
 
 # List Payments Endpoint
@@ -152,10 +205,11 @@ def list_payments(
                 "payment_id": payment.id,  # Include the payment ID in the response
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
-                "amount": payment.amount_paid,
+                "amount_paid": payment.amount_paid,  # Display the amount paid
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
+                "balance_due": payment.balance_due,  # Include balance due in the response
             })
 
         return {

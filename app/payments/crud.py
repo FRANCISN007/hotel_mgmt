@@ -49,7 +49,20 @@ def get_payment_by_id(db: Session, payment_id: int):
     except Exception as e:
         logger.error(f"Error retrieving payment by ID: {str(e)}")
         raise Exception("Error retrieving payment by ID")
-    
+  
+  
+def update_payment_with_new_amount(db: Session, payment_id: int, amount_paid: float, balance_due: float):
+    payment = db.query(payment_models.Payment).filter(payment_models.Payment.id == payment_id).first()
+    if payment:
+        payment.amount_paid += amount_paid
+        payment.balance_due = balance_due
+        if balance_due == 0:
+            payment.status = "payment completed"
+        db.commit()
+        db.refresh(payment)
+        return payment
+    return None
+   
     
 def delete_payment(db: Session, payment_id: int):
     payment = db.query(payment_models.Payment).filter(payment_models.Payment.id == payment_id).first()
