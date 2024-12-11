@@ -35,22 +35,23 @@ def check_in_guest(
     # Step 1: Validate the transaction date
     today = date.today()
     if check_in_request.arrival_date > today:
+        logger.error(f"Failed check-in attempt for future date: {check_in_request.arrival_date} for room {room_number}.")
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Check-ins are only allowed for today's date. "
-                "For future dates, please use the reservation endpoint."
-            ),
+            detail="Check-ins are only allowed for today's date. For future dates, please use the reservation endpoint."
         )
+    
     if check_in_request.arrival_date < today:
+        logger.error(f"Failed check-in attempt for past date: {check_in_request.arrival_date} for room {room_number}.")
         raise HTTPException(
             status_code=400,
-            detail="Check-in cannot be performed for past dates.",
+            detail="Check-in cannot be performed for past dates."
         )
 
     # Step 2: Validate room existence
     room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
     if not room:
+        logger.error(f"Room {room_number} not found.")
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
     # Step 3: Check for overlapping check-ins
@@ -60,14 +61,11 @@ def check_in_guest(
         arrival_date=check_in_request.arrival_date,
         departure_date=check_in_request.departure_date,
     )
-
     if overlapping_check_in:
+        logger.error(f"Room {room_number} has overlapping check-in for dates {check_in_request.arrival_date} to {check_in_request.departure_date}.")
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Room {room_number} is already checked-in by another guest during the requested dates. "
-                f"Existing check-in: {overlapping_check_in.arrival_date} to {overlapping_check_in.departure_date}."
-            ),
+            detail=f"Room {room_number} is already checked-in by another guest during the requested dates."
         )
 
     # Step 4: Create new check-in record
@@ -85,6 +83,7 @@ def check_in_guest(
         room.status = "checked-in"
         db.commit()
 
+        logger.info(f"Guest {check_in_request.guest_name} successfully checked into room {room_number}.")
         return {
             "message": f"Guest {check_in_request.guest_name} successfully checked into room {room_number}.",
             "check_in_details": {
@@ -98,6 +97,7 @@ def check_in_guest(
 
     except Exception as e:
         db.rollback()
+        logger.error(f"Error during check-in process: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @router.get("/list/")
@@ -106,38 +106,32 @@ def list_checked_in_guests(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List all guests currently checked into rooms, along with their room numbers
-    and check-in/check-out dates.
+    List all guests currently checked into rooms, including their payment status.
     """
     try:
-        # Query for guests who are currently checked in
         checked_in_guests = (
             db.query(
                 check_in_guest_models.Check_in.guest_name,
                 check_in_guest_models.Check_in.room_number,
                 func.date(check_in_guest_models.Check_in.arrival_date).label("check_in_date"),
                 func.date(check_in_guest_models.Check_in.departure_date).label("departure_date"),
+                check_in_guest_models.Check_in.payment_status,  # Include payment status
             )
             .filter(check_in_guest_models.Check_in.status == "checked-in")
             .all()
         )
 
-        # If no guests are checked in, return a message
         if not checked_in_guests:
             return {"message": "No guests are currently checked in."}
 
-        # Format the response
         formatted_guests = []
         for guest in checked_in_guests:
             formatted_guests.append({
                 "guest_name": guest.guest_name,
                 "room_number": guest.room_number,
-                "check_in_date": (
-                    guest.check_in_date.isoformat() if hasattr(guest.check_in_date, "isoformat") else guest.check_in_date
-                ),
-                "departure_date": (
-                    guest.departure_date.isoformat() if hasattr(guest.departure_date, "isoformat") else guest.departure_date
-                ),
+                "check_in_date": guest.check_in_date.isoformat(),
+                "departure_date": guest.departure_date.isoformat(),
+                "payment_status": guest.payment_status,  # Include payment status in the response
             })
 
         return {
@@ -146,11 +140,8 @@ def list_checked_in_guests(
         }
 
     except Exception as e:
-        # Handle unexpected errors
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while retrieving checked-in guests: {str(e)}",
-        )
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 
 @router.put("/update/")
 def update_check_in(

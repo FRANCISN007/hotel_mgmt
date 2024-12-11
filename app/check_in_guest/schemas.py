@@ -18,16 +18,16 @@ class GuestReservationSchema(BaseModel):
 
 
 class CheckInSchema(BaseModel):
-    """
-    Schema for a check-in request.
-    """
     room_number: str
     guest_name: str
     arrival_date: date
     departure_date: date
     is_checked_out: bool = False
+    payment_status: str = "pending"  # Default payment status
+    
     class Config:
         orm_mode = True
+
 
 class UserDisplaySchema(BaseModel):
     id: int
