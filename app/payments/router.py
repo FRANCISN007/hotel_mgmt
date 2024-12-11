@@ -19,8 +19,6 @@ def create_payment(
     """
     Create a new payment for a guest and automatically update check-in payment status.
     """
-    # (The create payment logic remains unchanged from your existing code)
-
     # Step 1: Check if the room exists
     room = crud.get_room_by_number(db, payment_request.room_number)
     if not room:
@@ -46,12 +44,58 @@ def create_payment(
             detail=f"Payment for room {payment_request.room_number} by guest {payment_request.guest_name} already exists."
         )
 
-    # Step 3: Create the new payment in the database
-    try:
-        new_payment = crud.create_payment(db=db, payment=payment_request)
-        logger.info(f"Payment of {new_payment.amount} for room {new_payment.room_number} created successfully.")
+    # Step 3: Compare the payment amount with the room price
+    if payment_request.amount_paid < room.amount:
+        # Calculate the balance remaining if payment is less than room price
+        balance_due = room.amount - payment_request.amount_paid
+        logger.info(f"Balance remaining: {balance_due}")
+        
+        # Create the payment and set it as incomplete
+        try:
+            # Update balance_due and set status to "payment incomplete"
+            new_payment = crud.create_payment(db=db, payment=payment_request, balance_due=balance_due, status="payment incomplete")
+            logger.info(f"Payment of {new_payment.amount_paid} for room {new_payment.room_number} created successfully.")
 
-        # Step 4: Update check-in status to 'payment completed'
+            # Step 4: Update the check-in status to 'payment incomplete'
+            check_in_record = db.query(check_in_models.Check_in).filter(
+                check_in_models.Check_in.room_number == payment_request.room_number,
+                check_in_models.Check_in.guest_name == payment_request.guest_name,
+                check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+            ).first()
+
+            if check_in_record:
+                check_in_record.payment_status = "payment incomplete"
+                db.commit()
+                logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name} in room {payment_request.room_number}.")
+            else:
+                logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
+
+            # Commit the incomplete payment
+            db.commit()
+            logger.info(f"Payment status updated to 'payment incomplete' for guest {payment_request.guest_name}.")
+
+            return {
+                "message": "Payment amount is lesser than the room price. Balance due.",
+                "room_number": payment_request.room_number,
+                "guest_name": payment_request.guest_name,
+                "room_price": room.amount,
+                "amount_paid": payment_request.amount_paid,
+                "balance_due": balance_due,
+                "status": "payment incomplete"
+            }
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error processing payment: {str(e)}")
+            raise HTTPException(status_code=500, detail="An error occurred while processing the payment.")
+    
+    # Step 5: Create the new payment in the database if payment is complete
+    try:
+        balance_due = 0  # Full payment, no balance due
+        new_payment = crud.create_payment(db=db, payment=payment_request, balance_due=balance_due, status="payment completed")
+        logger.info(f"Payment of {new_payment.amount_paid} for room {new_payment.room_number} created successfully.")
+
+        # Step 6: Update check-in status to 'payment completed' if the full amount is paid
         check_in_record = db.query(check_in_models.Check_in).filter(
             check_in_models.Check_in.room_number == payment_request.room_number,
             check_in_models.Check_in.guest_name == payment_request.guest_name,
@@ -65,8 +109,7 @@ def create_payment(
         else:
             logger.warning(f"No check-in record found for guest {payment_request.guest_name} in room {payment_request.room_number}, payment not reflected.")
 
-        # Update payment status to 'payment completed'
-        new_payment.status = "payment completed"
+        # Commit the completed payment
         db.commit()
         logger.info(f"Payment status updated to 'payment completed' for guest {payment_request.guest_name}.")
 
@@ -75,16 +118,19 @@ def create_payment(
             "payment_details": {
                 "room_number": new_payment.room_number,
                 "guest_name": new_payment.guest_name,
-                "amount": new_payment.amount,
+                "amount_paid": new_payment.amount_paid,
                 "payment_method": new_payment.payment_method,
                 "payment_date": new_payment.payment_date.isoformat(),
                 "status": new_payment.status,
+                "balance_due": new_payment.balance_due  # Include balance_due in the response
             }
         }
     except Exception as e:
         db.rollback()
         logger.error(f"Error processing payment: {str(e)}")
         raise HTTPException(status_code=500, detail="An error occurred while processing the payment.")
+
+
 
 # List Payments Endpoint
 @router.get("/list/")
@@ -106,7 +152,7 @@ def list_payments(
                 "payment_id": payment.id,  # Include the payment ID in the response
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
-                "amount": payment.amount,
+                "amount": payment.amount_paid,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,

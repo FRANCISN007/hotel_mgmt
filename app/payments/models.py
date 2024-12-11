@@ -9,7 +9,8 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
     room_number = Column(String, index=True)
     guest_name = Column(String, index=True)
-    amount = Column(Float)
+    amount_paid = Column(Float)  # Changed from 'amount' to 'amount_paid'
+    balance_due = Column(Float, default=0.0)
     payment_method = Column(String)
     payment_date = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="pending")  # Payment status (pending, completed, failed)

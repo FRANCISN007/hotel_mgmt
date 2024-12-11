@@ -5,20 +5,21 @@ from app.rooms import models
 from loguru import logger
 
 
-def create_payment(db: Session, payment: schemas.PaymentCreateSchema):
+def create_payment(db: Session, payment: schemas.PaymentCreateSchema, balance_due: float, status: str):
     db_payment = payment_models.Payment(
-        guest_name=payment.guest_name,
         room_number=payment.room_number,
-        amount=payment.amount,
+        guest_name=payment.guest_name,
+        amount_paid=payment.amount_paid,
+        balance_due=balance_due,
         payment_method=payment.payment_method,
-        payment_date=payment.payment_date if payment.payment_date else datetime.utcnow(),
-
-        status=payment.status
+        payment_date=payment.payment_date or datetime.utcnow(),
+        status=status,
     )
     db.add(db_payment)
     db.commit()
     db.refresh(db_payment)
     return db_payment
+
 
 def get_room_by_number(db: Session, room_number: str):
     # This function will check if the room exists in the database
