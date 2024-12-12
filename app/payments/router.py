@@ -6,10 +6,12 @@ from app.users.auth import get_current_user
 from app.users import schemas
 from loguru import logger
 from app.check_in_guest import models as check_in_models  # Import check-in models to update the status
+from sqlalchemy import between
+from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
-# Create Payment Endpoint
 # Create Payment Endpoint
 @router.post("/create/")
 def create_payment(
@@ -84,6 +86,7 @@ def create_payment(
                 return {
                     "message": "Additional payment made successfully, balance updated.",
                     "payment_details": {
+                        "payment_id": updated_payment.id,  # Include payment ID here
                         "room_number": updated_payment.room_number,
                         "guest_name": updated_payment.guest_name,
                         "amount_paid": updated_payment.amount_paid,
@@ -129,6 +132,7 @@ def create_payment(
 
                 return {
                     "message": "Payment amount is lesser than the room price. Balance due.",
+                    "payment_id": new_payment.id,  # Include payment ID here
                     "room_number": payment_request.room_number,
                     "guest_name": payment_request.guest_name,
                     "room_price": room.amount,
@@ -169,6 +173,7 @@ def create_payment(
 
                 return {
                     "message": "Payment processed successfully.",
+                    "payment_id": new_payment.id,  # Include payment ID here
                     "payment_details": {
                         "room_number": new_payment.room_number,
                         "guest_name": new_payment.guest_name,
@@ -218,6 +223,101 @@ def list_payments(
         }
 
     except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving payments: {str(e)}",
+        )
+
+@router.get("/payment/{payment_id}/")
+def get_payment_by_id(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Get payment details by payment ID.
+    """
+    try:
+        # Retrieve payment by ID
+        payment = crud.get_payment_by_id(db, payment_id)
+        
+        if not payment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Payment with ID {payment_id} not found."
+            )
+        
+        # If the payment exists, return its details
+        return {
+            "payment_id": payment.id,
+            "guest_name": payment.guest_name,
+            "room_number": payment.room_number,
+            "amount_paid": payment.amount_paid,
+            "payment_method": payment.payment_method,
+            "payment_date": payment.payment_date.isoformat(),
+            "status": payment.status,
+            "balance_due": payment.balance_due
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving the payment: {str(e)}",
+        )
+
+# List Payments by Date Range Endpoint
+from datetime import datetime, timedelta
+
+@router.get("/list_by_date/")
+def list_payments_by_date(
+    start_date: datetime,
+    end_date: datetime,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    List payments made between the specified start and end date.
+    """
+    try:
+        # Ensure that the start_date is before or equal to end_date
+        if start_date > end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Start date cannot be after end date."
+            )
+
+        # Adjust the end date to include the entire day (23:59:59.999999)
+        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        # Retrieve payments within the specified date range
+        payments = crud.get_payments_by_date_range(db, start_date, end_date)
+
+        if not payments:
+            logger.info(f"No payments found between {start_date} and {end_date}.")
+            return {"message": "No payments found for the specified date range."}
+
+        # Prepare the list of payment details to be returned
+        payment_list = []
+        for payment in payments:
+            payment_list.append({
+                "payment_id": payment.id,
+                "guest_name": payment.guest_name,
+                "room_number": payment.room_number,
+                "amount_paid": payment.amount_paid,
+                "payment_method": payment.payment_method,
+                "payment_date": payment.payment_date.isoformat(),
+                "status": payment.status,
+                "balance_due": payment.balance_due,
+            })
+
+        logger.info(f"Retrieved {len(payment_list)} payments between {start_date} and {end_date}.")
+        return {
+            "total_payments": len(payment_list),
+            "payments": payment_list,
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving payments: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}",

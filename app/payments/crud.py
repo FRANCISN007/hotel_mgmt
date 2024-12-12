@@ -3,6 +3,7 @@ from app.payments import models as payment_models, schemas
 from datetime import datetime
 from app.rooms import models 
 from loguru import logger
+from sqlalchemy import between
 
 
 def create_payment(db: Session, payment: schemas.PaymentCreateSchema, balance_due: float, status: str):
@@ -63,7 +64,18 @@ def update_payment_with_new_amount(db: Session, payment_id: int, amount_paid: fl
         return payment
     return None
    
-    
+
+
+def get_payments_by_date_range(db: Session, start_date: datetime, end_date: datetime):
+    """
+    Get payments made within a specific date range.
+    """
+    return db.query(payment_models.Payment).filter(
+        payment_models.Payment.payment_date.between(start_date, end_date)
+    ).all()
+
+
+  
 def delete_payment(db: Session, payment_id: int):
     payment = db.query(payment_models.Payment).filter(payment_models.Payment.id == payment_id).first()
     if payment:
