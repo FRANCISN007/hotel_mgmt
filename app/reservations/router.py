@@ -101,54 +101,57 @@ def create_reservation(
         room.status = "reserved"
         db.commit()
 
-        return {"message": "Reservation created successfully.", "reservation": new_reservation}
+        return {
+            "message": "Reservation created successfully.",
+            "reservation": {
+                "id": new_reservation.id,  # Add the reservation ID to the response
+                "room_number": new_reservation.room_number,
+                "guest_name": new_reservation.guest_name,
+                "arrival_date": new_reservation.arrival_date,
+                "departure_date": new_reservation.departure_date,
+                "status": new_reservation.status
+            }
+        }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.get("/list/", response_model=reservation_schemas.ReservedRoomsListSchema)
-def list_reserved_rooms(
-    db: Session = Depends(get_db), 
+@router.get("/list/")
+def list_reservations(
+    db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     try:
-        # Querying the reserved rooms, excluding canceled reservations
-        reserved_rooms = (
-            db.query(
-                room_models.Room.room_number,
-                room_models.Room.room_type,
-                reservation_models.Reservation.guest_name,
-                reservation_models.Reservation.arrival_date,
-                reservation_models.Reservation.departure_date,
-            )
-            .join(
-                reservation_models.Reservation,
-                room_models.Room.room_number == reservation_models.Reservation.room_number
-            )
-            .filter(
-                room_models.Room.status == "reserved",
-                reservation_models.Reservation.is_deleted == False  # Exclude canceled reservations
-            )
-            .all()
-        )
+        # Fetch all reservations that are not deleted
+        reservations = db.query(reservation_models.Reservation).filter(
+            reservation_models.Reservation.is_deleted == False
+        ).all()
 
-        # Structuring the response
+        if not reservations:
+            return {"total_reservations": 0, "reservations": []}
+
+        # Returning the list of reservations
         return {
-            "total_reserved_rooms": len(reserved_rooms),
-            "reserved_rooms": [
+            "total_reservations": len(reservations),
+            "reservations": [
                 {
-                    "room_number": room.room_number,
-                    "room_type": room.room_type,
-                    "guest_name": room.guest_name,
-                    "arrival_date": room.arrival_date,
-                    "departure_date": room.departure_date,
+                    "reservation_id": reservation.id,  # Reservation ID
+                    "room_number": reservation.room_number,
+                    "guest_name": reservation.guest_name,
+                    "arrival_date": reservation.arrival_date,
+                    "departure_date": reservation.departure_date,
+                    "status": reservation.status,
                 }
-                for room in reserved_rooms
-            ],
+                for reservation in reservations
+            ]
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+
 
 @router.put("/update/")
 def update_reservation(
