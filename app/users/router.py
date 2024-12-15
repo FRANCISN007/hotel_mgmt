@@ -16,7 +16,7 @@ logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 
 @router.post("/register/")
-def register_user(user: schemas.UserSchema, db: Session = Depends(get_db)):
+def sign_up(user: schemas.UserSchema, db: Session = Depends(get_db)):
     # Check if the username already exists
     logger.info("creating user.....")
     existing_user = user_crud.get_user_by_username(db, user.username)

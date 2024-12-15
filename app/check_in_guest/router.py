@@ -87,6 +87,7 @@ def check_in_guest(
         return {
             "message": f"Guest {check_in_request.guest_name} successfully checked into room {room_number}.",
             "check_in_details": {
+                "check_in_id": new_check_in.id,  # Include the check-in ID
                 "guest_name": new_check_in.guest_name,
                 "room_number": new_check_in.room_number,
                 "arrival_date": new_check_in.arrival_date,
@@ -111,6 +112,7 @@ def list_checked_in_guests(
     try:
         checked_in_guests = (
             db.query(
+                check_in_guest_models.Check_in.id,  # Include check-in ID
                 check_in_guest_models.Check_in.guest_name,
                 check_in_guest_models.Check_in.room_number,
                 func.date(check_in_guest_models.Check_in.arrival_date).label("check_in_date"),
@@ -127,6 +129,7 @@ def list_checked_in_guests(
         formatted_guests = []
         for guest in checked_in_guests:
             formatted_guests.append({
+                "check_in_id": guest.id,  # Include check-in ID
                 "guest_name": guest.guest_name,
                 "room_number": guest.room_number,
                 "check_in_date": guest.check_in_date.isoformat(),

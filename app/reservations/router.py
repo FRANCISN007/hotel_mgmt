@@ -280,7 +280,7 @@ def transaction_history(
                 status_code=400,
                 detail="Start date must be earlier than or equal to end date."
             )
-
+        
         checked_out_query = db.query(
             check_in_models.Check_in.room_number,
             check_in_models.Check_in.guest_name,

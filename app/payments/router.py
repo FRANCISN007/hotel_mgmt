@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 router = APIRouter()
 
 # Create Payment Endpoint
+# Create Payment Endpoint
 @router.post("/create/")
 def create_payment(
     payment_request: payment_schemas.PaymentCreateSchema,
@@ -71,7 +72,7 @@ def create_payment(
                 check_in_record = db.query(check_in_models.Check_in).filter(
                     check_in_models.Check_in.room_number == payment_request.room_number,
                     check_in_models.Check_in.guest_name == payment_request.guest_name,
-                    check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+                    check_in_models.Check_in.status == "checked-in",
                 ).first()
 
                 if check_in_record:
@@ -86,7 +87,7 @@ def create_payment(
                 return {
                     "message": "Additional payment made successfully, balance updated.",
                     "payment_details": {
-                        "payment_id": updated_payment.id,  # Include payment ID here
+                        "payment_id": updated_payment.id,
                         "room_number": updated_payment.room_number,
                         "guest_name": updated_payment.guest_name,
                         "amount_paid": updated_payment.amount_paid,
@@ -116,7 +117,7 @@ def create_payment(
                 check_in_record = db.query(check_in_models.Check_in).filter(
                     check_in_models.Check_in.room_number == payment_request.room_number,
                     check_in_models.Check_in.guest_name == payment_request.guest_name,
-                    check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+                    check_in_models.Check_in.status == "checked-in",
                 ).first()
 
                 if check_in_record:
@@ -132,7 +133,7 @@ def create_payment(
 
                 return {
                     "message": "Payment amount is lesser than the room price. Balance due.",
-                    "payment_id": new_payment.id,  # Include payment ID here
+                    "payment_id": new_payment.id,
                     "room_number": payment_request.room_number,
                     "guest_name": payment_request.guest_name,
                     "room_price": room.amount,
@@ -157,7 +158,7 @@ def create_payment(
                 check_in_record = db.query(check_in_models.Check_in).filter(
                     check_in_models.Check_in.room_number == payment_request.room_number,
                     check_in_models.Check_in.guest_name == payment_request.guest_name,
-                    check_in_models.Check_in.status == "checked-in",  # Only update for guests currently checked-in
+                    check_in_models.Check_in.status == "checked-in",
                 ).first()
 
                 if check_in_record:
@@ -173,7 +174,7 @@ def create_payment(
 
                 return {
                     "message": "Payment processed successfully.",
-                    "payment_id": new_payment.id,  # Include payment ID here
+                    "payment_id": new_payment.id,
                     "payment_details": {
                         "room_number": new_payment.room_number,
                         "guest_name": new_payment.guest_name,
@@ -210,11 +211,11 @@ def list_payments(
                 "payment_id": payment.id,  # Include the payment ID in the response
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
-                "amount_paid": payment.amount_paid,  # Display the amount paid
+                "amount_paid": payment.amount_paid,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
-                "balance_due": payment.balance_due,  # Include balance due in the response
+                "balance_due": payment.balance_due,
             })
 
         return {
@@ -375,8 +376,8 @@ def update_payment(
             )
 
         # Update the fields based on the input
-        if payment_update.amount is not None:
-            payment.amount = payment_update.amount
+        if payment_update.amount_paid is not None:
+            payment.amount_paid = payment_update.amount_paid
         if payment_update.status is not None:
             payment.status = payment_update.status
 
@@ -389,7 +390,7 @@ def update_payment(
             "payment_details": {
                 "room_number": payment.room_number,
                 "guest_name": payment.guest_name,
-                "amount": payment.amount,
+                "amount": payment.amount_paid,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,

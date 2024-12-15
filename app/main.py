@@ -7,6 +7,7 @@ from app.check_in_guest.router import router as check_in_guest_router
 from app.payments.router import router as payments_router  # Import the payments router
 from loguru import logger
 
+
 app = FastAPI(
     title="Hotel Management System",
     description="An API for managing hotel operations including guests, reservations, rooms, and payments.",
@@ -20,7 +21,7 @@ logger.add("app.log", rotation="500 MB", level="DEBUG")
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)  # Create all tables in the database
-
+    
 
 app.include_router(user_router, prefix="/user", tags=["Users"])
 app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
