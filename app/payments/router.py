@@ -325,6 +325,7 @@ def list_payments_by_date(
         )
 
 # Delete Payment Endpoint
+# Delete Payment Endpoint
 @router.delete("/delete/{payment_id}/")
 def delete_payment(
     payment_id: int,
@@ -332,24 +333,44 @@ def delete_payment(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Delete a payment record by its ID.
+    Delete a payment record by its ID and revert the check-in status to 'payment incomplete' if applicable.
     """
     try:
-        # Get the payment record to check if it exists
+        # Step 1: Check if the payment exists
         payment = crud.get_payment_by_id(db, payment_id)
         if not payment:
+            logger.warning(f"Payment with ID {payment_id} does not exist.")
             raise HTTPException(
                 status_code=404,
                 detail=f"Payment with ID {payment_id} not found."
             )
 
-        # Delete the payment record
+        logger.info(f"Found payment record to delete: {payment}")
+
+        # Step 2: Revert check-in payment status if associated check-in record exists
+        check_in_record = db.query(check_in_models.Check_in).filter(
+            check_in_models.Check_in.room_number == payment.room_number,
+            check_in_models.Check_in.guest_name == payment.guest_name
+        ).first()
+
+        if check_in_record:
+            check_in_record.payment_status = "payment incomplete"
+            db.commit()  # Commit the reverted status immediately
+            logger.info(f"Reverted payment status for guest {payment.guest_name} in room {payment.room_number} to 'payment incomplete'.")
+
+        # Step 3: Delete the payment
         crud.delete_payment(db, payment_id)
-        logger.info(f"Payment with ID {payment_id} has been deleted.")
+        db.commit()
+        logger.info(f"Payment with ID {payment_id} successfully deleted.")
+
         return {"message": f"Payment with ID {payment_id} has been deleted successfully."}
 
+    except HTTPException as e:
+        # Raise HTTPExceptions gracefully
+        raise e
     except Exception as e:
-        logger.error(f"Error deleting payment: {str(e)}")
+        db.rollback()  # Rollback the transaction on error
+        logger.error(f"Error deleting payment with ID {payment_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail="An error occurred while deleting the payment."

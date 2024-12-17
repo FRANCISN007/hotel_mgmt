@@ -2,7 +2,6 @@ from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.database import Base
 
-
 class Check_in(Base):
     __tablename__ = "check_in"
 
@@ -12,8 +11,11 @@ class Check_in(Base):
     arrival_date = Column(Date, nullable=False)
     departure_date = Column(Date, nullable=False)
     status = Column(String, default="checked-in")
-    payment_status = Column(String, default="pending")  # New payment status column
+    payment_status = Column(String, default="not paid")
+    #original_payment_status = Column(String, default="not paid")
     room = relationship("Room", back_populates="check_in")
     is_checked_out = Column(Boolean, default=False)
     checkout_reason = Column(String, nullable=True)
 
+     # One-to-many relationship: A Check_in can have many Payments
+    payments = relationship("Payment", back_populates="check_in")

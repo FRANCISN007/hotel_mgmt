@@ -11,6 +11,7 @@ from app.rooms import models as room_models  # Import room models
 from app.reservations import models as reservation_models  # Import reservation models
 from app.check_in_guest.crud import check_overlapping_check_in  # Import the function
 from app.check_in_guest import schemas, models as check_in_guest_models
+from app.payments import models as payment_models
 from datetime import date
 from loguru import logger
 
@@ -101,49 +102,67 @@ def check_in_guest(
         logger.error(f"Error during check-in process: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
+
 @router.get("/list/")
 def list_checked_in_guests(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List all guests currently checked into rooms, including their payment status.
+    List all guests currently checked into rooms, with status based on payment status from the payment table.
     """
     try:
-        checked_in_guests = (
-            db.query(
-                check_in_guest_models.Check_in.id,  # Include check-in ID
-                check_in_guest_models.Check_in.guest_name,
-                check_in_guest_models.Check_in.room_number,
-                func.date(check_in_guest_models.Check_in.arrival_date).label("check_in_date"),
-                func.date(check_in_guest_models.Check_in.departure_date).label("departure_date"),
-                check_in_guest_models.Check_in.payment_status,  # Include payment status
-            )
-            .filter(check_in_guest_models.Check_in.status == "checked-in")
-            .all()
-        )
+        # Step 1: Query the guests who are checked in (based on check_in status)
+        checked_in_guests = db.query(
+            check_in_guest_models.Check_in.id,
+            check_in_guest_models.Check_in.guest_name,
+            check_in_guest_models.Check_in.room_number,
+            check_in_guest_models.Check_in.arrival_date,
+            check_in_guest_models.Check_in.departure_date,
+            check_in_guest_models.Check_in.status,
+        ).filter(
+            check_in_guest_models.Check_in.status == "checked-in"
+        ).all()
 
-        if not checked_in_guests:
-            return {"message": "No guests are currently checked in."}
-
+        # Step 2: Query the payment status for each checked-in guest (payment table)
         formatted_guests = []
+        
         for guest in checked_in_guests:
+            # Step 2.1: Query payment status for each guest based on room number and guest name
+            payment_record = db.query(payment_models.Payment).filter(
+                payment_models.Payment.room_number == guest.room_number,
+                payment_models.Payment.guest_name == guest.guest_name,
+            ).first()
+
+            # Step 2.2: Determine the guest status based on payment status
+            if payment_record and payment_record.status == "payment completed":
+                guest_status = "paid"  # Update check-in status to "paid"
+                payment_status = payment_record.status
+            else:
+                guest_status = guest.status  # Keep the original status if payment not completed
+                payment_status = "pending"  # Payment status is pending if no completed payment
+
+            # Step 3: Append formatted guest data with dynamic payment status and updated guest status
             formatted_guests.append({
-                "check_in_id": guest.id,  # Include check-in ID
+                "check_in_id": guest.id,
                 "guest_name": guest.guest_name,
                 "room_number": guest.room_number,
-                "check_in_date": guest.check_in_date.isoformat(),
+                "check_in_date": guest.arrival_date.isoformat(),
                 "departure_date": guest.departure_date.isoformat(),
-                "payment_status": guest.payment_status,  # Include payment status in the response
+                "payment_status": payment_status,
+                "status": guest_status,
             })
 
+        # Step 4: Return the list of guests with payment status and updated guest status
         return {
             "total_checked_in_guests": len(formatted_guests),
             "checked_in_guests": formatted_guests,
         }
 
     except Exception as e:
+        logger.error(f"Error while fetching checked-in guests: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 
 
 @router.put("/update/")

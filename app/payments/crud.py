@@ -1,3 +1,4 @@
+from fastapi import  HTTPException
 from sqlalchemy.orm import Session
 from app.payments import models as payment_models, schemas
 from datetime import datetime
@@ -43,13 +44,15 @@ def get_all_payments(db: Session):
 # Get Payment by ID
 def get_payment_by_id(db: Session, payment_id: int):
     """
-    Retrieve a payment by its ID.
+    Retrieve a payment by its ID, handling errors properly.
     """
     try:
-        return db.query(payment_models.Payment).filter(payment_models.Payment.id == payment_id).first()
+        payment = db.query(payment_models.Payment).filter(payment_models.Payment.id == payment_id).first()
+        return payment
     except Exception as e:
         logger.error(f"Error retrieving payment by ID: {str(e)}")
-        raise Exception("Error retrieving payment by ID")
+        raise HTTPException(status_code=500, detail="Error retrieving payment.")
+
   
   
 def update_payment_with_new_amount(db: Session, payment_id: int, amount_paid: float, balance_due: float):
