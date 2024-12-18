@@ -1,4 +1,4 @@
-   
+ #reservation models  
 from sqlalchemy import Column, Integer, String, Date, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -17,5 +17,5 @@ class Reservation(Base):
     is_deleted = Column(Boolean, default=False)  # Soft delete flag
     cancellation_reason = Column(String, nullable=True)  # Reason for cancellation
 
-    room = relationship("Room", back_populates="reservations")
+    #room = relationship("Room", back_populates="reservations")
 

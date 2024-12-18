@@ -1,3 +1,4 @@
+#schemas Reservation
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
@@ -54,6 +55,8 @@ class ReservationSchema(BaseModel):
 
     class Config:
         orm_mode = True
+
+
 
 
 # Schema for a single reserved room

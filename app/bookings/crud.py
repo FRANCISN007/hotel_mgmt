@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from app.check_in_guest import models as check_in_guest_models
+from app.bookings import models as booking_models
 
 def check_overlapping_check_in(
     db: Session,
@@ -20,12 +20,12 @@ def check_overlapping_check_in(
     Returns:
         guest_models.Check_in | None: The overlapping check-in if found, otherwise None.
     """
-    overlapping_check_in = db.query(check_in_guest_models.Check_in).filter(
-        check_in_guest_models.Check_in.room_number == room_number,
-        check_in_guest_models.Check_in.status == "checked-in",
+    overlapping_check_in = db.query(booking_models.Booking).filter(
+        booking_models.Booking.room_number == room_number,
+        booking_models.Booking.status == "checked-in",
         or_(
-            check_in_guest_models.Check_in.arrival_date <= departure_date,
-            check_in_guest_models.Check_in.departure_date >= arrival_date,
+            booking_models.Booking.arrival_date <= departure_date,
+            booking_models.Booking.departure_date >= arrival_date,
         )
     ).first()
 

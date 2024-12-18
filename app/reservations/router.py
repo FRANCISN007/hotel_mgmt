@@ -13,7 +13,7 @@ from app.reservations.crud import check_overlapping_check_in, check_overlapping_
 from app.users import schemas
 from datetime import date
 from app.users.schemas import UserDisplaySchema  # Ensure correct import
-from app.check_in_guest import models as check_in_models  # Ensure this exists
+from app.bookings import models as booking_models  # Ensure this exists
 from loguru import logger
 
 
@@ -285,12 +285,12 @@ def transaction_history(
             )
         
         checked_out_query = db.query(
-            check_in_models.Check_in.room_number,
-            check_in_models.Check_in.guest_name,
-            check_in_models.Check_in.arrival_date,
-            check_in_models.Check_in.departure_date,
-            check_in_models.Check_in.checkout_reason,
-        ).filter(check_in_models.Check_in.is_checked_out.is_(True))
+            booking_models.Booking.room_number,
+            booking_models.Booking.guest_name,
+            booking_models.Booking.arrival_date,
+            booking_models.Booking.departure_date,
+            booking_models.Booking.checkout_reason,
+        ).filter(booking_models.Booking.is_checked_out.is_(True))
 
         deleted_reservation_query = db.query(
             reservation_models.Reservation.room_number,
@@ -301,12 +301,12 @@ def transaction_history(
         ).filter(reservation_models.Reservation.is_deleted.is_(True))
 
         if start_date:
-            checked_out_query = checked_out_query.filter(check_in_models.Check_in.departure_date >= start_date)
+            checked_out_query = checked_out_query.filter(booking_models.Booking.departure_date >= start_date)
             deleted_reservation_query = deleted_reservation_query.filter(
                 reservation_models.Reservation.departure_date >= start_date
             )
         if end_date:
-            checked_out_query = checked_out_query.filter(check_in_models.Check_in.departure_date <= end_date)
+            checked_out_query = checked_out_query.filter(booking_models.Booking.departure_date <= end_date)
             deleted_reservation_query = deleted_reservation_query.filter(
                 reservation_models.Reservation.departure_date <= end_date
             )

@@ -3,7 +3,7 @@ from app.database import engine, Base
 from app.users.router import router as user_router
 from app.rooms.router import router as rooms_router
 from app.reservations.router import router as reservations_router
-from app.check_in_guest.router import router as check_in_guest_router
+from app.bookings.router import router as bookings_router
 from app.payments.router import router as payments_router  # Import the payments router
 from loguru import logger
 
@@ -25,6 +25,6 @@ def on_startup():
 
 app.include_router(user_router, prefix="/user", tags=["Users"])
 app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
-app.include_router(check_in_guest_router, prefix="/guest", tags=["Check-ins"])
+app.include_router(bookings_router, prefix="/guest", tags=["Bookings"])
 app.include_router(reservations_router, prefix="/reservations", tags=["Reservations"])
 app.include_router(payments_router, prefix="/payments", tags=["Payments"])  # Include the new payments routes
