@@ -11,6 +11,7 @@ class Payment(Base):
     room_number = Column(String, index=True)
     guest_name = Column(String, index=True)
     amount_paid = Column(Float)
+    discount_allowed = Column(Float, default=0.0)  # New column for discount
     balance_due = Column(Float, default=0.0)
     payment_method = Column(String)
     payment_date = Column(DateTime, default=datetime.utcnow)
@@ -18,12 +19,3 @@ class Payment(Base):
 
     # Foreign key relationship to the booking
     booking = relationship("Booking", back_populates="payments")
-   
-   
-    
-   
-    # Foreign key relationship to Check_in
-    #check_in_id = Column(Integer, ForeignKey('check_in.id'))
-
-   # Many-to-one relationship: Each Payment belongs to one Check_in
-    #check_in = relationship("Check_in", back_populates="payments", remote_side=[check_in_id])

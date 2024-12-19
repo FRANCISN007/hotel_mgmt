@@ -67,25 +67,33 @@ def handle_existing_payment(db, existing_payment, payment_request, booking_recor
             detail=f"Payment for booking ID {booking_record.id} already completed.",
         )
 
-    balance_due = existing_payment.balance_due
-    if payment_request.amount_paid + existing_payment.amount_paid > room.amount:
+    # Include discount in calculations
+    total_payment = (
+        existing_payment.amount_paid
+        + payment_request.amount_paid
+        + (payment_request.discount_allowed or 0)
+    )
+
+    if total_payment > room.amount:
         raise HTTPException(
             status_code=400,
-            detail="Payment amount exceeds the room price.",
+            detail="Total payment (including discount) exceeds the room price.",
         )
 
-    new_balance_due = balance_due - payment_request.amount_paid
+    new_balance_due = room.amount - total_payment
+    status = "payment incomplete" if new_balance_due > 0 else "payment completed"
+
     updated_payment = crud.update_payment_with_new_amount(
         db=db,
         payment_id=existing_payment.id,
-        amount_paid=payment_request.amount_paid,
+        amount_paid=existing_payment.amount_paid + payment_request.amount_paid,
+        discount_allowed=payment_request.discount_allowed,
         balance_due=new_balance_due,
+        status=status,
     )
     logger.info(f"Updated payment: {updated_payment.amount_paid} for booking {booking_record.id}.")
 
-    booking_record.payment_status = (
-        "payment incomplete" if new_balance_due > 0 else "payment completed"
-    )
+    booking_record.payment_status = status
     db.commit()
 
     return {
@@ -93,6 +101,7 @@ def handle_existing_payment(db, existing_payment, payment_request, booking_recor
         "payment_details": {
             "payment_id": updated_payment.id,
             "amount_paid": updated_payment.amount_paid,
+            "discount_allowed": payment_request.discount_allowed,
             "balance_due": updated_payment.balance_due,
             "status": updated_payment.status,
         },
@@ -100,7 +109,9 @@ def handle_existing_payment(db, existing_payment, payment_request, booking_recor
 
 
 def handle_new_payment(db, payment_request, booking_id, room, booking_record):
-    balance_due = room.amount - payment_request.amount_paid
+    # Include discount in balance_due calculation
+    total_payment = payment_request.amount_paid + (payment_request.discount_allowed or 0)
+    balance_due = room.amount - total_payment
     status = "payment incomplete" if balance_due > 0 else "payment completed"
 
     try:
@@ -119,6 +130,7 @@ def handle_new_payment(db, payment_request, booking_id, room, booking_record):
             "message": "Payment processed successfully.",
             "payment_id": new_payment.id,
             "amount_paid": new_payment.amount_paid,
+            "discount_allowed": payment_request.discount_allowed,
             "balance_due": balance_due,
             "status": status,
         }
@@ -127,9 +139,6 @@ def handle_new_payment(db, payment_request, booking_id, room, booking_record):
         db.rollback()
         logger.error(f"Error processing payment: {e}")
         raise HTTPException(status_code=500, detail="Error processing payment.")
-
-
-# Other endpoints remain unchanged but can follow similar patterns for improvement.
 
 
 # List Payments Endpoint
@@ -401,7 +410,6 @@ def delete_payment(
             detail="An error occurred while deleting the payment."
         )
 
-# Update Payment Endpoint
 @router.put("/update/{payment_id}/")
 def update_payment(
     payment_id: int,
@@ -410,10 +418,11 @@ def update_payment(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Update payment details such as amount, status, or other fields by payment ID.
+    Update payment details such as amount, room number, guest name, and other fields by payment ID.
+    The status will be automatically calculated.
     """
     try:
-        # Get the existing payment
+        # Retrieve the existing payment
         payment = crud.get_payment_by_id(db, payment_id)
         if not payment:
             raise HTTPException(
@@ -421,28 +430,86 @@ def update_payment(
                 detail=f"Payment with ID {payment_id} not found."
             )
 
-        # Update the fields based on the input
-        if payment_update.amount_paid is not None:
-            payment.amount_paid = payment_update.amount_paid
-        if payment_update.status is not None:
-            payment.status = payment_update.status
+        # Update the room number if provided
+        if payment_update.room_number is not None:
+            # Validate the new room number
+            room = crud.get_room_by_number(db, payment_update.room_number)
+            if not room:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Room {payment_update.room_number} not found."
+                )
+            payment.room_number = payment_update.room_number
 
-        # Commit the changes to the database
+        # Update the guest name if provided
+        if payment_update.guest_name is not None:
+            # Optionally, add validation for the guest if needed
+            payment.guest_name = payment_update.guest_name
+
+        # Update the amount paid if provided
+        if payment_update.amount_paid is not None:
+            new_total_paid = payment_update.amount_paid
+            if new_total_paid > room.amount:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Updated payment exceeds the room price."
+                )
+            payment.amount_paid = new_total_paid
+
+        # Apply the discount if provided
+        if payment_update.discount_allowed is not None:
+            payment.discount_allowed = payment_update.discount_allowed
+
+        # Calculate the total after applying the discount
+        total_after_discount = room.amount - payment.discount_allowed
+
+        # Ensure the payment does not exceed the total amount after the discount
+        if payment.amount_paid > total_after_discount:
+            raise HTTPException(
+                status_code=400,
+                detail="Amount paid exceeds the room price after discount."
+            )
+
+        # Calculate the new balance due considering the discount
+        payment.balance_due = total_after_discount - payment.amount_paid
+
+        # Update other fields
+        if payment_update.payment_method is not None:
+            payment.payment_method = payment_update.payment_method
+
+        if payment_update.payment_date is not None:
+            payment.payment_date = payment_update.payment_date
+
+        # Calculate status automatically based on balance_due
+        if payment.balance_due == 0:
+            payment.status = "payment completed"
+        elif payment.balance_due > 0 and payment.amount_paid > 0:
+            payment.status = "payment incomplete"
+        else:
+            payment.status = "pending"
+
+        # Commit changes to the database
         db.commit()
         logger.info(f"Payment with ID {payment_id} updated successfully.")
 
+        # Return updated payment details
         return {
             "message": f"Payment with ID {payment_id} updated successfully.",
             "payment_details": {
+                "payment_id": payment.id,
                 "room_number": payment.room_number,
                 "guest_name": payment.guest_name,
-                "amount": payment.amount_paid,
+                "amount_paid": payment.amount_paid,
+                "discount_allowed": payment.discount_allowed,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
+                "balance_due": payment.balance_due,
                 "status": payment.status,
-            }
+            },
         }
 
+    except HTTPException as e:
+        raise e
     except Exception as e:
         db.rollback()
         logger.error(f"Error updating payment: {str(e)}")
