@@ -1,7 +1,8 @@
 #Check_in models
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from app.database import Base
+from datetime import datetime
 
 
 """
@@ -43,6 +44,7 @@ class Booking(Base):
     booking_type = Column(String, nullable=False)  # "reservation" or "check-in"
     status = Column(String, default="reserved")  # reserved, checked-in, or checked-out
     payment_status = Column(String, default="pending")  # Optional for check-ins
+    booking_date = Column(DateTime, default=datetime.utcnow)
     is_checked_out = Column(Boolean, default=False)  # Optional for check-ins
     cancellation_reason = Column(String, nullable=True)  # Optional for reservations
 
