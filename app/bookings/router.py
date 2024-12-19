@@ -36,15 +36,15 @@ def create_booking(
     """
     room_number = booking_request.room_number
     today = date.today()
-    
-     # Step 1: Validate booking dates
+
+    # Step 1: Validate booking dates
     if booking_request.departure_date < booking_request.arrival_date:
         raise HTTPException(
             status_code=400,
             detail="Departure date must be later than the arrival date.",
         )
 
-    # Step 1: Validate booking type and dates
+    # Step 2: Validate booking type and dates
     if booking_request.booking_type == "C":  # Check-in
         if booking_request.arrival_date != today:
             raise HTTPException(
@@ -63,23 +63,23 @@ def create_booking(
             detail="Invalid booking type. Use 'C' for check-in or 'R' for reserved.",
         )
 
-    # Step 2: Prevent past dates
+    # Step 3: Prevent past dates
     if booking_request.arrival_date < today:
         raise HTTPException(
             status_code=400, detail="Bookings cannot start in the past."
         )
 
-    # Step 3: Check room existence
+    # Step 4: Check room existence
     room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
     if not room:
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
-    # Step 4: Check for overlapping bookings
+    # Step 5: Check for overlapping bookings
     overlapping_booking = db.query(booking_models.Booking).filter(
         booking_models.Booking.room_number == room_number,
         booking_models.Booking.status != "checked-out",  # Do not consider 'checked-out' rooms
         or_(
-            # Check for overlap with existing bookings (except the current check-in which is allowed for future reservations)
+            # Check for overlap with existing bookings
             and_(
                 booking_models.Booking.arrival_date < booking_request.departure_date,
                 booking_models.Booking.departure_date > booking_request.arrival_date,
@@ -93,7 +93,7 @@ def create_booking(
             detail=f"Room {room_number} is already booked for the requested dates.",
         )
 
-    # Step 5: Create new booking
+    # Step 6: Create new booking
     try:
         new_booking = booking_models.Booking(
             room_number=room_number,
@@ -102,6 +102,7 @@ def create_booking(
             departure_date=booking_request.departure_date,
             booking_type=booking_request.booking_type,
             status="reserved" if booking_request.booking_type == "R" else "checked-in",
+            room_price=room.amount,  # Include room price
         )
         db.add(new_booking)
 
@@ -112,7 +113,16 @@ def create_booking(
 
         return {
             "message": f"Booking created successfully for room {room_number}.",
-            "booking_details": new_booking,
+            "booking_details": {
+                "id": new_booking.id,
+                "room_number": new_booking.room_number,
+                "guest_name": new_booking.guest_name,
+                "arrival_date": new_booking.arrival_date,
+                "departure_date": new_booking.departure_date,
+                "booking_type": new_booking.booking_type,
+                "status": new_booking.status,
+                "room_price": new_booking.room_price,  # Include room price in response
+            },
         }
     except Exception as e:
         db.rollback()

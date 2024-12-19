@@ -30,6 +30,12 @@ class Check_in(Base):
 
 
 
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, Float
+from sqlalchemy.orm import relationship
+from app.database import Base
+from datetime import datetime
+
+
 class Booking(Base):
     """
     Unified model for both reservations and check-ins.
@@ -39,6 +45,7 @@ class Booking(Base):
     id = Column(Integer, primary_key=True, index=True)
     room_number = Column(String, ForeignKey("rooms.room_number", ondelete="CASCADE"), nullable=False)
     guest_name = Column(String, nullable=False)
+    room_price = Column(Float, nullable=False)  # New column to store room price
     arrival_date = Column(Date, nullable=False)
     departure_date = Column(Date, nullable=False)
     booking_type = Column(String, nullable=False)  # "reservation" or "check-in"
@@ -47,9 +54,10 @@ class Booking(Base):
     booking_date = Column(DateTime, default=datetime.utcnow)
     is_checked_out = Column(Boolean, default=False)  # Optional for check-ins
     cancellation_reason = Column(String, nullable=True)  # Optional for reservations
+    
 
     # Relationships
     room = relationship("Room", back_populates="bookings")
    
-   # Many-to-one relationship: One booking can have multiple payments
+    # Many-to-one relationship: One booking can have multiple payments
     payments = relationship("Payment", back_populates="booking")
