@@ -1,7 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi import Query
+from typing import Optional
+from datetime import date
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.payments import schemas as payment_schemas, crud
+from app.payments import models as payment_models
 from app.users.auth import get_current_user
 from app.users import schemas
 from loguru import logger
@@ -277,41 +281,48 @@ def get_payment_by_id(
             detail=f"An error occurred while retrieving the payment: {str(e)}",
         )
 
-# List Payments by Date Range Endpoint
-from datetime import datetime, timedelta
 
 @router.get("/list_by_date/")
 def list_payments_by_date(
-    start_date: datetime,
-    end_date: datetime,
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
     List payments made between the specified start and end date.
+    If no dates are provided, returns all payments.
     """
     try:
-        # Ensure that the start_date is before or equal to end_date
-        if start_date > end_date:
-            raise HTTPException(
-                status_code=400,
-                detail="Start date cannot be after end date."
+        # Build the base query
+        query = db.query(payment_models.Payment)
+
+        # Apply date filters based on provided inputs
+        if start_date and end_date:
+            if start_date > end_date:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Start date cannot be after end date."
+                )
+            query = query.filter(
+                payment_models.Payment.payment_date >= start_date,
+                payment_models.Payment.payment_date <= end_date
             )
+        elif start_date:
+            query = query.filter(payment_models.Payment.payment_date >= start_date)
+        elif end_date:
+            query = query.filter(payment_models.Payment.payment_date <= end_date)
 
-        # Adjust the end date to include the entire day (23:59:59.999999)
-        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-        # Retrieve payments within the specified date range
-        payments = crud.get_payments_by_date_range(db, start_date, end_date)
+        # Retrieve payments
+        payments = query.all()
 
         if not payments:
-            logger.info(f"No payments found between {start_date} and {end_date}.")
-            return {"message": "No payments found for the specified date range."}
+            logger.info("No payments found for the specified criteria.")
+            return {"message": "No payments found for the specified criteria."}
 
         # Prepare the list of payment details to be returned
-        payment_list = []
-        for payment in payments:
-            payment_list.append({
+        payment_list = [
+            {
                 "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
@@ -320,9 +331,11 @@ def list_payments_by_date(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
-            })
+            }
+            for payment in payments
+        ]
 
-        logger.info(f"Retrieved {len(payment_list)} payments between {start_date} and {end_date}.")
+        logger.info(f"Retrieved {len(payment_list)} payments.")
         return {
             "total_payments": len(payment_list),
             "payments": payment_list,
@@ -334,6 +347,9 @@ def list_payments_by_date(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}",
         )
+
+
+
 
 # Delete Payment Endpoint
 # Delete Payment Endpoint

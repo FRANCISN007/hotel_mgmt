@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi import Query
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from datetime import date
@@ -13,7 +14,6 @@ from app.reservations import models as reservation_models  # Import reservation 
 from app.bookings.crud import check_overlapping_check_in  # Import the function
 from app.bookings import schemas, models as  booking_models
 from app.payments import models as payment_models
-from datetime import date
 from loguru import logger
 
 router = APIRouter()
@@ -121,6 +121,8 @@ def create_booking(
 
 @router.get("/list/")
 def list_bookings(
+    limit: int = Query(10, ge=1),
+    skip: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
@@ -129,10 +131,11 @@ def list_bookings(
     - Pending: No payment made
     - Incomplete Payment: Payment made but balance remains
     - Payment Completed: Full payment made
+    Supports pagination with limit and skip.
     """
     bookings = db.query(booking_models.Booking).filter(
         booking_models.Booking.status != "checked-out"
-    ).all()
+    ).offset(skip).limit(limit).all()
 
     formatted_bookings = []
     for booking in bookings:
@@ -170,6 +173,74 @@ def list_bookings(
         "total_bookings": len(formatted_bookings),
         "bookings": formatted_bookings,
     }
+
+@router.get("/list_by_date/")
+def list_bookings_by_date(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    List bookings filtered by an optional date range (start_date and end_date).
+    """
+    try:
+        # Build the base query
+        query = db.query(booking_models.Booking).filter(
+            booking_models.Booking.status != "checked-out"
+        )
+
+        # Apply date filters if provided
+        if start_date:
+            query = query.filter(booking_models.Booking.arrival_date >= start_date)
+        if end_date:
+            query = query.filter(booking_models.Booking.departure_date <= end_date)
+
+        bookings = query.all()
+
+        formatted_bookings = []
+        for booking in bookings:
+            # Fetch payment details for the booking
+            payment = db.query(payment_models.Payment).filter(
+                payment_models.Payment.room_number == booking.room_number,
+                payment_models.Payment.guest_name == booking.guest_name,
+            ).first()
+
+            # Determine payment status
+            if not payment:
+                payment_status = "pending"
+            elif payment.balance_due > 0:
+                payment_status = "incomplete payment"
+            else:
+                payment_status = "payment completed"
+
+            # Update booking payment status in the database if it has changed
+            if payment_status != booking.payment_status:
+                booking.payment_status = payment_status
+                db.commit()
+
+            formatted_bookings.append({
+                "id": booking.id,
+                "room_number": booking.room_number,
+                "guest_name": booking.guest_name,
+                "arrival_date": booking.arrival_date,
+                "departure_date": booking.departure_date,
+                "booking_type": booking.booking_type,
+                "status": booking.status,
+                "payment_status": booking.payment_status,  # Updated payment status
+            })
+
+        return {
+            "total_bookings": len(formatted_bookings),
+            "bookings": formatted_bookings,
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving bookings by date: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving bookings: {str(e)}",
+        )
 
 
 @router.put("/update/")
