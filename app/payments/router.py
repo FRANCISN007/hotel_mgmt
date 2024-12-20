@@ -8,6 +8,7 @@ from app.payments import schemas as payment_schemas, crud
 from app.payments import models as payment_models
 from app.users.auth import get_current_user
 from app.users import schemas
+from app.rooms import models as room_models  # Ensure Room model is imported
 from app.bookings import models as booking_models
 from loguru import logger
 
@@ -200,6 +201,13 @@ def list_payments_by_date(
     If no dates are provided, returns all payments.
     """
     try:
+        # Set the end date to the end of the day if only the date is provided
+        if start_date:
+            start_datetime = datetime.combine(start_date, datetime.min.time())
+        if end_date:
+            # Add one day to include the full day
+            end_datetime = datetime.combine(end_date, datetime.max.time())
+
         # Build the base query
         query = db.query(payment_models.Payment)
 
@@ -211,13 +219,13 @@ def list_payments_by_date(
                     detail="Start date cannot be after end date."
                 )
             query = query.filter(
-                payment_models.Payment.payment_date >= start_date,
-                payment_models.Payment.payment_date <= end_date
+                payment_models.Payment.payment_date >= start_datetime,
+                payment_models.Payment.payment_date <= end_datetime
             )
         elif start_date:
-            query = query.filter(payment_models.Payment.payment_date >= start_date)
+            query = query.filter(payment_models.Payment.payment_date >= start_datetime)
         elif end_date:
-            query = query.filter(payment_models.Payment.payment_date <= end_date)
+            query = query.filter(payment_models.Payment.payment_date <= end_datetime)
 
         # Retrieve payments
         payments = query.all()
@@ -253,6 +261,8 @@ def list_payments_by_date(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}",
         )
+
+
 
 @router.get("/list_void_payments/")
 def list_void_payments(
@@ -381,6 +391,80 @@ def total_payment(
             detail="An error occurred while retrieving daily sales."
         )
 
+
+
+@router.get("/debtor_list/")
+def get_debtor_list(
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Get a list of debtors and the total amount due for all debtors.
+    """
+    try:
+        # Query all bookings and their related rooms
+        bookings = db.query(booking_models.Booking).all()
+
+        if not bookings:
+            return {"message": "No bookings found."}
+
+        debtor_list = []
+        total_debt_amount = 0  # Initialize total debt amount
+
+        # Iterate through each booking
+        for booking in bookings:
+            # Fetch the room associated with the booking
+            room = db.query(room_models.Room).filter(
+                room_models.Room.room_number == booking.room_number
+            ).first()
+
+            if not room:
+                continue
+
+            # Fetch payments for this booking
+            payments = db.query(payment_models.Payment).filter(
+                payment_models.Payment.booking_id == booking.id,
+                payment_models.Payment.status != "voided"
+            ).all()
+
+            # Calculate total payments
+            total_paid = sum(
+                payment.amount_paid + (payment.discount_allowed or 0)
+                for payment in payments
+            )
+
+            # Calculate the balance due
+            balance_due = room.amount - total_paid
+
+            # If balance_due > 0, add to debtor list and update total_debt_amount
+            if balance_due > 0:
+                debtor_list.append({
+                    "guest_name": booking.guest_name,
+                    "room_number": booking.room_number,
+                    "booking_id": booking.id,
+                    "room_price": room.amount,
+                    "total_paid": total_paid,
+                    "amount_due": balance_due,
+                    
+                })
+                total_debt_amount += balance_due
+
+        # Return the debtor list and total debt amount
+        if not debtor_list:
+            return {"message": "No debtors found."}
+
+        return {
+            "total_debtors": len(debtor_list),
+            "total_debt_amount": total_debt_amount,
+            "debtors": debtor_list,
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving debtor list: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while retrieving the debtor list.",
+        )
 
 
 

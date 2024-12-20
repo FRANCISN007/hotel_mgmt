@@ -9,7 +9,7 @@ class PaymentCreateSchema(BaseModel):
     discount_allowed: Optional[float] = 0.0  # New discount field, default to 0.0
     payment_method: str  # E.g., 'credit_card', 'cash', 'bank_transfer'
     payment_date: Optional[datetime] = None  # Defaults to current datetime if not provided
-    balance_due: Optional[float] = 0.0 
+    #balance_due: Optional[float] = 0.0 
     status: Optional[str] = "pending"  # Payment status (e.g., pending, completed, failed)
 
     class Config:

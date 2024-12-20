@@ -148,17 +148,16 @@ def list_bookings(
 
     formatted_bookings = []
     for booking in bookings:
-        # Fetch payment details for the booking
-        payment = db.query(payment_models.Payment).filter(
-            payment_models.Payment.booking_id == booking.id
-        ).first()
+        # Calculate total payments made for this booking
+        total_paid = db.query(func.sum(payment_models.Payment.amount_paid)).filter(
+            payment_models.Payment.booking_id == booking.id,
+            payment_models.Payment.status != "voided",  # Exclude voided payments
+        ).scalar() or 0
 
         # Determine payment status
-        if not payment:
+        if total_paid == 0:
             payment_status = "pending"
-        elif payment.status == "voided":  # Check if payment is voided
-            payment_status = "pending"  # Revert to pending to allow further payments
-        elif payment.balance_due > 0:
+        elif total_paid < booking.room_price:
             payment_status = "incomplete payment"
         else:
             payment_status = "payment completed"
@@ -185,6 +184,64 @@ def list_bookings(
         "bookings": formatted_bookings,
     }
 
+
+@router.get("/list_by_id/{booking_id}/")
+def list_booking_by_id(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Retrieve a specific booking by booking ID with updated payment status:
+    - Pending: No payment made
+    - Incomplete Payment: Payment made but balance remains
+    - Payment Completed: Full payment made
+    - Voided: Payment was voided
+    """
+    # Fetch the booking by ID
+    booking = db.query(booking_models.Booking).filter(
+        booking_models.Booking.id == booking_id
+    ).first()
+
+    if not booking:
+        raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found.")
+
+    # Calculate total payments made for this booking
+    total_paid = db.query(func.sum(payment_models.Payment.amount_paid)).filter(
+        payment_models.Payment.booking_id == booking.id,
+        payment_models.Payment.status != "voided",  # Exclude voided payments
+    ).scalar() or 0
+
+    # Determine payment status
+    if total_paid == 0:
+        payment_status = "pending"
+    elif total_paid < booking.room_price:
+        payment_status = "incomplete payment"
+    else:
+        payment_status = "payment completed"
+
+    # Update booking payment status in the database if it has changed
+    if payment_status != booking.payment_status:
+        booking.payment_status = payment_status
+        db.commit()
+
+    # Format the response
+    formatted_booking = {
+        "id": booking.id,
+        "room_number": booking.room_number,
+        "guest_name": booking.guest_name,
+        "arrival_date": booking.arrival_date,
+        "departure_date": booking.departure_date,
+        "number_of_days": booking.number_of_days,
+        "booking_type": booking.booking_type,
+        "status": booking.status,
+        "payment_status": booking.payment_status,  # Updated payment status
+    }
+
+    return {
+        "message": f"Booking details for ID {booking_id} retrieved successfully.",
+        "booking": formatted_booking,
+    }
 
 
 
