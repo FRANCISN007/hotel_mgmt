@@ -1,63 +1,34 @@
-#Check_in models
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime
+# models.py
+from sqlalchemy import event
 from sqlalchemy.orm import relationship
-from app.database import Base
-from datetime import datetime
-
-
-"""
-class Check_in(Base):
-    __tablename__ = "check_in"
-
-    id = Column(Integer, primary_key=True, index=True)
-    room_number = Column(String, ForeignKey("rooms.room_number", ondelete="CASCADE"), nullable=False)
-    guest_name = Column(String, nullable=False)
-    arrival_date = Column(Date, nullable=False)
-    departure_date = Column(Date, nullable=False)
-    status = Column(String, default="checked-in")
-    payment_status = Column(String, default="not paid")
-    #original_payment_status = Column(String, default="not paid")
-    room = relationship("Room", back_populates="check_in")
-    is_checked_out = Column(Boolean, default=False)
-    checkout_reason = Column(String, nullable=True)
-
-     # One-to-many relationship: A Check_in can have many Payments
-    payments = relationship("Payment", back_populates="check_in")
-    
-    
-""" 
-
-
-
-
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, Float
-from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime
-
 
 class Booking(Base):
-    """
-    Unified model for both reservations and check-ins.
-    """
     __tablename__ = "bookings"
 
     id = Column(Integer, primary_key=True, index=True)
     room_number = Column(String, ForeignKey("rooms.room_number", ondelete="CASCADE"), nullable=False)
     guest_name = Column(String, nullable=False)
-    room_price = Column(Float, nullable=False)  # New column to store room price
+    room_price = Column(Float, nullable=False)
     arrival_date = Column(Date, nullable=False)
     departure_date = Column(Date, nullable=False)
-    booking_type = Column(String, nullable=False)  # "reservation" or "check-in"
-    status = Column(String, default="reserved")  # reserved, checked-in, or checked-out
-    payment_status = Column(String, default="pending")  # Optional for check-ins
+    number_of_days = Column(Integer, nullable=False)
+    booking_type = Column(String, nullable=False)
+    status = Column(String, default="reserved")
+    payment_status = Column(String, default="pending")
     booking_date = Column(DateTime, default=datetime.utcnow)
-    is_checked_out = Column(Boolean, default=False)  # Optional for check-ins
-    cancellation_reason = Column(String, nullable=True)  # Optional for reservations
-    
+    is_checked_out = Column(Boolean, default=False)
+    cancellation_reason = Column(String, nullable=True)
 
     # Relationships
     room = relationship("Room", back_populates="bookings")
-   
-    # Many-to-one relationship: One booking can have multiple payments
     payments = relationship("Payment", back_populates="booking")
+
+# Event listener
+@event.listens_for(Booking, "before_insert")
+@event.listens_for(Booking, "before_update")
+def set_number_of_days(mapper, connection, target):
+    if target.arrival_date and target.departure_date:
+        target.number_of_days = (target.departure_date - target.arrival_date).days
