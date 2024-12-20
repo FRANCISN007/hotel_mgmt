@@ -23,6 +23,7 @@ def create_payment(
 ):
     """
     Create a new payment for a booking and automatically update check-in payment status.
+    Excludes voided payments from total paid calculations.
     """
     booking_record = db.query(booking_models.Booking).filter(
         booking_models.Booking.id == booking_id
@@ -46,33 +47,32 @@ def create_payment(
         )
 
     try:
-        existing_payment = crud.get_payment_by_booking_id(db, booking_id)
-        logger.info(f"Existing payment: {existing_payment}")
-    except Exception as e:
-        logger.error(f"Error checking existing payment: {e}")
-        raise HTTPException(status_code=500, detail="Error checking existing payment.")
+        # Fetch existing payments for the booking, excluding voided payments
+        existing_payments = db.query(payment_models.Payment).filter(
+            payment_models.Payment.booking_id == booking_id,
+            payment_models.Payment.status != "voided"  # Exclude voided payments
+        ).all()
 
-    if existing_payment:
+        logger.info(f"Existing payments: {existing_payments}")
+    except Exception as e:
+        logger.error(f"Error checking existing payments: {e}")
+        raise HTTPException(status_code=500, detail="Error checking existing payments.")
+
+    if existing_payments:
         return handle_existing_payment(
-            db, existing_payment, payment_request, booking_record, room
+            db, existing_payments, payment_request, booking_record, room
         )
 
     return handle_new_payment(db, payment_request, booking_id, room, booking_record)
 
 
-def handle_existing_payment(db, existing_payment, payment_request, booking_record, room):
-    if existing_payment.status == "payment completed":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Payment for booking ID {booking_record.id} already completed.",
-        )
-
-    # Include discount in calculations
-    total_payment = (
-        existing_payment.amount_paid
-        + payment_request.amount_paid
-        + (payment_request.discount_allowed or 0)
+def handle_existing_payment(db, existing_payments, payment_request, booking_record, room):
+    # Sum up all non-voided payments
+    total_payment = sum(
+        payment.amount_paid + (payment.discount_allowed or 0) for payment in existing_payments
     )
+
+    total_payment += payment_request.amount_paid
 
     if total_payment > room.amount:
         raise HTTPException(
@@ -83,38 +83,47 @@ def handle_existing_payment(db, existing_payment, payment_request, booking_recor
     new_balance_due = room.amount - total_payment
     status = "payment incomplete" if new_balance_due > 0 else "payment completed"
 
-    updated_payment = crud.update_payment_with_new_amount(
-        db=db,
-        payment_id=existing_payment.id,
-        amount_paid=existing_payment.amount_paid + payment_request.amount_paid,
-        discount_allowed=payment_request.discount_allowed,
-        balance_due=new_balance_due,
-        status=status,
-    )
-    logger.info(f"Updated payment: {updated_payment.amount_paid} for booking {booking_record.id}.")
+    try:
+        # Update existing payment record
+        updated_payment = crud.update_payment_with_new_amount(
+            db=db,
+            payment_id=existing_payments[-1].id,  # Update the last payment in the list
+            amount_paid=total_payment,
+            discount_allowed=payment_request.discount_allowed,
+            balance_due=new_balance_due,
+            status=status,
+        )
 
-    booking_record.payment_status = status
-    db.commit()
+        logger.info(f"Updated payment: {updated_payment.amount_paid} for booking {booking_record.id}.")
 
-    return {
-        "message": "Additional payment made successfully.",
-        "payment_details": {
-            "payment_id": updated_payment.id,
-            "amount_paid": updated_payment.amount_paid,
-            "discount_allowed": payment_request.discount_allowed,
-            "balance_due": updated_payment.balance_due,
-            "status": updated_payment.status,
-        },
-    }
+        booking_record.payment_status = status
+        db.commit()
+
+        return {
+            "message": "Additional payment made successfully.",
+            "payment_details": {
+                "payment_id": updated_payment.id,
+                "amount_paid": updated_payment.amount_paid,
+                "discount_allowed": payment_request.discount_allowed,
+                "balance_due": updated_payment.balance_due,
+                "status": updated_payment.status,
+            },
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating existing payment: {e}")
+        raise HTTPException(status_code=500, detail="Error updating existing payment.")
 
 
 def handle_new_payment(db, payment_request, booking_id, room, booking_record):
-    # Include discount in balance_due calculation
+    # Calculate the total payment and balance due, excluding voided payments
     total_payment = payment_request.amount_paid + (payment_request.discount_allowed or 0)
     balance_due = room.amount - total_payment
     status = "payment incomplete" if balance_due > 0 else "payment completed"
 
     try:
+        # Create new payment record
         new_payment = crud.create_payment(
             db=db,
             payment=payment_request,
@@ -306,16 +315,17 @@ def total_payment(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Retrieve total daily sales and a list of payments for the current day.
+    Retrieve total daily sales and a list of payments for the current day, excluding void payments.
     """
     try:
         # Get the current date
         today = datetime.now().date()
 
-        # Query payments made on the current day
+        # Query payments made on the current day, excluding void payments
         payments = db.query(payment_models.Payment).filter(
             payment_models.Payment.payment_date >= today,
-            payment_models.Payment.payment_date < today + timedelta(days=1)
+            payment_models.Payment.payment_date < today + timedelta(days=1),
+            payment_models.Payment.status != "voided"
         ).all()
 
         if not payments:
@@ -358,19 +368,19 @@ def total_payment(
 
 
 
+
 # Delete Payment Endpoint
-# Delete Payment Endpoint
-@router.delete("/delete/{payment_id}/")
-def delete_payment(
+@router.put("/void/{payment_id}/")
+def void_payment(
     payment_id: int,
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Delete a payment record by its ID and revert the check-in status to 'payment incomplete' if applicable.
+    Mark a payment as void by its ID. This action preserves the payment record for audit purposes.
     """
     try:
-        # Step 1: Check if the payment exists
+        # Retrieve the payment record by ID
         payment = crud.get_payment_by_id(db, payment_id)
         if not payment:
             logger.warning(f"Payment with ID {payment_id} does not exist.")
@@ -379,36 +389,30 @@ def delete_payment(
                 detail=f"Payment with ID {payment_id} not found."
             )
 
-        logger.info(f"Found payment record to delete: {payment}")
-
-        # Step 2: Revert check-in payment status if associated check-in record exists
-        check_in_record = db.query(booking_models.Booking).filter(
-            booking_models.Booking.room_number == payment.room_number,
-            booking_models.Booking.guest_name == payment.guest_name
-        ).first()
-
-        if check_in_record:
-            check_in_record.payment_status = "payment incomplete"
-            db.commit()  # Commit the reverted status immediately
-            logger.info(f"Reverted payment status for guest {payment.guest_name} in room {payment.room_number} to 'payment incomplete'.")
-
-        # Step 3: Delete the payment
-        crud.delete_payment(db, payment_id)
+        # Update payment status to void
+        payment.status = "voided"
         db.commit()
-        logger.info(f"Payment with ID {payment_id} successfully deleted.")
 
-        return {"message": f"Payment with ID {payment_id} has been deleted successfully."}
+        logger.info(f"Payment with ID {payment_id} marked as void.")
+
+        return {
+            "message": f"Payment with ID {payment_id} has been marked as void successfully.",
+            "payment_details": {
+                "payment_id": payment.id,
+                "status": payment.status,
+            },
+        }
 
     except HTTPException as e:
-        # Raise HTTPExceptions gracefully
         raise e
     except Exception as e:
-        db.rollback()  # Rollback the transaction on error
-        logger.error(f"Error deleting payment with ID {payment_id}: {str(e)}")
+        db.rollback()
+        logger.error(f"Error marking payment as void: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while deleting the payment."
+            detail="An error occurred while marking the payment as void."
         )
+
 
 @router.put("/update/{payment_id}/")
 def update_payment(

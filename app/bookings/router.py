@@ -128,7 +128,6 @@ def create_booking(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-
 @router.get("/list/")
 def list_bookings(
     limit: int = Query(10, ge=1),
@@ -141,6 +140,7 @@ def list_bookings(
     - Pending: No payment made
     - Incomplete Payment: Payment made but balance remains
     - Payment Completed: Full payment made
+    - Voided: Payment was voided
     Supports pagination with limit and skip.
     """
     bookings = db.query(booking_models.Booking).filter(
@@ -151,13 +151,14 @@ def list_bookings(
     for booking in bookings:
         # Fetch payment details for the booking
         payment = db.query(payment_models.Payment).filter(
-            payment_models.Payment.room_number == booking.room_number,
-            payment_models.Payment.guest_name == booking.guest_name,
+            payment_models.Payment.booking_id == booking.id
         ).first()
 
         # Determine payment status
         if not payment:
             payment_status = "pending"
+        elif payment.status == "voided":  # Check if payment is voided
+            payment_status = "pending"  # Revert to pending to allow further payments
         elif payment.balance_due > 0:
             payment_status = "incomplete payment"
         else:
@@ -185,6 +186,9 @@ def list_bookings(
         "bookings": formatted_bookings,
     }
 
+
+
+
 @router.get("/list_by_date/")
 def list_bookings_by_date(
     start_date: Optional[date] = Query(None),
@@ -193,7 +197,12 @@ def list_bookings_by_date(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List bookings filtered by an optional date range (start_date and end_date).
+    List bookings filtered by an optional date range (start_date and end_date),
+    with updated payment status:
+    - Pending: No payment made
+    - Incomplete Payment: Payment made but balance remains
+    - Payment Completed: Full payment made
+    - Voided: Payment was voided
     """
     try:
         # Build the base query
@@ -213,13 +222,14 @@ def list_bookings_by_date(
         for booking in bookings:
             # Fetch payment details for the booking
             payment = db.query(payment_models.Payment).filter(
-                payment_models.Payment.room_number == booking.room_number,
-                payment_models.Payment.guest_name == booking.guest_name,
+                payment_models.Payment.booking_id == booking.id
             ).first()
 
             # Determine payment status
             if not payment:
                 payment_status = "pending"
+            elif payment.status == "voided":  # Check if payment is voided
+                payment_status = "pending"  # Revert to pending to allow further payments
             elif payment.balance_due > 0:
                 payment_status = "incomplete payment"
             else:
