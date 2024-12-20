@@ -10,8 +10,7 @@ from app.users.auth import get_current_user
 from sqlalchemy import or_
 from sqlalchemy import and_
 from app.rooms import models as room_models  # Import room models
-from app.reservations import models as reservation_models  # Import reservation models
-from app.bookings.crud import check_overlapping_check_in  # Import the function
+#from app.bookings.crud import check_overlapping_check_in  # Import the function
 from app.bookings import schemas, models as  booking_models
 from app.payments import models as payment_models
 from loguru import logger

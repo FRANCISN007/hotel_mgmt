@@ -6,7 +6,6 @@ from sqlalchemy.sql import func
 from sqlalchemy import or_
 from sqlalchemy import and_
 from app.rooms import schemas as room_schemas, models as room_models, crud
-from app.reservations import models as reservation_models
 from app.bookings import models as booking_models  # Adjust path if needed
 from app.users import schemas
 from datetime import date
@@ -72,14 +71,7 @@ def history(
     # Query all rooms
     all_rooms = db.query(room_models.Room).all()
 
-    # Query all reservations
-    reservations = db.query(
-        reservation_models.Reservation.room_number,
-        reservation_models.Reservation.guest_name,
-        reservation_models.Reservation.arrival_date,
-        reservation_models.Reservation.departure_date,
-        reservation_models.Reservation.status
-    ).all()
+
 
     # Query all check-ins
     check_ins = db.query(
@@ -93,17 +85,6 @@ def history(
     # Build a list of transactions for each room
     transactions_map = {}
 
-    # Map reservations
-    for res in reservations:
-        if res.room_number not in transactions_map:
-            transactions_map[res.room_number] = []
-        transactions_map[res.room_number].append({
-            "transaction_type": "reservation",
-            "guest_name": res.guest_name,
-            "arrival_date": res.arrival_date,
-            "departure_date": res.departure_date,
-            "status": res.status
-        })
 
     # Map check-ins
     for check_in in check_ins:

@@ -22,8 +22,7 @@ def create_payment(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Create a new payment for a booking and automatically update check-in payment status.
-    Excludes voided payments from total paid calculations.
+    Create a new payment for a booking, considering discounts and payment history.
     """
     booking_record = db.query(booking_models.Booking).filter(
         booking_models.Booking.id == booking_id
@@ -46,84 +45,27 @@ def create_payment(
             detail=f"Booking ID {booking_id} must be checked-in or reserved to make a payment.",
         )
 
-    try:
-        # Fetch existing payments for the booking, excluding voided payments
-        existing_payments = db.query(payment_models.Payment).filter(
-            payment_models.Payment.booking_id == booking_id,
-            payment_models.Payment.status != "voided"  # Exclude voided payments
-        ).all()
+    existing_payments = db.query(payment_models.Payment).filter(
+        payment_models.Payment.booking_id == booking_id,
+        payment_models.Payment.status != "voided",
+    ).all()
 
-        logger.info(f"Existing payments: {existing_payments}")
-    except Exception as e:
-        logger.error(f"Error checking existing payments: {e}")
-        raise HTTPException(status_code=500, detail="Error checking existing payments.")
-
-    if existing_payments:
-        return handle_existing_payment(
-            db, existing_payments, payment_request, booking_record, room
-        )
-
-    return handle_new_payment(db, payment_request, booking_id, room, booking_record)
-
-
-def handle_existing_payment(db, existing_payments, payment_request, booking_record, room):
-    # Sum up all non-voided payments
-    total_payment = sum(
+    total_existing_payment = sum(
         payment.amount_paid + (payment.discount_allowed or 0) for payment in existing_payments
     )
 
-    total_payment += payment_request.amount_paid
+    new_total_payment = total_existing_payment + payment_request.amount_paid + (payment_request.discount_allowed or 0)
 
-    if total_payment > room.amount:
+    if new_total_payment > room.amount:
         raise HTTPException(
             status_code=400,
-            detail="Total payment (including discount) exceeds the room price.",
+            detail=f"Total payment (including discount) exceeds the room price of {room.amount}.",
         )
 
-    new_balance_due = room.amount - total_payment
-    status = "payment incomplete" if new_balance_due > 0 else "payment completed"
-
-    try:
-        # Update existing payment record
-        updated_payment = crud.update_payment_with_new_amount(
-            db=db,
-            payment_id=existing_payments[-1].id,  # Update the last payment in the list
-            amount_paid=total_payment,
-            discount_allowed=payment_request.discount_allowed,
-            balance_due=new_balance_due,
-            status=status,
-        )
-
-        logger.info(f"Updated payment: {updated_payment.amount_paid} for booking {booking_record.id}.")
-
-        booking_record.payment_status = status
-        db.commit()
-
-        return {
-            "message": "Additional payment made successfully.",
-            "payment_details": {
-                "payment_id": updated_payment.id,
-                "amount_paid": updated_payment.amount_paid,
-                "discount_allowed": payment_request.discount_allowed,
-                "balance_due": updated_payment.balance_due,
-                "status": updated_payment.status,
-            },
-        }
-
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error updating existing payment: {e}")
-        raise HTTPException(status_code=500, detail="Error updating existing payment.")
-
-
-def handle_new_payment(db, payment_request, booking_id, room, booking_record):
-    # Calculate the total payment and balance due, excluding voided payments
-    total_payment = payment_request.amount_paid + (payment_request.discount_allowed or 0)
-    balance_due = room.amount - total_payment
+    balance_due = room.amount - new_total_payment
     status = "payment incomplete" if balance_due > 0 else "payment completed"
 
     try:
-        # Create new payment record
         new_payment = crud.create_payment(
             db=db,
             payment=payment_request,
@@ -131,26 +73,27 @@ def handle_new_payment(db, payment_request, booking_id, room, booking_record):
             balance_due=balance_due,
             status=status,
         )
+
         booking_record.payment_status = status
         db.commit()
 
-        logger.info(f"New payment created for booking ID {booking_id}.")
         return {
             "message": "Payment processed successfully.",
-            "payment_id": new_payment.id,
-            "amount_paid": new_payment.amount_paid,
-            "discount_allowed": payment_request.discount_allowed,
-            "balance_due": balance_due,
-            "status": status,
+            "payment_details": {
+                "payment_id": new_payment.id,
+                "amount_paid": new_payment.amount_paid,
+                "discount_allowed": payment_request.discount_allowed,
+                "balance_due": new_payment.balance_due,
+                "status": new_payment.status,
+            },
         }
 
     except Exception as e:
         db.rollback()
-        logger.error(f"Error processing payment: {e}")
-        raise HTTPException(status_code=500, detail="Error processing payment.")
+        logger.error(f"Error creating payment: {e}")
+        raise HTTPException(status_code=500, detail="Error creating payment.")
 
 
-# List Payments Endpoint
 @router.get("/list/")
 def list_payments(
     db: Session = Depends(get_db),
@@ -163,14 +106,15 @@ def list_payments(
         payments = crud.get_all_payments(db)
         if not payments:
             return {"message": "No payments found."}
-        
+
         payment_list = []
         for payment in payments:
             payment_list.append({
-                "payment_id": payment.id,  # Include the payment ID in the response
+                "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
+                "discount_allowed": payment.discount_allowed,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
@@ -183,6 +127,7 @@ def list_payments(
         }
 
     except Exception as e:
+        logger.error(f"Error retrieving payments: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}",

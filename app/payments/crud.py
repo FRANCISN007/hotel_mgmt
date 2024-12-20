@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.payments import models as payment_models, schemas as payment_schemas
 from app.bookings import models as booking_models
 from datetime import datetime
+from typing import Optional
 from app.rooms import models 
 from loguru import logger
 from sqlalchemy import between
@@ -30,6 +31,7 @@ def create_payment(
         guest_name=booking.guest_name,  # Extract guest name from the booking record
         amount_paid=payment.amount_paid,
         balance_due=balance_due,
+        discount_allowed=payment.discount_allowed,
         payment_method=payment.payment_method,
         payment_date=payment.payment_date,
         status=status
@@ -101,13 +103,19 @@ def get_payment_by_id(db: Session, payment_id: int):
 
   
   
-def update_payment_with_new_amount(db: Session, payment_id: int, amount_paid: float, balance_due: float):
+def update_payment_with_new_amount(
+    db: Session, payment_id: int, amount_paid: float, discount_allowed: Optional[float], balance_due: float, status: str
+):
+    """
+    Update an existing payment with new amount paid and discount applied.
+    """
     payment = db.query(payment_models.Payment).filter(payment_models.Payment.id == payment_id).first()
     if payment:
         payment.amount_paid += amount_paid
+        payment.discount_allowed = discount_allowed
         payment.balance_due = balance_due
-        if balance_due == 0:
-            payment.status = "payment completed"
+        payment.status = status
+
         db.commit()
         db.refresh(payment)
         return payment
