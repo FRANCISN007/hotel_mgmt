@@ -309,6 +309,76 @@ def list_payments_by_date(
             detail=f"An error occurred while retrieving payments: {str(e)}",
         )
 
+@router.get("/list_void_payments/")
+def list_void_payments(
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    List all voided payments between the specified start and end date.
+    If no dates are provided, returns all voided payments.
+    """
+    try:
+        # Build the base query to get only voided payments
+        query = db.query(payment_models.Payment).filter(
+            payment_models.Payment.status == "voided"
+        )
+
+        # Apply date filters based on provided inputs
+        if start_date and end_date:
+            if start_date > end_date:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Start date cannot be after end date."
+                )
+            query = query.filter(
+                payment_models.Payment.payment_date >= start_date,
+                payment_models.Payment.payment_date <= end_date
+            )
+        elif start_date:
+            query = query.filter(payment_models.Payment.payment_date >= start_date)
+        elif end_date:
+            query = query.filter(payment_models.Payment.payment_date <= end_date)
+
+        # Retrieve voided payments
+        voided_payments = query.all()
+
+        if not voided_payments:
+            logger.info("No voided payments found for the specified criteria.")
+            return {"message": "No voided payments found for the specified criteria."}
+
+        # Prepare the list of voided payment details to be returned
+        voided_payment_list = [
+            {
+                "payment_id": payment.id,
+                "guest_name": payment.guest_name,
+                "room_number": payment.room_number,
+                "amount_paid": payment.amount_paid,
+                "payment_method": payment.payment_method,
+                "payment_date": payment.payment_date.isoformat(),
+                "status": payment.status,
+                "balance_due": payment.balance_due,
+            }
+            for payment in voided_payments
+        ]
+
+        logger.info(f"Retrieved {len(voided_payment_list)} voided payments.")
+        return {
+            "total_voided_payments": len(voided_payment_list),
+            "voided_payments": voided_payment_list,
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving voided payments: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving voided payments: {str(e)}",
+        )
+
+
+
 @router.get("/total_daily_payment/")
 def total_payment(
     db: Session = Depends(get_db),
