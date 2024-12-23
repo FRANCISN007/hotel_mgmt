@@ -127,13 +127,13 @@ def create_booking(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-@router.get("/list/")
-def list_bookings(
-    limit: int = Query(10, ge=1),
-    skip: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
+@router.get("/list/") 
+def list_bookings( 
+    limit: int = Query(10, ge=1), 
+    skip: int = Query(0, ge=0), 
+    db: Session = Depends(get_db), 
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user), 
+): 
     """
     List all active bookings with updated payment status:
     - Pending: No payment made
@@ -148,24 +148,25 @@ def list_bookings(
 
     formatted_bookings = []
     for booking in bookings:
-        # Calculate total payments made for this booking
-        total_paid = db.query(func.sum(payment_models.Payment.amount_paid)).filter(
-            payment_models.Payment.booking_id == booking.id,
-            payment_models.Payment.status != "voided",  # Exclude voided payments
-        ).scalar() or 0
+        # Fetch the most recent payment for the booking
+        latest_payment = db.query(payment_models.Payment).filter(
+            payment_models.Payment.booking_id == booking.id
+        ).order_by(payment_models.Payment.payment_date.desc()).first()  # Get the latest payment
 
-        # Determine payment status
-        if total_paid == 0:
+        # Determine payment status based on the latest payment
+        if not latest_payment:  # No payment made
             payment_status = "pending"
-        elif total_paid < booking.room_price:
+        elif latest_payment.status == "voided":  # Payment was voided
+            payment_status = "pending"  # Revert to pending to allow further payments
+        elif latest_payment.balance_due > 0:  # Partial payment remaining
             payment_status = "incomplete payment"
-        else:
+        else:  # Full payment completed
             payment_status = "payment completed"
 
         # Update booking payment status in the database if it has changed
         if payment_status != booking.payment_status:
             booking.payment_status = payment_status
-            db.commit()
+            db.commit()  # Commit the change to the database
 
         formatted_bookings.append({
             "id": booking.id,
@@ -276,19 +277,19 @@ def list_bookings_by_date(
 
         formatted_bookings = []
         for booking in bookings:
-            # Fetch payment details for the booking
-            payment = db.query(payment_models.Payment).filter(
+            # Fetch the most recent payment for the booking
+            latest_payment = db.query(payment_models.Payment).filter(
                 payment_models.Payment.booking_id == booking.id
-            ).first()
+            ).order_by(payment_models.Payment.payment_date.desc()).first()  # Get the latest payment
 
-            # Determine payment status
-            if not payment:
+            # Determine payment status based on the latest payment
+            if not latest_payment:  # No payment made
                 payment_status = "pending"
-            elif payment.status == "voided":  # Check if payment is voided
+            elif latest_payment.status == "voided":  # Payment was voided
                 payment_status = "pending"  # Revert to pending to allow further payments
-            elif payment.balance_due > 0:
+            elif latest_payment.balance_due > 0:  # Partial payment remaining
                 payment_status = "incomplete payment"
-            else:
+            else:  # Full payment completed
                 payment_status = "payment completed"
 
             # Update booking payment status in the database if it has changed

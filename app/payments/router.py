@@ -372,6 +372,7 @@ def total_payment(
                 "guest_name": payment.guest_name,
                 "amount_paid": payment.amount_paid,
                 "balance_due": payment.balance_due,
+                "discount allowed": payment.discount_allowed,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,

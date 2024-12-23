@@ -13,6 +13,21 @@ app = FastAPI(
     version="1.0.0",
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# Allow CORS for the frontend React app running on localhost:3000
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Or use ["*"] for all origins (less secure)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
+
+
 # Set up logging
 logger.add("app.log", rotation="500 MB", level="DEBUG")
 

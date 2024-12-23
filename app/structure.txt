@@ -1,6 +1,6 @@
-HOTEL MGMT SYS/
+HOTEL MANAGEMENT SYSTEM/
 │
-├── app/
+├── app/                      # Backend (FastAPI application)
 │   ├── __init__.py
 │   ├── main.py
 │   ├── database.py
@@ -15,18 +15,71 @@ HOTEL MGMT SYS/
 │   │   ├── router.py
 │   │   ├── models.py
 │   │   ├── schemas.py
-│   ├── reservations/
+│   ├── bookings/
 │   │   ├── __init__.py
 │   │   ├── router.py
 │   │   ├── models.py
 │   │   ├── schemas.py
-│   ├── guest/
-│       ├── __init__.py
-│       ├── router.py
-│       ├── models.py
-│       ├── schemas.py
+│   ├── payments/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── models.py
+│   │   ├── schemas.py
 │
-├── env/  # Your virtual environment
+├── frontend/                 # Frontend (React application)
+│   ├── public/
+│   │   ├── index.html        # React entry point
+│   ├── src/
+│   │   ├── App.js
+│   │   ├── index.js
+│   │   ├── pages/            # React pages
+│   │   │   ├── LoginPage.js
+│   │   │   ├── DashboardPage.js
+│   │   ├── components/       # Reusable components
+│   │   │   ├── Header.js
+│   │   │   ├── Footer.js
+│   │   ├── contexts/         # Context for state management
+│   │       ├── AuthContext.js
+│   ├── package.json
+│
+├── env/                      # Python virtual environment
+│
+├── .gitignore
+├── requirements.txt          # Python dependencies
+├── README.md
+
+
+Run the following command to create a new React app:
+npx create-react-app hotel-management-frontend
+
+Navigate to your project folder:
+cd hotel-management-frontend
+
+Install required dependencies (e.g., Axios for API requests):
+npm install axios
+
+
+hotel-management-frontend/
+│
+├── public/                 # Static files like index.html, images, etc.
+│   └── index.html
+│
+├── src/                    # Source files for the React app
+│   ├── assets/             # Images, fonts, styles
+│   ├── components/         # Reusable UI components (e.g., buttons, form inputs)
+│   ├── contexts/           # React context for state management (e.g., auth context)
+│   │   └── authContext.js  # Auth context to manage authentication state
+│   ├── pages/              # Pages like Login, Dashboard, etc.
+│   │   ├── LoginPage.js    # Login page component
+│   │   └── DashboardPage.js # Dashboard page component
+│   ├── App.js              # Main App component where routes and context are provided
+│   ├── index.js            # Entry point for React app, renders App component
+│   └── styles/             # Global styles
+│       └── main.css        # Base CSS file for the app
+│
+└── package.json            # Project dependencies and scripts
+
+
 
 1. check out endpoint does not actually require the guest name because all the entry are done that day
 2. the check out list and reservation list should be "check in History and Reservation History
