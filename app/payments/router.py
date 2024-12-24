@@ -408,13 +408,17 @@ def get_debtor_list(
 ):
     """
     Get a list of debtors and the total amount due for all debtors.
+    Excludes canceled bookings and considers only non-voided payments.
+    Booking status is given priority over payment status.
     """
     try:
-        # Query all bookings and their related rooms
-        bookings = db.query(booking_models.Booking).all()
+        # Query all bookings that are not canceled
+        bookings = db.query(booking_models.Booking).filter(
+            booking_models.Booking.status != "cancelled"
+        ).all()
 
         if not bookings:
-            return {"message": "No bookings found."}
+            return {"message": "No Debtor bookings found."}
 
         debtor_list = []
         total_debt_amount = 0  # Initialize total debt amount
@@ -429,13 +433,13 @@ def get_debtor_list(
             if not room:
                 continue
 
-            # Fetch payments for this booking
+            # Fetch payments for this booking that are not voided
             payments = db.query(payment_models.Payment).filter(
                 payment_models.Payment.booking_id == booking.id,
                 payment_models.Payment.status != "voided"
             ).all()
 
-            # Calculate total payments
+            # Calculate total payments (ignoring voided payments)
             total_paid = sum(
                 payment.amount_paid + (payment.discount_allowed or 0)
                 for payment in payments
@@ -444,7 +448,7 @@ def get_debtor_list(
             # Calculate the balance due
             balance_due = room.amount - total_paid
 
-            # If balance_due > 0, add to debtor list and update total_debt_amount
+            # Only include bookings where balance_due > 0
             if balance_due > 0:
                 debtor_list.append({
                     "guest_name": booking.guest_name,
@@ -453,7 +457,6 @@ def get_debtor_list(
                     "room_price": room.amount,
                     "total_paid": total_paid,
                     "amount_due": balance_due,
-                    
                 })
                 total_debt_amount += balance_due
 

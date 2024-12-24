@@ -31,7 +31,8 @@ def create_booking(
 ):
     """
     Create a booking for either reservation (R) or check-in (C).
-    Ensures room availability and prevents overlapping bookings.
+    Ensures room availability and prevents overlapping bookings, 
+    considering canceled bookings.
     """
     room_number = booking_request.room_number
     today = date.today()
@@ -73,10 +74,11 @@ def create_booking(
     if not room:
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
-    # Step 5: Check for overlapping bookings
+    # Step 5: Check for overlapping bookings, excluding canceled ones
     overlapping_booking = db.query(booking_models.Booking).filter(
         booking_models.Booking.room_number == room_number,
         booking_models.Booking.status != "checked-out",  # Do not consider 'checked-out' rooms
+        booking_models.Booking.status != "cancelled",   # Do not consider 'cancelled' rooms
         or_(
             # Check for overlap with existing bookings
             and_(
@@ -396,3 +398,69 @@ def check_out_booking(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+    
+    
+    
+@router.post("/cancel/{booking_id}/")
+def cancel_booking(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Cancel a booking if no non-voided payment is tied to it. If a payment exists, raise an exception.
+    """
+    # Fetch the booking by ID
+    booking = db.query(booking_models.Booking).filter(
+        booking_models.Booking.id == booking_id, booking_models.Booking.deleted == False
+    ).first()
+
+    if not booking:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Booking with ID {booking_id} not found or already canceled."
+        )
+
+    # Check if the booking has any associated payments
+    payment = db.query(payment_models.Payment).filter(
+        payment_models.Payment.booking_id == booking_id
+    ).first()
+
+    # If payment exists and is not voided, raise an exception
+    if payment and payment.status != "voided":
+        raise HTTPException(
+            status_code=400,
+            detail="Booking is tied to a non-voided payment. Please cancel or delete the payment before canceling the booking."
+        )
+
+    # Proceed with cancellation if no valid payment exists or all payments are voided
+    try:
+        # Update the booking status to 'cancelled'
+        booking.status = "cancelled"
+        booking.deleted = True  # Mark as soft deleted, indicating cancellation
+
+        # Update the room status to 'available'
+        room = db.query(room_models.Room).filter(
+            room_models.Room.room_number == booking.room_number
+        ).first()
+        if room:
+            room.status = "available"
+
+        db.commit()
+        return {
+            "message": f"Booking ID {booking_id} has been canceled successfully.",
+            "canceled_booking": {
+                "id": booking.id,
+                "room_number": booking.room_number,
+                "guest_name": booking.guest_name,
+                "status": booking.status,  # Showing the updated status as 'cancelled'
+                "room_status": room.status if room else "N/A",  # Showing the updated room status
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while canceling the booking: {str(e)}"
+        )

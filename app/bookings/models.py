@@ -22,6 +22,7 @@ class Booking(Base):
     booking_date = Column(DateTime, default=datetime.utcnow)
     is_checked_out = Column(Boolean, default=False)
     cancellation_reason = Column(String, nullable=True)
+    deleted = Column(Boolean, default=False)  # Soft delete flag
 
     # Relationships
     room = relationship("Room", back_populates="bookings")
