@@ -16,6 +16,7 @@ class Booking(Base):
     departure_date = Column(Date, nullable=False)
     number_of_days = Column(Integer, nullable=False)
     booking_type = Column(String, nullable=False)
+    phone_number = Column(String, nullable=True)
     status = Column(String, default="reserved")
     payment_status = Column(String, default="pending")
     booking_date = Column(DateTime, default=datetime.utcnow)

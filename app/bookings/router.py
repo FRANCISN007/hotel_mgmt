@@ -100,6 +100,7 @@ def create_booking(
             arrival_date=booking_request.arrival_date,
             departure_date=booking_request.departure_date,
             booking_type=booking_request.booking_type,
+            phone_number=booking_request.phone_number,
             status="reserved" if booking_request.booking_type == "R" else "checked-in",
             room_price=room.amount,  # Include room price
         )
@@ -119,6 +120,7 @@ def create_booking(
                 "arrival_date": new_booking.arrival_date,
                 "departure_date": new_booking.departure_date,
                 "booking_type": new_booking.booking_type,
+                "phone_number":new_booking.phone_number,
                 "status": new_booking.status,
                 "room_price": new_booking.room_price,  # Include room price in response
             },
@@ -176,6 +178,7 @@ def list_bookings(
             "departure_date": booking.departure_date,
             "number_of_days": booking.number_of_days,
             "booking_type": booking.booking_type,
+            "phone_number":booking.phone_number,
             "status": booking.status,
             "payment_status": booking.payment_status,  # Updated payment status
         })
@@ -235,6 +238,7 @@ def list_booking_by_id(
         "departure_date": booking.departure_date,
         "number_of_days": booking.number_of_days,
         "booking_type": booking.booking_type,
+        "phone_number":booking.phone_number,
         "status": booking.status,
         "payment_status": booking.payment_status,  # Updated payment status
     }
@@ -304,6 +308,7 @@ def list_bookings_by_date(
                 "arrival_date": booking.arrival_date,
                 "departure_date": booking.departure_date,
                 "booking_type": booking.booking_type,
+                "phone_number":booking.phone_number,
                 "status": booking.status,
                 "payment_status": booking.payment_status,  # Updated payment status
             })
@@ -342,11 +347,17 @@ def update_booking(
     try:
         db.commit()
         db.refresh(booking)
-        return {"message": "Booking updated successfully.", "updated_booking": booking}
+
+        # Step 2: Serialize booking data using BookingSchemaResponse
+        serialized_booking = schemas.BookingSchemaResponse.from_orm(booking)
+
+        return {
+            "message": "Booking updated successfully.",
+            "updated_booking": serialized_booking.dict()
+        }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 @router.post("/check-out/")
 def check_out_booking(

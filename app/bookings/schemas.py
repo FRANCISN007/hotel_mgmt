@@ -6,34 +6,6 @@ from datetime import datetime
 
 
 
-class GuestReservationSchema(BaseModel):
-    """
-    Schema for a reservation record specific to guest operations.
-    """
-    room_number: str
-    guest_name: str
-    arrival_date: date
-    departure_date: date
-    status: Optional[str] = "reserved"
-
-    class Config:
-        orm_mode = True
-
-""""
-class CheckInSchema(BaseModel):
-    room_number: str
-    guest_name: str
-    arrival_date: date
-    departure_date: date
-    is_checked_out: bool = False
-    payment_status: str = "pending"  # Default payment status
-    
-    class Config:
-        orm_mode = True
-
-"""
-
-
 
 class BookingSchema(BaseModel):
     """
@@ -44,6 +16,7 @@ class BookingSchema(BaseModel):
     arrival_date: date
     departure_date: date
     booking_type: Literal["C", "R"]
+    phone_number: str
     payment_status: Optional[str] = "pending"  # Optional for check-ins
     number_of_days: Optional[int] = None  # Optional for input
 
@@ -76,6 +49,7 @@ class BookingSchemaResponse(BaseModel):
     arrival_date: date
     departure_date: date
     booking_type: Literal["C", "R"]
+    phone_number: str
     status: Optional[str] = "reserved"
     payment_status: Optional[str] = "pending"
     number_of_days: int  # Ensured as part of the response
@@ -84,6 +58,7 @@ class BookingSchemaResponse(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True  # Enable `from_orm` functionality
 
 
 
@@ -103,3 +78,4 @@ class CheckInUpdateSchema(BaseModel):
     guest_name: str
     arrival_date: Optional[date]
     departure_date: Optional[date]
+    phone_number: str
