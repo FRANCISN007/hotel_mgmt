@@ -189,7 +189,7 @@ def get_payment_by_id(
         )
 
 
-@router.get("/list_by_date/")
+@router.get("/list_by_date/") 
 def list_payments_by_date(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
@@ -197,18 +197,17 @@ def list_payments_by_date(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List payments made between the specified start and end date.
-    If no dates are provided, returns all payments.
+    List payments made between the specified start and end date,
+    including the total payment amount for the range, excluding voided payments from the total.
     """
     try:
         # Set the end date to the end of the day if only the date is provided
         if start_date:
             start_datetime = datetime.combine(start_date, datetime.min.time())
         if end_date:
-            # Add one day to include the full day
             end_datetime = datetime.combine(end_date, datetime.max.time())
 
-        # Build the base query
+        # Build the base query for payments
         query = db.query(payment_models.Payment)
 
         # Apply date filters based on provided inputs
@@ -227,16 +226,19 @@ def list_payments_by_date(
         elif end_date:
             query = query.filter(payment_models.Payment.payment_date <= end_datetime)
 
-        # Retrieve payments
+        # Retrieve all payments within the date range
         payments = query.all()
 
         if not payments:
             logger.info("No payments found for the specified criteria.")
             return {"message": "No payments found for the specified criteria."}
 
-        # Prepare the list of payment details to be returned
-        payment_list = [
-            {
+        # Prepare the list of payment details and calculate the total amount,
+        # excluding void payments from the total calculation.
+        payment_list = []
+        total_payment_amount = 0
+        for payment in payments:
+            payment_list.append({
                 "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
@@ -245,13 +247,16 @@ def list_payments_by_date(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
-            }
-            for payment in payments
-        ]
+            })
+
+            # Only add to total_payment_amount if payment status is not "voided"
+            if payment.status != "voided":
+                total_payment_amount += payment.amount_paid
 
         logger.info(f"Retrieved {len(payment_list)} payments.")
         return {
             "total_payments": len(payment_list),
+            "total_amount": total_payment_amount,
             "payments": payment_list,
         }
 
@@ -263,7 +268,6 @@ def list_payments_by_date(
         )
 
 
-
 @router.get("/list_void_payments/")
 def list_void_payments(
     start_date: Optional[date] = Query(None),
@@ -273,7 +277,7 @@ def list_void_payments(
 ):
     """
     List all voided payments between the specified start and end date.
-    If no dates are provided, returns all voided payments.
+    If no dates are provided, returns all voided payments, along with the total of voided payments.
     """
     try:
         # Build the base query to get only voided payments
@@ -305,8 +309,11 @@ def list_void_payments(
             return {"message": "No voided payments found for the specified criteria."}
 
         # Prepare the list of voided payment details to be returned
-        voided_payment_list = [
-            {
+        voided_payment_list = []
+        total_voided_amount = 0  # Initialize total voided amount
+
+        for payment in voided_payments:
+            voided_payment_list.append({
                 "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
@@ -315,13 +322,13 @@ def list_void_payments(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
-            }
-            for payment in voided_payments
-        ]
+            })
+            total_voided_amount += payment.amount_paid  # Add the voided payment amount to the total
 
         logger.info(f"Retrieved {len(voided_payment_list)} voided payments.")
         return {
             "total_voided_payments": len(voided_payment_list),
+            "total_voided_amount": total_voided_amount,  # Return the total voided amount
             "voided_payments": voided_payment_list,
         }
 
