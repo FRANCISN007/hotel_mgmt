@@ -313,26 +313,39 @@ def list_bookings_by_date(
 @router.get("/{room_number}/")
 def list_bookings_by_room(
     room_number: str,
-    limit: int = Query(10, ge=1),
-    skip: int = Query(0, ge=0),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List all bookings associated with a specific room number.
-    Supports pagination with `limit` and `skip`.
+    List all bookings associated with a specific room number within an optional date range.
     """
     try:
-        # Fetch bookings for the given room number
+        # Check if the room exists in the database
+        room_exists = db.query(room_models.Room).filter(
+            room_models.Room.room_number == room_number
+        ).first()
+
+        if not room_exists:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Room number {room_number} does not exist.",
+            )
+
+        # Build the base query for bookings
         bookings_query = db.query(booking_models.Booking).filter(
             booking_models.Booking.room_number == room_number
         )
-        
-        # Count total bookings for the room
-        total_bookings = bookings_query.count()
 
-        # Apply pagination
-        bookings = bookings_query.offset(skip).limit(limit).all()
+        # Apply date range filters if provided
+        if start_date:
+            bookings_query = bookings_query.filter(booking_models.Booking.arrival_date >= start_date)
+        if end_date:
+            bookings_query = bookings_query.filter(booking_models.Booking.departure_date <= end_date)
+
+        # Fetch bookings
+        bookings = bookings_query.all()
 
         if not bookings:
             raise HTTPException(
@@ -357,14 +370,14 @@ def list_bookings_by_room(
 
         return {
             "room_number": room_number,
-            "total_bookings": total_bookings,
+            "total_bookings": len(formatted_bookings),
             "bookings": formatted_bookings,
         }
     except Exception as e:
         logger.error(f"Error retrieving bookings for room {room_number}: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while retrieving bookings: {str(e)}"
+            status_code=400,
+            detail=f"{str(e)}"
         )
 
 
