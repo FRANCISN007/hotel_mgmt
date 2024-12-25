@@ -10,7 +10,7 @@ class PaymentCreateSchema(BaseModel):
     payment_method: str  # E.g., 'credit_card', 'cash', 'bank_transfer'
     payment_date: Optional[datetime] = None  # Defaults to current datetime if not provided
     #balance_due: Optional[float] = 0.0 
-    status: Optional[str] = "pending"  # Payment status (e.g., pending, completed, failed)
+    #status: Optional[str] = "pending"  # Payment status (e.g., pending, completed, failed)
 
     class Config:
         orm_mode = True

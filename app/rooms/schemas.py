@@ -8,8 +8,6 @@ from datetime import date
 
         
 
-
-
 class RoomSchema(BaseModel):
     room_number: str
     room_type: str
@@ -40,11 +38,3 @@ class RoomUpdateSchema(BaseModel):
         orm_mode = True
 
 
-class CheckInSchema(BaseModel):
-    room_number: str
-    guest_name: str
-    arrival_date: date
-    departure_date: date
-
-    class Config:
-        orm_mode = True

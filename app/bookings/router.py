@@ -5,12 +5,10 @@ from sqlalchemy.sql import func
 from datetime import date
 from app.database import get_db
 from typing import Optional  # Import for optional parameters
-#from app.guest import schemas, models  # Import guest-specific schemas and models
 from app.users.auth import get_current_user
 from sqlalchemy import or_
 from sqlalchemy import and_
 from app.rooms import models as room_models  # Import room models
-#from app.bookings.crud import check_overlapping_check_in  # Import the function
 from app.bookings import schemas, models as  booking_models
 from app.payments import models as payment_models
 from loguru import logger
@@ -102,6 +100,7 @@ def create_booking(
             arrival_date=booking_request.arrival_date,
             departure_date=booking_request.departure_date,
             booking_type=booking_request.booking_type,
+            #number_of_days=booking_request.number_of_days,
             phone_number=booking_request.phone_number,
             status="reserved" if booking_request.booking_type == "R" else "checked-in",
             room_price=room.amount,  # Include room price
@@ -122,6 +121,7 @@ def create_booking(
                 "arrival_date": new_booking.arrival_date,
                 "departure_date": new_booking.departure_date,
                 "booking_type": new_booking.booking_type,
+                "number_of_days":new_booking.number_of_days,
                 "phone_number":new_booking.phone_number,
                 "status": new_booking.status,
                 "room_price": new_booking.room_price,  # Include room price in response
@@ -130,6 +130,9 @@ def create_booking(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+    
+    
 
 @router.get("/list/") 
 def list_bookings( 
@@ -138,14 +141,7 @@ def list_bookings(
     db: Session = Depends(get_db), 
     current_user: schemas.UserDisplaySchema = Depends(get_current_user), 
 ): 
-    """
-    List all active bookings with updated payment status:
-    - Pending: No payment made
-    - Incomplete Payment: Payment made but balance remains
-    - Payment Completed: Full payment made
-    - Voided: Payment was voided
-    Supports pagination with limit and skip.
-    """
+    
     bookings = db.query(booking_models.Booking).filter(
         booking_models.Booking.status != "checked-out"
     ).offset(skip).limit(limit).all()
@@ -197,13 +193,7 @@ def list_booking_by_id(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    Retrieve a specific booking by booking ID with updated payment status:
-    - Pending: No payment made
-    - Incomplete Payment: Payment made but balance remains
-    - Payment Completed: Full payment made
-    - Voided: Payment was voided
-    """
+    
     # Fetch the booking by ID
     booking = db.query(booking_models.Booking).filter(
         booking_models.Booking.id == booking_id
@@ -259,14 +249,7 @@ def list_bookings_by_date(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    List bookings filtered by an optional date range (start_date and end_date),
-    with updated payment status:
-    - Pending: No payment made
-    - Incomplete Payment: Payment made but balance remains
-    - Payment Completed: Full payment made
-    - Voided: Payment was voided
-    """
+   
     try:
         # Build the base query
         query = db.query(booking_models.Booking).filter(
@@ -326,6 +309,64 @@ def list_bookings_by_date(
             status_code=500,
             detail=f"An error occurred while retrieving bookings: {str(e)}",
         )
+
+@router.get("/{room_number}/")
+def list_bookings_by_room(
+    room_number: str,
+    limit: int = Query(10, ge=1),
+    skip: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    List all bookings associated with a specific room number.
+    Supports pagination with `limit` and `skip`.
+    """
+    try:
+        # Fetch bookings for the given room number
+        bookings_query = db.query(booking_models.Booking).filter(
+            booking_models.Booking.room_number == room_number
+        )
+        
+        # Count total bookings for the room
+        total_bookings = bookings_query.count()
+
+        # Apply pagination
+        bookings = bookings_query.offset(skip).limit(limit).all()
+
+        if not bookings:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No bookings found for room number {room_number}.",
+            )
+
+        formatted_bookings = []
+        for booking in bookings:
+            formatted_bookings.append({
+                "id": booking.id,
+                "room_number": booking.room_number,
+                "guest_name": booking.guest_name,
+                "arrival_date": booking.arrival_date,
+                "departure_date": booking.departure_date,
+                "number_of_days": booking.number_of_days,
+                "booking_type": booking.booking_type,
+                "phone_number": booking.phone_number,
+                "status": booking.status,
+                "payment_status": booking.payment_status,
+            })
+
+        return {
+            "room_number": room_number,
+            "total_bookings": total_bookings,
+            "bookings": formatted_bookings,
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving bookings for room {room_number}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving bookings: {str(e)}"
+        )
+
 
 
 @router.put("/update/")
