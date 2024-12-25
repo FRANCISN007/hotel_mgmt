@@ -187,6 +187,54 @@ def list_bookings(
     }
 
 
+@router.get("/search/")
+def search_guest_name(
+    guest_name: str,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    Search for bookings by guest name.
+    Returns all bookings matching the given guest name.
+    """
+    try:
+        bookings = db.query(booking_models.Booking).filter(
+            booking_models.Booking.guest_name.ilike(f"%{guest_name}%"),
+            
+        ).all()
+
+        if not bookings:
+            raise HTTPException(status_code=404, detail=f"No bookings found for guest '{guest_name}'.")
+
+        formatted_bookings = []
+        for booking in bookings:
+            formatted_bookings.append({
+                "id": booking.id,
+                "room_number": booking.room_number,
+                "guest_name": booking.guest_name,
+                "arrival_date": booking.arrival_date,
+                "departure_date": booking.departure_date,
+                "number_of_days": booking.number_of_days,
+                "booking_type": booking.booking_type,
+                "phone_number": booking.phone_number,
+                "status": booking.status,
+                "payment_status": booking.payment_status,
+            })
+
+        return {
+            "total_bookings": len(formatted_bookings),
+            "bookings": formatted_bookings,
+        }
+
+    except Exception as e:
+        logger.error(f"Error searching bookings for guest '{guest_name}': {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f" {str(e)}",
+        )
+
+
+
 @router.get("/list_by_id/{booking_id}/")
 def list_booking_by_id(
     booking_id: int,

@@ -5,7 +5,7 @@ from app.rooms.router import router as rooms_router
 from app.bookings.router import router as bookings_router
 from app.payments.router import router as payments_router  # Import the payments router
 from loguru import logger
-
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Hotel Management System",
@@ -13,9 +13,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
 
 # Allow CORS for the frontend React app running on localhost:3000
 app.add_middleware(
