@@ -72,8 +72,14 @@ def get_payment_by_booking_id(db: Session, booking_id: int):
 
 
 
-def get_all_payments(db: Session):
-    return db.query(payment_models.Payment).all()
+def get_list_payments(db: Session, skip: int, limit: int):
+    """
+    Retrieve a paginated list of payments.
+    """
+    total_payments = db.query(payment_models.Payment).count()
+    payments = db.query(payment_models.Payment).offset(skip).limit(limit).all()
+    return total_payments, payments
+
 
 
 def get_payment_by_id(db: Session, payment_id: int):

@@ -188,8 +188,8 @@ def list_bookings(
 
 
 @router.get("/search/")
-def search_guest_name(
-    guest_name: Optional[str],
+def search_gust_name(
+    guest_name: str,
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):

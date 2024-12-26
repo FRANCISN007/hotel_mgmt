@@ -97,20 +97,22 @@ def create_payment(
 
 @router.get("/list/")
 def list_payments(
+    skip: int = Query(0, ge=0, description="Number of records to skip."),
+    limit: int = Query(10, ge=1, le=100, description="Maximum number of records to return."),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List all payments in the system.
+    List payments with pagination.
     """
     try:
-        payments = crud.get_all_payments(db)
+        total_payments, payments = crud.get_list_payments(db, skip, limit)
+
         if not payments:
             return {"message": "No payments found."}
 
-        payment_list = []
-        for payment in payments:
-            payment_list.append({
+        payment_list = [
+            {
                 "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
@@ -120,11 +122,18 @@ def list_payments(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
-            })
+            }
+            for payment in payments
+        ]
 
         return {
-            "total_payments": len(payment_list),
+            "total_payments": total_payments,
             "payments": payment_list,
+            "page_info": {
+                "current_skip": skip,
+                "limit": limit,
+                "remaining": max(0, total_payments - (skip + limit)),
+            },
         }
 
     except Exception as e:
@@ -133,7 +142,6 @@ def list_payments(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}",
         )
-
 
 
 
