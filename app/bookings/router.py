@@ -203,6 +203,7 @@ def search_gust_name(
             
         ).all()
 
+
         if not bookings:
             raise HTTPException(status_code=404, detail=f"No bookings found for guest '{guest_name}'.")
 
@@ -370,9 +371,12 @@ def list_bookings_by_room(
     List all bookings associated with a specific room number within an optional date range.
     """
     try:
-        # Check if the room exists in the database
+        # Normalize room_number to lowercase
+        normalized_room_number = room_number.lower()
+
+        # Check if the room exists in the database (case-insensitive)
         room_exists = db.query(room_models.Room).filter(
-            room_models.Room.room_number == room_number
+            func.lower(room_models.Room.room_number) == normalized_room_number
         ).first()
 
         if not room_exists:
@@ -381,9 +385,9 @@ def list_bookings_by_room(
                 detail=f"Room number {room_number} does not exist.",
             )
 
-        # Build the base query for bookings
+        # Build the base query for bookings (case-insensitive)
         bookings_query = db.query(booking_models.Booking).filter(
-            booking_models.Booking.room_number == room_number
+            func.lower(booking_models.Booking.room_number) == normalized_room_number
         )
 
         # Apply date range filters if provided
@@ -401,9 +405,9 @@ def list_bookings_by_room(
                 detail=f"No bookings found for room number {room_number}.",
             )
 
-        formatted_bookings = []
-        for booking in bookings:
-            formatted_bookings.append({
+        # Format the bookings for response
+        formatted_bookings = [
+            {
                 "id": booking.id,
                 "room_number": booking.room_number,
                 "guest_name": booking.guest_name,
@@ -414,10 +418,12 @@ def list_bookings_by_room(
                 "phone_number": booking.phone_number,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
-            })
+            }
+            for booking in bookings
+        ]
 
         return {
-            "room_number": room_number,
+            "room_number": normalized_room_number,
             "total_bookings": len(formatted_bookings),
             "bookings": formatted_bookings,
         }

@@ -16,8 +16,6 @@ router = APIRouter()
 
 
 
-logger.add("app.log", rotation="500 MB", level="DEBUG")
-
 @router.post("/")
 def create_room(
     room: schemas.RoomSchema,
@@ -27,10 +25,22 @@ def create_room(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    existing_room = db.query(room_models.Room).filter(room_models.Room.room_number == room.room_number).first()
+    # Normalize room_number to lowercase
+    normalized_room_number = room.room_number.lower()
+
+    # Check if a room with the normalized room_number already exists
+    existing_room = (
+        db.query(room_models.Room)
+        .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
+        .first()
+    )
     if existing_room:
         raise HTTPException(status_code=400, detail="Room with this number already exists")
 
+    # Update the room object with the normalized room_number
+    room.room_number = normalized_room_number
+
+    # Create the room using the CRUD function
     new_room = crud.create_room(db, room)
     return {"message": "Room created successfully", "room": new_room}
 
@@ -188,8 +198,11 @@ def update_room(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    # Fetch the room by the current room_number
-    room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
+    # Normalize the room_number input to lowercase
+    room_number = room_number.lower()
+
+    # Fetch the room by the normalized room_number
+    room = db.query(room_models.Room).filter(func.lower(room_models.Room.room_number) == room_number).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
@@ -201,11 +214,13 @@ def update_room(
         )
 
     # If a new room_number is provided, check for conflicts
-    if room_update.room_number and room_update.room_number != room.room_number:
-        existing_room = db.query(room_models.Room).filter(room_models.Room.room_number == room_update.room_number).first()
+    if room_update.room_number and room_update.room_number.lower() != room.room_number.lower():
+        existing_room = db.query(room_models.Room).filter(
+            func.lower(room_models.Room.room_number) == room_update.room_number.lower()
+        ).first()
         if existing_room:
             raise HTTPException(status_code=400, detail="Room with this number already exists")
-        room.room_number = room_update.room_number  # Update the room number
+        room.room_number = room_update.room_number.lower()  # Update the room number to lowercase
 
     # Update other fields only if provided
     if room_update.room_type:
@@ -320,16 +335,22 @@ def delete_room(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    # Fetch the room by room_number
-    room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
+    # Normalize the room_number input to lowercase
+    room_number = room_number.lower()
+
+    # Fetch the room by the normalized room_number
+    room = db.query(room_models.Room).filter(func.lower(room_models.Room.room_number) == room_number).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    # Prevent deletion of rooms with status 'checked-in' or 'reserved'
-    if room.status in ["checked-in", "reserved"]:
+    # Check if the room is tied to any bookings
+    bookings = db.query(booking_models.Booking).filter(
+        func.lower(booking_models.Booking.room_number) == room_number
+    ).all()
+    if bookings:
         raise HTTPException(
             status_code=400,
-            detail=f"Room {room_number} cannot be deleted as it is currently {room.status}."
+            detail=f"Room {room_number} cannot be deleted as it is tied to one or more bookings."
         )
 
     # Delete the room if it is available
@@ -343,4 +364,3 @@ def delete_room(
             status_code=500,
             detail=f"An error occurred while deleting the room: {str(e)}"
         )
-
