@@ -12,11 +12,11 @@ from app.rooms import models as room_models  # Import room models
 from app.bookings import schemas, models as  booking_models
 from app.payments import models as payment_models
 from loguru import logger
+from sqlalchemy.sql import func
+
+
 
 router = APIRouter()
-
-
-logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 
 
@@ -32,7 +32,7 @@ def create_booking(
     Ensures room availability and prevents overlapping bookings, 
     considering canceled bookings.
     """
-    room_number = booking_request.room_number
+    room_number = booking_request.room_number.lower()  # Normalize input to lowercase
     today = date.today()
 
     # Step 1: Validate booking dates
@@ -67,16 +67,20 @@ def create_booking(
             status_code=400, detail="Bookings cannot start in the past."
         )
 
-    # Step 4: Check room existence
-    room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
+    # Step 4: Check room existence (case-insensitive)
+    room = (
+        db.query(room_models.Room)
+        .filter(func.lower(room_models.Room.room_number) == room_number)
+        .first()
+    )
     if not room:
         raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
 
-    # Step 5: Check for overlapping bookings, excluding canceled ones
+    # Step 5: Check for overlapping bookings, excluding canceled ones (case-insensitive)
     overlapping_booking = db.query(booking_models.Booking).filter(
-        booking_models.Booking.room_number == room_number,
+        func.lower(booking_models.Booking.room_number) == room_number,
         booking_models.Booking.status != "checked-out",  # Do not consider 'checked-out' rooms
-        booking_models.Booking.status != "cancelled",   # Do not consider 'cancelled' rooms
+        booking_models.Booking.status != "cancelled",    # Do not consider 'cancelled' rooms
         or_(
             # Check for overlap with existing bookings
             and_(
@@ -121,8 +125,8 @@ def create_booking(
                 "arrival_date": new_booking.arrival_date,
                 "departure_date": new_booking.departure_date,
                 "booking_type": new_booking.booking_type,
-                "number_of_days":new_booking.number_of_days,
-                "phone_number":new_booking.phone_number,
+                "number_of_days": new_booking.number_of_days,
+                "phone_number": new_booking.phone_number,
                 "status": new_booking.status,
                 "room_price": new_booking.room_price,  # Include room price in response
             },
@@ -185,6 +189,64 @@ def list_bookings(
         "total_bookings": len(formatted_bookings),
         "bookings": formatted_bookings,
     }
+
+
+@router.get("/list_reserved/")
+def list_reserved_bookings_by_date(
+    start_date: Optional[date] = Query(None, description="Filter bookings starting from this date."),
+    end_date: Optional[date] = Query(None, description="Filter bookings up to this date."),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    List all reserved bookings within an optional date range.
+    Filters by status "reserved" and date range if provided.
+    """
+    try:
+        # Build the query to filter reserved bookings
+        query = db.query(booking_models.Booking).filter(
+            booking_models.Booking.status == "reserved"
+        )
+
+        # Apply date filters if provided
+        if start_date:
+            query = query.filter(booking_models.Booking.arrival_date >= start_date)
+        if end_date:
+            query = query.filter(booking_models.Booking.departure_date <= end_date)
+
+        bookings = query.all()
+
+        if not bookings:
+            raise HTTPException(
+                status_code=404, detail="No reserved bookings found for the given criteria."
+            )
+
+        formatted_bookings = [
+            {
+                "id": booking.id,
+                "room_number": booking.room_number,
+                "guest_name": booking.guest_name,
+                "arrival_date": booking.arrival_date,
+                "departure_date": booking.departure_date,
+                "number_of_days": booking.number_of_days,
+                "phone_number": booking.phone_number,
+                "booking_status": booking.status,
+                "payment_status":booking.payment_status, 
+            }
+            for booking in bookings
+        ]
+
+        return {
+            "total_reserved_bookings": len(formatted_bookings),
+            "bookings": formatted_bookings,
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving reserved bookings by date: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving reserved bookings: {str(e)}",
+        )
+
 
 
 @router.get("/search/")
