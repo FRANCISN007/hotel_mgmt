@@ -129,32 +129,36 @@ def history(
 def list_available_rooms(db: Session = Depends(get_db)):
     """
     List all available rooms:
-    - A room is available if it is not checked in for today.
-    - A room can be reserved for a future date but is still available for today.
+    - A room is not available if it has a booking starting today.
+    - A room is not available if it has a booking whose date range spans today.
     """
     today = date.today()
 
-    # Fetch all rooms currently checked in for today
-    checked_in_rooms_today = (
+    # Query to find room numbers with bookings starting today or spanning today
+    unavailable_rooms_today = (
         db.query(booking_models.Booking.room_number)
         .filter(
-            booking_models.Booking.status == "checked-in",
-            booking_models.Booking.arrival_date <= today,
-            booking_models.Booking.departure_date >= today
+            or_(
+                booking_models.Booking.arrival_date == today,
+                and_(
+                    booking_models.Booking.arrival_date <= today,
+                    booking_models.Booking.departure_date >= today
+                )
+            )
         )
         .distinct()
         .all()
     )
 
-    # Extract room numbers currently checked in today
-    checked_in_room_numbers = {room.room_number for room in checked_in_rooms_today}
+    # Extract room numbers that are unavailable
+    unavailable_room_numbers = {room.room_number for room in unavailable_rooms_today}
 
     # Fetch all rooms from the database
     all_rooms = db.query(room_models.Room).all()
 
-    # Filter out rooms that are checked in for today
+    # Filter out unavailable rooms
     available_rooms = [
-        room for room in all_rooms if room.room_number not in checked_in_room_numbers
+        room for room in all_rooms if room.room_number not in unavailable_room_numbers
     ]
 
     # Total rooms in the database
@@ -163,7 +167,7 @@ def list_available_rooms(db: Session = Depends(get_db)):
     # If no rooms are available, return a fully booked message
     if not available_rooms:
         return {
-            "message": "We are fully booked! All rooms are currently occupied for today.",
+            "message": "We are fully booked! No rooms are available for today.",
             "total_rooms": total_rooms,
             "total_available_rooms": 0,
             "available_rooms": [],
