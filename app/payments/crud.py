@@ -9,6 +9,10 @@ from loguru import logger
 from sqlalchemy import between
 
 
+# Set up logging
+logger.add("app.log", rotation="500 MB", level="DEBUG")
+
+
 def create_payment(
     db: Session,
     payment: payment_schemas.PaymentCreateSchema,

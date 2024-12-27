@@ -15,6 +15,10 @@ from loguru import logger
 router = APIRouter()
 
 
+# Set up logging
+logger.add("app.log", rotation="500 MB", level="DEBUG")
+
+
 @router.post("/create/{booking_id}")
 def create_payment(
     booking_id: int,

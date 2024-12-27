@@ -18,6 +18,8 @@ from sqlalchemy.sql import func
 
 router = APIRouter()
 
+# Set up logging
+logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 
 
@@ -28,11 +30,10 @@ def create_booking(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    Create a booking for either reservation (R) or check-in (C).
-    Ensures room availability and prevents overlapping bookings, 
-    considering canceled bookings.
+    Create a new booking after validating room existence, booking dates, and overlaps.
     """
-    room_number = booking_request.room_number.lower()  # Normalize input to lowercase
+    room_number_input = booking_request.room_number.strip()  # Preserve the original input
+    normalized_room_number = room_number_input.lower()  # Normalize input for comparison
     today = date.today()
 
     # Step 1: Validate booking dates
@@ -70,17 +71,17 @@ def create_booking(
     # Step 4: Check room existence (case-insensitive)
     room = (
         db.query(room_models.Room)
-        .filter(func.lower(room_models.Room.room_number) == room_number)
+        .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
         .first()
     )
     if not room:
-        raise HTTPException(status_code=404, detail=f"Room {room_number} not found.")
+        raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
 
-    # Step 5: Check for overlapping bookings, excluding canceled ones (case-insensitive)
+    # Step 5: Check for overlapping bookings, excluding canceled and checked-out ones
     overlapping_booking = db.query(booking_models.Booking).filter(
-        func.lower(booking_models.Booking.room_number) == room_number,
-        booking_models.Booking.status != "checked-out",  # Do not consider 'checked-out' rooms
-        booking_models.Booking.status != "cancelled",    # Do not consider 'cancelled' rooms
+        func.lower(booking_models.Booking.room_number) == normalized_room_number,
+        booking_models.Booking.status != "checked-out",  # Exclude checked-out bookings
+        booking_models.Booking.status != "cancelled",    # Exclude canceled bookings
         or_(
             # Check for overlap with existing bookings
             and_(
@@ -93,18 +94,17 @@ def create_booking(
     if overlapping_booking:
         raise HTTPException(
             status_code=400,
-            detail=f"Room {room_number} is already booked for the requested dates.",
+            detail=f"Room {room_number_input} is already booked for the requested dates.",
         )
 
     # Step 6: Create new booking
     try:
         new_booking = booking_models.Booking(
-            room_number=room_number,
+            room_number=room.room_number,  # Use the room's stored case
             guest_name=booking_request.guest_name,
             arrival_date=booking_request.arrival_date,
             departure_date=booking_request.departure_date,
             booking_type=booking_request.booking_type,
-            #number_of_days=booking_request.number_of_days,
             phone_number=booking_request.phone_number,
             status="reserved" if booking_request.booking_type == "R" else "checked-in",
             room_price=room.amount,  # Include room price
@@ -117,7 +117,7 @@ def create_booking(
         db.refresh(new_booking)
 
         return {
-            "message": f"Booking created successfully for room {room_number}.",
+            "message": f"Booking created successfully for room {room.room_number}.",
             "booking_details": {
                 "id": new_booking.id,
                 "room_number": new_booking.room_number,
@@ -198,10 +198,7 @@ def list_reserved_bookings_by_date(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    List all reserved bookings within an optional date range.
-    Filters by status "reserved" and date range if provided.
-    """
+   
     try:
         # Build the query to filter reserved bookings
         query = db.query(booking_models.Booking).filter(
@@ -243,8 +240,8 @@ def list_reserved_bookings_by_date(
     except Exception as e:
         logger.error(f"Error retrieving reserved bookings by date: {str(e)}")
         raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while retrieving reserved bookings: {str(e)}",
+            status_code=404,
+            detail=f" {str(e)}",
         )
 
 

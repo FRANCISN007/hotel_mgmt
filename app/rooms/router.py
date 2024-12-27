@@ -11,10 +11,12 @@ from app.users import schemas
 from datetime import date
 from loguru import logger
 
-
 router = APIRouter()
 
 
+
+# Set up logging
+logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 @router.post("/")
 def create_room(
@@ -22,11 +24,17 @@ def create_room(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
+    logger.info(f"Room creation request received. User: {current_user.username}, Role: {current_user.role}")
+
+    # Check for admin permissions
     if current_user.role != "admin":
+        logger.warning(f"Permission denied for user {current_user.username}. Role: {current_user.role}")
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    # Normalize room_number to lowercase
-    normalized_room_number = room.room_number.lower()
+    # Preserve the original case for storage but use lowercase for validation
+    original_room_number = room.room_number
+    normalized_room_number = original_room_number.lower()
+    logger.debug(f"Original room number: {original_room_number}, Normalized room number: {normalized_room_number}")
 
     # Check if a room with the normalized room_number already exists
     existing_room = (
@@ -35,14 +43,19 @@ def create_room(
         .first()
     )
     if existing_room:
+        logger.warning(f"Room creation failed. Room {original_room_number} already exists in the database.")
         raise HTTPException(status_code=400, detail="Room with this number already exists")
 
-    # Update the room object with the normalized room_number
-    room.room_number = normalized_room_number
+    logger.info(f"Creating a new room: {original_room_number}")
 
-    # Create the room using the CRUD function
-    new_room = crud.create_room(db, room)
-    return {"message": "Room created successfully", "room": new_room}
+    try:
+        # Create the room using the original case
+        new_room = crud.create_room(db, room)
+        logger.info(f"Room {original_room_number} created successfully.")
+        return {"message": "Room created successfully", "room": new_room}
+    except Exception as e:
+        logger.error(f"Error while creating room {original_room_number}: {str(e)}")
+        raise HTTPException(status_code=500, detail="An error occurred while creating the room.")
 
 
 @router.get("/", response_model=dict)
@@ -127,11 +140,7 @@ def history(
 
 @router.get("/available")
 def list_available_rooms(db: Session = Depends(get_db)):
-    """
-    List all available rooms:
-    - A room is not available if it has a booking starting today.
-    - A room is not available if it has a booking whose date range spans today.
-    """
+    
     today = date.today()
 
     # Query to find room numbers with bookings starting today or spanning today
