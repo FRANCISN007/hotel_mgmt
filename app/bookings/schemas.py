@@ -2,7 +2,8 @@
 from pydantic import BaseModel, root_validator
 from typing import Optional, Literal
 from datetime import date
-from datetime import datetime
+from pydantic import BaseModel, validator
+from datetime import datetime, timezone
 
 
 
@@ -19,6 +20,7 @@ class BookingSchema(BaseModel):
     phone_number: str
     #payment_status: Optional[str] = "pending"  # Optional for check-ins
     number_of_days: Optional[int] = None  # Optional for input
+    booking_date: Optional[datetime] = None
 
     class Config:
         orm_mode = True

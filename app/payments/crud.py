@@ -33,12 +33,12 @@ def create_payment(
         booking_id=booking_id,  # Correctly assign the booking_id here
         room_number=booking.room_number,  # Extract room number from the booking record
         guest_name=booking.guest_name,  # Extract guest name from the booking record
+        booking_cost=payment.booking_cost,
         amount_paid=payment.amount_paid,
         balance_due=balance_due,
         discount_allowed=payment.discount_allowed,
         payment_method=payment.payment_method,
         payment_date=payment.payment_date,
-        booking_cost=payment.booking_cost,
         status=status
     )
 

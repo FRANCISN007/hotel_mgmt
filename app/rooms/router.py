@@ -140,38 +140,37 @@ def history(
 
 @router.get("/available")
 def list_available_rooms(db: Session = Depends(get_db)):
-    
     today = date.today()
 
-    # Query to find room numbers with bookings starting today or spanning today
+    # Query to find room numbers with active bookings spanning today
     unavailable_rooms_today = (
         db.query(booking_models.Booking.room_number)
         .filter(
-            or_(
-                booking_models.Booking.arrival_date == today,
-                and_(
-                    booking_models.Booking.arrival_date <= today,
-                    booking_models.Booking.departure_date >= today
-                )
+            booking_models.Booking.status.notin_(["checked-out", "cancelled"]),  # Exclude irrelevant bookings
+            and_(
+                booking_models.Booking.arrival_date <= today,
+                booking_models.Booking.departure_date >= today
             )
         )
         .distinct()
         .all()
     )
 
-    # Extract room numbers that are unavailable
+    # Extract unavailable room numbers as a set
     unavailable_room_numbers = {room.room_number for room in unavailable_rooms_today}
 
-    # Fetch all rooms from the database
-    all_rooms = db.query(room_models.Room).all()
-
-    # Filter out unavailable rooms
-    available_rooms = [
-        room for room in all_rooms if room.room_number not in unavailable_room_numbers
-    ]
+    # Fetch all rooms marked as available in the Room table
+    available_rooms_query = (
+        db.query(room_models.Room)
+        .filter(
+            room_models.Room.room_number.notin_(unavailable_room_numbers),
+            room_models.Room.status == "available"  # Only include rooms explicitly marked as available
+        )
+    )
+    available_rooms = available_rooms_query.all()
 
     # Total rooms in the database
-    total_rooms = len(all_rooms)
+    total_rooms = db.query(room_models.Room).count()
 
     # If no rooms are available, return a fully booked message
     if not available_rooms:
@@ -193,10 +192,12 @@ def list_available_rooms(db: Session = Depends(get_db)):
     ]
 
     return {
+        "message": "Available rooms fetched successfully.",
         "total_rooms": total_rooms,
         "total_available_rooms": len(serialized_rooms),
         "available_rooms": serialized_rooms,
     }
+
 
 
 

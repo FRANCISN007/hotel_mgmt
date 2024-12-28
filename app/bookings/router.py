@@ -13,7 +13,8 @@ from app.bookings import schemas, models as  booking_models
 from app.payments import models as payment_models
 from loguru import logger
 from sqlalchemy.sql import func
-
+from datetime import datetime, timezone
+from pytz import timezone as pytz_timezone, utc
 
 
 router = APIRouter()
@@ -22,6 +23,15 @@ router = APIRouter()
 logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 
+
+
+
+LOCAL_TIMEZONE = pytz_timezone("Africa/Lagos")  # Set to your desired timezone
+
+def get_local_time():
+    """Helper function to get the current local time in the specified timezone."""
+    utc_now = datetime.now(utc)
+    return utc_now.astimezone(LOCAL_TIMEZONE)
 
 @router.post("/create/")
 def create_booking(
@@ -99,6 +109,7 @@ def create_booking(
     # Step 7: Create new booking
     try:
         new_booking = booking_models.Booking(
+            booking_date=get_local_time(),  # Get localized current time
             room_number=room.room_number,  # Use the room's stored case
             guest_name=booking_request.guest_name,
             arrival_date=booking_request.arrival_date,
@@ -127,6 +138,7 @@ def create_booking(
                 "departure_date": new_booking.departure_date,
                 "booking_type": new_booking.booking_type,
                 "phone_number": new_booking.phone_number,
+                "booking_date": new_booking.booking_date.isoformat(),  # Serialize as ISO 8601
                 "number_of_days": new_booking.number_of_days,
                 "status": new_booking.status,
                 "booking_cost": new_booking.booking_cost,  # Include booking cost in response
@@ -135,7 +147,8 @@ def create_booking(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-    
+
+   
     
     
 
@@ -181,6 +194,7 @@ def list_bookings(
             "departure_date": booking.departure_date,
             "number_of_days": booking.number_of_days,
             "booking_type": booking.booking_type,
+            "booking_date":booking.booking_date,
             "phone_number":booking.phone_number,
             "status": booking.status,
             "payment_status": booking.payment_status,  # Updated payment status
@@ -228,6 +242,7 @@ def list_reserved_bookings_by_date(
                 "departure_date": booking.departure_date,
                 "number_of_days": booking.number_of_days,
                 "phone_number": booking.phone_number,
+                "booking_date":booking.booking_date,
                 "booking_status": booking.status,
                 "payment_status":booking.payment_status, 
             }
@@ -278,6 +293,7 @@ def search_gust_name(
                 "number_of_days": booking.number_of_days,
                 "booking_type": booking.booking_type,
                 "phone_number": booking.phone_number,
+                "booking_date":booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
             })
@@ -340,6 +356,7 @@ def list_booking_by_id(
         "number_of_days": booking.number_of_days,
         "booking_type": booking.booking_type,
         "phone_number":booking.phone_number,
+        "booking_date":booking.booking_date,
         "status": booking.status,
         "payment_status": booking.payment_status,  # Updated payment status
     }
@@ -403,6 +420,7 @@ def list_bookings_by_date(
                 "departure_date": booking.departure_date,
                 "booking_type": booking.booking_type,
                 "phone_number":booking.phone_number,
+                "booking_date":booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,  # Updated payment status
             })
@@ -476,6 +494,7 @@ def list_bookings_by_room(
                 "number_of_days": booking.number_of_days,
                 "booking_type": booking.booking_type,
                 "phone_number": booking.phone_number,
+                "booking_date":booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
             }
