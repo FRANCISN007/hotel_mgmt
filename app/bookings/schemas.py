@@ -18,7 +18,7 @@ class BookingSchema(BaseModel):
     booking_type: Literal["C", "R"]
     phone_number: str
     #payment_status: Optional[str] = "pending"  # Optional for check-ins
-    #number_of_days: Optional[int] = None  # Optional for input
+    number_of_days: Optional[int] = None  # Optional for input
 
     class Config:
         orm_mode = True
@@ -53,6 +53,7 @@ class BookingSchemaResponse(BaseModel):
     status: Optional[str] = "reserved"
     payment_status: Optional[str] = "pending"
     number_of_days: int  # Ensured as part of the response
+    booking_cost: Optional[float] = None
     is_checked_out: Optional[bool] = False
     cancellation_reason: Optional[str] = None
 

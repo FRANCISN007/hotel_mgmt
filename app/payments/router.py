@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Optional
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import between
 from app.database import get_db
@@ -18,7 +18,6 @@ router = APIRouter()
 # Set up logging
 logger.add("app.log", rotation="500 MB", level="DEBUG")
 
-
 @router.post("/create/{booking_id}")
 def create_payment(
     booking_id: int,
@@ -29,6 +28,25 @@ def create_payment(
     """
     Create a new payment for a booking, considering discounts and payment history.
     """
+
+    # Get the current system time as a timezone-aware datetime
+    transaction_time = datetime.now(timezone.utc)
+
+    # Ensure payment_date in the request is timezone-aware
+    if payment_request.payment_date.tzinfo is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The provided payment_date must include timezone information."
+        )
+
+    # Validate that the transaction time is not in the future
+    if payment_request.payment_date > transaction_time:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transaction time {payment_request.payment_date} cannot be in the future."
+        )
+
+    # Fetch the booking record
     booking_record = db.query(booking_models.Booking).filter(
         booking_models.Booking.id == booking_id
     ).first()
@@ -38,47 +56,71 @@ def create_payment(
             status_code=404, detail=f"Booking with ID {booking_id} does not exist."
         )
 
+    # Fetch the room associated with the booking
     room = crud.get_room_by_number(db, booking_record.room_number)
     if not room:
         raise HTTPException(
             status_code=404, detail=f"Room {booking_record.room_number} does not exist."
         )
 
+    # Ensure the booking status allows payments
     if booking_record.status not in ["checked-in", "reserved"]:
         raise HTTPException(
             status_code=400,
             detail=f"Booking ID {booking_id} must be checked-in or reserved to make a payment.",
         )
 
+    # Calculate the total due based on the number of days and room price
+    num_days = booking_record.number_of_days
+    total_due = (num_days * room.amount)
+
+    # Fetch all previous payments for this booking
     existing_payments = db.query(payment_models.Payment).filter(
         payment_models.Payment.booking_id == booking_id,
         payment_models.Payment.status != "voided",
     ).all()
 
+    # Calculate the total amount already paid
     total_existing_payment = sum(
         payment.amount_paid + (payment.discount_allowed or 0) for payment in existing_payments
     )
 
+    # Add the new payment to the total existing payments
     new_total_payment = total_existing_payment + payment_request.amount_paid + (payment_request.discount_allowed or 0)
 
-    if new_total_payment > room.amount:
+    # Adjust the total due for any discount allowed
+    effective_total_due = total_due  # Adjust if you want to apply any discount
+
+    # Check for overpayment
+    if new_total_payment > effective_total_due:
         raise HTTPException(
             status_code=400,
-            detail=f"Total payment (including discount) exceeds the room price of {room.amount}.",
+            detail=f"Payment exceeds the total due amount of {effective_total_due}. Please verify the payment amount."
         )
 
-    balance_due = room.amount - new_total_payment
+    # Calculate balance due
+    balance_due = max(effective_total_due - new_total_payment, 0)
+
+    # Determine payment status
     status = "payment incomplete" if balance_due > 0 else "payment completed"
 
     try:
+        # Create the new payment with system-generated payment_date
         new_payment = crud.create_payment(
             db=db,
-            payment=payment_request,
+            payment=payment_schemas.PaymentCreateSchema(
+                amount_paid=payment_request.amount_paid,
+                discount_allowed=payment_request.discount_allowed,
+                payment_method=payment_request.payment_method,
+                payment_date=datetime.now(timezone.utc),  # System-generated payment_date in UTC
+                booking_cost=booking_record.booking_cost  # Pass booking cost from the booking
+            ),
             booking_id=booking_id,
             balance_due=balance_due,
             status=status,
         )
 
+        # Update the booking payment status
         booking_record.payment_status = status
         db.commit()
 
@@ -90,6 +132,7 @@ def create_payment(
                 "discount_allowed": payment_request.discount_allowed,
                 "balance_due": new_payment.balance_due,
                 "status": new_payment.status,
+                "booking_cost": new_payment.booking_cost,  # Return the booking cost as part of the response
             },
         }
 
@@ -98,6 +141,8 @@ def create_payment(
         logger.error(f"Error creating payment: {e}")
         raise HTTPException(status_code=500, detail="Error creating payment.")
 
+    
+    
 
 @router.get("/list/")
 def list_payments(
@@ -418,11 +463,7 @@ def get_debtor_list(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    Get a list of debtors and the total amount due for all debtors.
-    Excludes canceled bookings and considers only non-voided payments.
-    Booking status is given priority over payment status.
-    """
+    
     try:
         # Query all bookings that are not canceled
         bookings = db.query(booking_models.Booking).filter(
@@ -457,8 +498,11 @@ def get_debtor_list(
                 for payment in payments
             )
 
+            # Calculate total amount due based on number_of_days and room price
+            total_due = booking.number_of_days * room.amount
+
             # Calculate the balance due
-            balance_due = room.amount - total_paid
+            balance_due = total_due - total_paid
 
             # Only include bookings where balance_due > 0
             if balance_due > 0:
@@ -467,6 +511,8 @@ def get_debtor_list(
                     "room_number": booking.room_number,
                     "booking_id": booking.id,
                     "room_price": room.amount,
+                    "number_of_days": booking.number_of_days,
+                    "total_due": total_due,
                     "total_paid": total_paid,
                     "amount_due": balance_due,
                 })
@@ -488,7 +534,6 @@ def get_debtor_list(
             status_code=500,
             detail="An error occurred while retrieving the debtor list.",
         )
-
 
 
 # Delete Payment Endpoint
@@ -574,30 +619,26 @@ def update_payment(
 
         # Update the amount paid if provided
         if payment_update.amount_paid is not None:
-            new_total_paid = payment_update.amount_paid
-            if new_total_paid > room.amount:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Updated payment exceeds the room price."
-                )
-            payment.amount_paid = new_total_paid
+            payment.amount_paid = payment_update.amount_paid
 
         # Apply the discount if provided
         if payment_update.discount_allowed is not None:
             payment.discount_allowed = payment_update.discount_allowed
 
-        # Calculate the total after applying the discount
-        total_after_discount = room.amount - payment.discount_allowed
+        # Calculate balance_due if amount paid is less than room amount
+        if payment.amount_paid < room.amount:
+            total_after_discount = max(room.amount - (payment.discount_allowed or 0), 0)
+            payment.balance_due = total_after_discount - payment.amount_paid
+        else:
+            payment.balance_due = 0
 
-        # Ensure the payment does not exceed the total amount after the discount
-        if payment.amount_paid > total_after_discount:
-            raise HTTPException(
-                status_code=400,
-                detail="Amount paid exceeds the room price after discount."
-            )
-
-        # Calculate the new balance due considering the discount
-        payment.balance_due = total_after_discount - payment.amount_paid
+        # Calculate status automatically based on amount_paid and balance_due
+        if payment.amount_paid >= room.amount:
+            payment.status = "payment completed"
+        elif payment.amount_paid > 0:
+            payment.status = "payment incomplete"
+        else:
+            payment.status = "pending"
 
         # Update other fields
         if payment_update.payment_method is not None:
@@ -605,14 +646,6 @@ def update_payment(
 
         if payment_update.payment_date is not None:
             payment.payment_date = payment_update.payment_date
-
-        # Calculate status automatically based on balance_due
-        if payment.balance_due == 0:
-            payment.status = "payment completed"
-        elif payment.balance_due > 0 and payment.amount_paid > 0:
-            payment.status = "payment incomplete"
-        else:
-            payment.status = "pending"
 
         # Commit changes to the database
         db.commit()

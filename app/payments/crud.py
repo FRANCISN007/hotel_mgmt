@@ -38,6 +38,7 @@ def create_payment(
         discount_allowed=payment.discount_allowed,
         payment_method=payment.payment_method,
         payment_date=payment.payment_date,
+        booking_cost=payment.booking_cost,
         status=status
     )
 

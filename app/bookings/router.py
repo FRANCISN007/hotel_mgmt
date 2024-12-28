@@ -27,11 +27,7 @@ logger.add("app.log", rotation="500 MB", level="DEBUG")
 def create_booking(
     booking_request: schemas.BookingSchema,
     db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    Create a new booking after validating room existence, booking dates, and overlaps.
-    """
     room_number_input = booking_request.room_number.strip()  # Preserve the original input
     normalized_room_number = room_number_input.lower()  # Normalize input for comparison
     today = date.today()
@@ -97,17 +93,21 @@ def create_booking(
             detail=f"Room {room_number_input} is already booked for the requested dates.",
         )
 
-    # Step 6: Create new booking
+    # Step 6: Calculate booking cost based on room price and number of days
+    booking_cost = room.amount * booking_request.number_of_days
+
+    # Step 7: Create new booking
     try:
         new_booking = booking_models.Booking(
             room_number=room.room_number,  # Use the room's stored case
             guest_name=booking_request.guest_name,
             arrival_date=booking_request.arrival_date,
-            departure_date=booking_request.departure_date,
+            departure_date=booking_request.departure_date,          
             booking_type=booking_request.booking_type,
             phone_number=booking_request.phone_number,
             status="reserved" if booking_request.booking_type == "R" else "checked-in",
             room_price=room.amount,  # Include room price
+            booking_cost=booking_cost,  # Set the calculated booking cost
         )
         db.add(new_booking)
 
@@ -122,13 +122,14 @@ def create_booking(
                 "id": new_booking.id,
                 "room_number": new_booking.room_number,
                 "guest_name": new_booking.guest_name,
+                "room_price": new_booking.room_price,
                 "arrival_date": new_booking.arrival_date,
                 "departure_date": new_booking.departure_date,
                 "booking_type": new_booking.booking_type,
-                "number_of_days": new_booking.number_of_days,
                 "phone_number": new_booking.phone_number,
+                "number_of_days": new_booking.number_of_days,
                 "status": new_booking.status,
-                "room_price": new_booking.room_price,  # Include room price in response
+                "booking_cost": new_booking.booking_cost,  # Include booking cost in response
             },
         }
     except Exception as e:

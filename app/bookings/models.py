@@ -20,6 +20,7 @@ class Booking(Base):
     status = Column(String, default="reserved")
     payment_status = Column(String, default="pending")
     booking_date = Column(DateTime, default=datetime.utcnow)
+    booking_cost = Column(Float, nullable=True)
     is_checked_out = Column(Boolean, default=False)
     cancellation_reason = Column(String, nullable=True)
     deleted = Column(Boolean, default=False)  # Soft delete flag
