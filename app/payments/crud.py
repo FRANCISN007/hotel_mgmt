@@ -38,7 +38,7 @@ def create_payment(
         balance_due=balance_due,
         discount_allowed=payment.discount_allowed,
         payment_method=payment.payment_method,
-        payment_date=payment.payment_date,
+        payment_date=payment.payment_date.isoformat(),
         status=status
     )
 

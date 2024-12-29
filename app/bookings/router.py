@@ -13,8 +13,7 @@ from app.bookings import schemas, models as  booking_models
 from app.payments import models as payment_models
 from loguru import logger
 from sqlalchemy.sql import func
-from datetime import datetime, timezone
-from pytz import timezone as pytz_timezone, utc
+from datetime import datetime
 
 
 router = APIRouter()
@@ -23,15 +22,6 @@ router = APIRouter()
 logger.add("app.log", rotation="500 MB", level="DEBUG")
 
 
-
-
-
-LOCAL_TIMEZONE = pytz_timezone("Africa/Lagos")  # Set to your desired timezone
-
-def get_local_time():
-    """Helper function to get the current local time in the specified timezone."""
-    utc_now = datetime.now(utc)
-    return utc_now.astimezone(LOCAL_TIMEZONE)
 
 @router.post("/create/")
 def create_booking(
@@ -109,7 +99,6 @@ def create_booking(
     # Step 7: Create new booking
     try:
         new_booking = booking_models.Booking(
-            booking_date=get_local_time(),  # Get localized current time
             room_number=room.room_number,  # Use the room's stored case
             guest_name=booking_request.guest_name,
             arrival_date=booking_request.arrival_date,

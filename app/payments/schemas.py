@@ -21,7 +21,7 @@ class PaymentUpdateSchema(BaseModel):
     amount_paid: Optional[float] = None  # Update the amount if provided
     discount_allowed: Optional[float] = None  # Update discount if provided
     payment_method: Optional[str] = None  # Update the payment method if provided
-    payment_date: Optional[datetime] = None  # Update the payment date if provided
+    payment_date: datetime # Update the payment date if provided
     status: Optional[str] = None  # Update the status (e.g., 'completed', 'pending') if provided
     booking_cost: Optional[float] = None  # Update booking cost if provided
 

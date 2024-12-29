@@ -3,7 +3,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Boolean, DateTime, Float
 from app.database import Base
-from datetime import datetime, timezone
+from datetime import datetime
 
 
 
@@ -22,7 +22,7 @@ class Booking(Base):
     phone_number = Column(String, nullable=True)
     status = Column(String, default="reserved")
     payment_status = Column(String, default="pending")
-    booking_date = Column(DateTime, default=lambda: datetime.now(timezone.utc)) 
+    booking_date = Column(DateTime, default=datetime.utcnow)
     is_checked_out = Column(Boolean, default=False)
     cancellation_reason = Column(String, nullable=True)
     deleted = Column(Boolean, default=False)  # Soft delete flag

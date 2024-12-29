@@ -112,7 +112,7 @@ def create_payment(
                 amount_paid=payment_request.amount_paid,
                 discount_allowed=payment_request.discount_allowed,
                 payment_method=payment_request.payment_method,
-                payment_date=datetime.now(timezone.utc),  # System-generated payment_date in UTC
+                payment_date=payment_request.payment_date.isoformat(), # System-generated payment_date in UTC
                 booking_cost=booking_record.booking_cost  # Pass booking cost from the booking
             ),
             booking_id=booking_id,
@@ -130,6 +130,7 @@ def create_payment(
                 "payment_id": new_payment.id,
                 "amount_paid": new_payment.amount_paid,
                 "discount_allowed": payment_request.discount_allowed,
+                "payment_date": new_payment.payment_date,
                 "balance_due": new_payment.balance_due,
                 "status": new_payment.status,
                 "booking_cost": new_payment.booking_cost,  # Return the booking cost as part of the response

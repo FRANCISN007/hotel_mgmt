@@ -20,7 +20,7 @@ class BookingSchema(BaseModel):
     phone_number: str
     #payment_status: Optional[str] = "pending"  # Optional for check-ins
     number_of_days: Optional[int] = None  # Optional for input
-    booking_date: Optional[datetime] = None
+    #booking_date: datetime
 
     class Config:
         orm_mode = True
