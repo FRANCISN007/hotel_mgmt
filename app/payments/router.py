@@ -171,6 +171,7 @@ def list_payments(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
+                "booking_id": payment.booking_id,
             }
             for payment in payments
         ]
@@ -232,6 +233,7 @@ def get_payment_by_id(
             "payment_date": payment.payment_date.isoformat(),
             "status": payment.status,
             "balance_due": payment.balance_due,
+            "booking_id": payment.booking_id,
         }
 
     except HTTPException as e:
@@ -304,6 +306,7 @@ def list_payments_by_date(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
+                "booking_id": payment.booking_id,
             })
 
             # Only add to total_payment_amount if payment status is not "voided"
@@ -379,6 +382,7 @@ def list_void_payments(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "balance_due": payment.balance_due,
+                "booking_id": payment.booking_id,
             })
             total_voided_amount += payment.amount_paid  # Add the voided payment amount to the total
 
@@ -440,6 +444,7 @@ def total_payment(
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
+                "booking_id": payment.booking_id,
             })
 
         return {
