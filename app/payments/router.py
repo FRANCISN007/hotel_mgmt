@@ -167,12 +167,13 @@ def list_payments(
                 "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
+                "booking_cost": payment.booking_cost,
                 "amount_paid": payment.amount_paid,
                 "discount_allowed": payment.discount_allowed,
+                "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
-                "status": payment.status,
-                "balance_due": payment.balance_due,
+                "status": payment.status,  
                 "booking_id": payment.booking_id,
             }
             for payment in payments
@@ -230,11 +231,12 @@ def get_payment_by_id(
             "payment_id": payment.id,
             "guest_name": payment.guest_name,
             "room_number": payment.room_number,
+            "booking_cost": payment.booking_cost,
             "amount_paid": payment.amount_paid,
+            "balance_due": payment.balance_due,
             "payment_method": payment.payment_method,
             "payment_date": payment.payment_date.isoformat(),
             "status": payment.status,
-            "balance_due": payment.balance_due,
             "booking_id": payment.booking_id,
         }
 
@@ -304,10 +306,11 @@ def list_payments_by_date(
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
+                "booking_cost": payment.booking_cost,
+                "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
-                "balance_due": payment.balance_due,
                 "booking_id": payment.booking_id,
             })
 
@@ -380,10 +383,11 @@ def list_void_payments(
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
+                "booking_cost": payment.booking_cost,
+                "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
-                "status": payment.status,
-                "balance_due": payment.balance_due,
+                "status": payment.status,                
                 "booking_id": payment.booking_id,
             })
             total_voided_amount += payment.amount_paid  # Add the voided payment amount to the total
@@ -440,9 +444,10 @@ def total_payment(
                 "payment_id": payment.id,
                 "room_number": payment.room_number,
                 "guest_name": payment.guest_name,
+                "booking_cost": payment.booking_cost,
                 "amount_paid": payment.amount_paid,
-                "balance_due": payment.balance_due,
                 "discount allowed": payment.discount_allowed,
+                "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,

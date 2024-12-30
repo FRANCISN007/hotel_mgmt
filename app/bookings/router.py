@@ -254,7 +254,7 @@ def list_reserved_bookings_by_date(
 
 
 @router.get("/search/")
-def search_gust_name(
+def search_guest_name(
     guest_name: str,
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
@@ -524,6 +524,43 @@ def update_booking(
     if not booking:
         raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found.")
 
+    # Normalize room number for case-insensitive comparison if provided in the updated data
+    if updated_data.room_number:
+        room_number_input = updated_data.room_number.strip()
+        normalized_room_number = room_number_input.lower()
+
+        # Check if the normalized room exists
+        room = (
+            db.query(room_models.Room)
+            .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
+            .first()
+        )
+        if not room:
+            raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
+
+        # Ensure no conflicting bookings exist for the new room number
+        overlapping_booking = db.query(booking_models.Booking).filter(
+            func.lower(booking_models.Booking.room_number) == normalized_room_number,
+            booking_models.Booking.id != booking_id,  # Exclude the current booking
+            booking_models.Booking.status != "checked-out",
+            booking_models.Booking.status != "cancelled",
+            or_(
+                and_(
+                    booking_models.Booking.arrival_date < updated_data.departure_date,
+                    booking_models.Booking.departure_date > updated_data.arrival_date,
+                )
+            ),
+        ).first()
+
+        if overlapping_booking:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Room {room_number_input} is already booked for the requested dates.",
+            )
+
+        # Update the room number to match the stored case
+        updated_data.room_number = room.room_number
+
     # Step 1: Update booking fields
     for field, value in updated_data.dict(exclude_unset=True).items():
         setattr(booking, field, value)
@@ -542,46 +579,7 @@ def update_booking(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
-@router.post("/check-out/")
-def check_out_booking(
-    booking_id: int,
-    reason: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
-    """
-    Check out a guest from a room.
-    Optionally, a reason for checkout can be provided.
-    """
-    booking = db.query(booking_models.Booking).filter(
-        booking_models.Booking.id == booking_id, booking_models.Booking.status == "checked-in"
-    ).first()
-
-    if not booking:
-        raise HTTPException(status_code=404, detail=f"No active check-in found for booking ID {booking_id}.")
-
-    try:
-        booking.status = "checked-out"
-        booking.is_checked_out = True
-        booking.cancellation_reason = reason
-
-        # Update room status
-        room = db.query(room_models.Room).filter(room_models.Room.room_number == booking.room_number).first()
-        if room:
-            room.status = "available"
-
-        db.commit()
-        return {
-            "message": f"Guest successfully checked out of room {booking.room_number}.",
-            "room_status": "available",
-            "reason": reason or "No reason provided",
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-    
-    
+  
     
     
 @router.post("/cancel/{booking_id}/")

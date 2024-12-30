@@ -79,62 +79,6 @@ def list_rooms(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
         "rooms": serialized_rooms,   # List of rooms
     }
 
-@router.get("/transactions", response_model=list[dict])
-def history(
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
-            
-):
-    """
-    Lists all rooms along with their current and past transactions, including:
-    - Reservations
-    - Check-ins
-    - Current status (available, reserved, or checked-in)
-    """
-    # Query all rooms
-    all_rooms = db.query(room_models.Room).all()
-
-
-
-    # Query all check-ins
-    check_ins = db.query(
-        booking_models.Booking.room_number,
-        booking_models.Booking.guest_name,
-        booking_models.Booking.arrival_date,
-        booking_models.Booking.departure_date,
-        booking_models.Booking.status
-    ).all()
-
-    # Build a list of transactions for each room
-    transactions_map = {}
-
-
-    # Map check-ins
-    for check_in in check_ins:
-        if check_in.room_number not in transactions_map:
-            transactions_map[check_in.room_number] = []
-        transactions_map[check_in.room_number].append({
-            "transaction_type": "check-in",
-            "guest_name": check_in.guest_name,
-            "arrival_date": check_in.arrival_date,
-            "departure_date": check_in.departure_date,
-            "status": check_in.status
-        })
-
-    # Prepare the response with all room details and transactions
-    result = []
-    for room in all_rooms:
-        room_data = {
-            "room_number": room.room_number,
-            "room_type": room.room_type,
-            "amount": room.amount,
-            "current_status": room.status,
-            "transactions": transactions_map.get(room.room_number, [])
-        }
-        result.append(room_data)
-
-    return result
-
 
 
 
