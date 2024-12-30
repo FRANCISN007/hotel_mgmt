@@ -187,6 +187,7 @@ def list_bookings(
             "phone_number":booking.phone_number,
             "status": booking.status,
             "payment_status": booking.payment_status,  # Updated payment status
+            "booking_cost":booking.booking_cost,
         })
 
     return {
@@ -234,6 +235,7 @@ def list_reserved_bookings_by_date(
                 "booking_date":booking.booking_date,
                 "booking_status": booking.status,
                 "payment_status":booking.payment_status, 
+                "booking_cost":booking.booking_cost,
             }
             for booking in bookings
         ]
@@ -285,6 +287,7 @@ def search_gust_name(
                 "booking_date":booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
+                "booking_cost":booking.booking_cost,
             })
 
         return {
@@ -348,6 +351,7 @@ def list_booking_by_id(
         "booking_date":booking.booking_date,
         "status": booking.status,
         "payment_status": booking.payment_status,  # Updated payment status
+        "booking_cost":booking.booking_cost,
     }
 
     return {
@@ -412,6 +416,7 @@ def list_bookings_by_date(
                 "booking_date":booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,  # Updated payment status
+                "booking_cost":booking.booking_cost,
             })
 
         return {
@@ -486,6 +491,7 @@ def list_bookings_by_room(
                 "booking_date":booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
+                "booking_cost":booking.booking_cost,
             }
             for booking in bookings
         ]

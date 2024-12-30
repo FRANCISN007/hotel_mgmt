@@ -10,6 +10,7 @@ from app.users.auth import get_current_user
 from app.users import schemas
 from app.rooms import models as room_models  # Ensure Room model is imported
 from app.bookings import models as booking_models
+from sqlalchemy.sql import func
 from loguru import logger
 
 router = APIRouter()
@@ -587,98 +588,4 @@ def void_payment(
         )
 
 
-@router.put("/update/{payment_id}/")
-def update_payment(
-    payment_id: int,
-    payment_update: payment_schemas.PaymentUpdateSchema,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
-    """
-    Update payment details such as amount, room number, guest name, and other fields by payment ID.
-    The status will be automatically calculated.
-    """
-    try:
-        # Retrieve the existing payment
-        payment = crud.get_payment_by_id(db, payment_id)
-        if not payment:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Payment with ID {payment_id} not found."
-            )
 
-        # Update the room number if provided
-        if payment_update.room_number is not None:
-            # Validate the new room number
-            room = crud.get_room_by_number(db, payment_update.room_number)
-            if not room:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Room {payment_update.room_number} not found."
-                )
-            payment.room_number = payment_update.room_number
-
-        # Update the guest name if provided
-        if payment_update.guest_name is not None:
-            # Optionally, add validation for the guest if needed
-            payment.guest_name = payment_update.guest_name
-
-        # Update the amount paid if provided
-        if payment_update.amount_paid is not None:
-            payment.amount_paid = payment_update.amount_paid
-
-        # Apply the discount if provided
-        if payment_update.discount_allowed is not None:
-            payment.discount_allowed = payment_update.discount_allowed
-
-        # Calculate balance_due if amount paid is less than room amount
-        if payment.amount_paid < room.amount:
-            total_after_discount = max(room.amount - (payment.discount_allowed or 0), 0)
-            payment.balance_due = total_after_discount - payment.amount_paid
-        else:
-            payment.balance_due = 0
-
-        # Calculate status automatically based on amount_paid and balance_due
-        if payment.amount_paid >= room.amount:
-            payment.status = "payment completed"
-        elif payment.amount_paid > 0:
-            payment.status = "payment incomplete"
-        else:
-            payment.status = "pending"
-
-        # Update other fields
-        if payment_update.payment_method is not None:
-            payment.payment_method = payment_update.payment_method
-
-        if payment_update.payment_date is not None:
-            payment.payment_date = payment_update.payment_date
-
-        # Commit changes to the database
-        db.commit()
-        logger.info(f"Payment with ID {payment_id} updated successfully.")
-
-        # Return updated payment details
-        return {
-            "message": f"Payment with ID {payment_id} updated successfully.",
-            "payment_details": {
-                "payment_id": payment.id,
-                "room_number": payment.room_number,
-                "guest_name": payment.guest_name,
-                "amount_paid": payment.amount_paid,
-                "discount_allowed": payment.discount_allowed,
-                "payment_method": payment.payment_method,
-                "payment_date": payment.payment_date.isoformat(),
-                "balance_due": payment.balance_due,
-                "status": payment.status,
-            },
-        }
-
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error updating payment: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="An error occurred while updating the payment."
-        )
