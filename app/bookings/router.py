@@ -580,7 +580,63 @@ def update_booking(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
   
-    
+@router.put("/checkout/{booking_id}/")
+def guest_checkout(
+    booking_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Endpoint to check out a guest by booking ID. 
+    Updates the booking status to 'checked-out' and the room status to 'available'.
+    """
+    try:
+        # Step 1: Retrieve the booking by ID and ensure it is 'checked-in' or 'reserved'
+        booking = db.query(booking_models.Booking).filter(
+            booking_models.Booking.id == booking_id,
+            booking_models.Booking.status.in_(["checked-in", "reserved"])  # Allow both statuses
+        ).first()
+
+        if not booking:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Booking with ID {booking_id} not found or is not in a valid state for checkout."
+            )
+
+        # Step 2: Retrieve the associated room
+        room = db.query(room_models.Room).filter(
+            func.lower(room_models.Room.room_number) == booking.room_number.lower()
+        ).first()
+
+        if not room:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Room associated with booking ID {booking_id} not found."
+            )
+
+        # Step 3: Update booking and room statuses
+        booking.status = "checked-out"
+        room.status = "available"
+
+        # Commit the changes to the database
+        db.commit()
+
+        return {
+            "message": f"Guest checked out successfully for booking ID {booking_id}.",
+            "room_status": room.status,
+            "booking_status": booking.status,
+        }
+
+    except HTTPException as e:
+        # Re-raise the HTTP exception
+        raise e
+    except Exception as e:
+        # Handle unexpected errors
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred during checkout: {str(e)}"
+        )
+   
     
 @router.post("/cancel/{booking_id}/")
 def cancel_booking(

@@ -3,8 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.users.auth import get_current_user
 from sqlalchemy.sql import func
-from sqlalchemy import or_
-from sqlalchemy import and_
+from sqlalchemy import and_, or_, not_
 from app.rooms import schemas as room_schemas, models as room_models, crud
 from app.bookings import models as booking_models  # Adjust path if needed
 from app.users import schemas
@@ -82,35 +81,32 @@ def list_rooms(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
 
 
 
+
 @router.get("/available")
 def list_available_rooms(db: Session = Depends(get_db)):
     today = date.today()
 
-    # Query to find room numbers with active bookings spanning today
-    unavailable_rooms_today = (
-        db.query(booking_models.Booking.room_number)
-        .filter(
-            booking_models.Booking.status.notin_(["checked-out", "cancelled"]),  # Exclude irrelevant bookings
-            and_(
-                booking_models.Booking.arrival_date <= today,
-                booking_models.Booking.departure_date >= today
+    # Query to get all rooms, no matter their availability status
+    available_rooms_query = db.query(room_models.Room)
+
+    # Exclude rooms with bookings that overlap with today
+    available_rooms_query = available_rooms_query.filter(
+        not_(
+            room_models.Room.room_number.in_(
+                db.query(booking_models.Booking.room_number)
+                .filter(
+                    booking_models.Booking.status.notin_(["checked-out", "cancelled"]),  # Exclude irrelevant bookings
+                    # Check for overlapping bookings with today
+                    and_(
+                        booking_models.Booking.arrival_date <= today,  # Booking starts before or on today
+                        booking_models.Booking.departure_date >= today,  # Booking ends after or on today
+                    )
+                )
             )
         )
-        .distinct()
-        .all()
     )
 
-    # Extract unavailable room numbers as a set
-    unavailable_room_numbers = {room.room_number for room in unavailable_rooms_today}
-
-    # Fetch all rooms marked as available in the Room table
-    available_rooms_query = (
-        db.query(room_models.Room)
-        .filter(
-            room_models.Room.room_number.notin_(unavailable_room_numbers),
-            room_models.Room.status == "available"  # Only include rooms explicitly marked as available
-        )
-    )
+    # Fetch available rooms
     available_rooms = available_rooms_query.all()
 
     # Total rooms in the database
@@ -141,7 +137,6 @@ def list_available_rooms(db: Session = Depends(get_db)):
         "total_available_rooms": len(serialized_rooms),
         "available_rooms": serialized_rooms,
     }
-
 
 
 
