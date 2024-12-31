@@ -141,66 +141,77 @@ def create_booking(
     
     
 
-@router.get("/list/") 
-def list_bookings( 
-    limit: int = Query(10, ge=1), 
-    skip: int = Query(0, ge=0), 
-    db: Session = Depends(get_db), 
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user), 
-): 
-    
-    bookings = db.query(booking_models.Booking).filter(
-        booking_models.Booking.status != "checked-out"
-    ).offset(skip).limit(limit).all()
+@router.get("/list/")
+def list_bookings(
+    limit: int = Query(10, ge=1),  # Maximum number of records to return
+    skip: int = Query(0, ge=0),  # Number of records to skip
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    """
+    List bookings with pagination, sorted in descending order of booking_date.
+    """
+    try:
+        # Fetch bookings with pagination, sorted by booking_date descending
+        bookings = db.query(booking_models.Booking).filter(
+            booking_models.Booking.status != "checked-out"
+        ).order_by(booking_models.Booking.booking_date.desc()).offset(skip).limit(limit).all()
 
-    formatted_bookings = []
-    for booking in bookings:
-        # Fetch the most recent payment for the booking
-        latest_payment = db.query(payment_models.Payment).filter(
-            payment_models.Payment.booking_id == booking.id
-        ).order_by(payment_models.Payment.payment_date.desc()).first()  # Get the latest payment
+        formatted_bookings = []
+        for booking in bookings:
+            # Fetch the most recent payment for the booking
+            latest_payment = db.query(payment_models.Payment).filter(
+                payment_models.Payment.booking_id == booking.id
+            ).order_by(payment_models.Payment.payment_date.desc()).first()  # Get the latest payment
 
-        # Determine payment status based on the latest payment
-        if not latest_payment:  # No payment made
-            payment_status = "pending"
-        elif latest_payment.status == "voided":  # Payment was voided
-            payment_status = "pending"  # Revert to pending to allow further payments
-        elif latest_payment.balance_due > 0:  # Partial payment remaining
-            payment_status = "incomplete payment"
-        else:  # Full payment completed
-            payment_status = "payment completed"
+            # Determine payment status based on the latest payment
+            if not latest_payment:  # No payment made
+                payment_status = "pending"
+            elif latest_payment.status == "voided":  # Payment was voided
+                payment_status = "pending"  # Revert to pending to allow further payments
+            elif latest_payment.balance_due > 0:  # Partial payment remaining
+                payment_status = "incomplete payment"
+            else:  # Full payment completed
+                payment_status = "payment completed"
 
-        # Update booking payment status in the database if it has changed
-        if payment_status != booking.payment_status:
-            booking.payment_status = payment_status
-            db.commit()  # Commit the change to the database
+            # Update booking payment status in the database if it has changed
+            if payment_status != booking.payment_status:
+                booking.payment_status = payment_status
+                db.commit()  # Commit the change to the database
 
-        formatted_bookings.append({
-            "id": booking.id,
-            "room_number": booking.room_number,
-            "guest_name": booking.guest_name,
-            "arrival_date": booking.arrival_date,
-            "departure_date": booking.departure_date,
-            "number_of_days": booking.number_of_days,
-            "booking_type": booking.booking_type,
-            "booking_date":booking.booking_date,
-            "phone_number":booking.phone_number,
-            "status": booking.status,
-            "payment_status": booking.payment_status,  # Updated payment status
-            "booking_cost":booking.booking_cost,
-        })
+            formatted_bookings.append({
+                "id": booking.id,
+                "room_number": booking.room_number,
+                "guest_name": booking.guest_name,
+                "arrival_date": booking.arrival_date,
+                "departure_date": booking.departure_date,
+                "number_of_days": booking.number_of_days,
+                "booking_type": booking.booking_type,
+                "booking_date": booking.booking_date,
+                "phone_number": booking.phone_number,
+                "status": booking.status,
+                "payment_status": booking.payment_status,  # Updated payment status
+                "booking_cost": booking.booking_cost,
+            })
 
-    return {
-        "total_bookings": len(formatted_bookings),
-        "bookings": formatted_bookings,
-    }
+        return {
+            "total_bookings": len(formatted_bookings),
+            "bookings": formatted_bookings,
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving bookings: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred while retrieving bookings: {str(e)}",
+        )
 
 
 @router.get("/status/")
 def list_bookings_by_status(
-    status: Optional[str] = Query(None, description="Booking status to filter by (check-in, reserved, checked-out, cancelled)"),
-    start_date: Optional[date] = Query(None, description="Filter bookings starting from this date."),
-    end_date: Optional[date] = Query(None, description="Filter bookings up to this date."),
+    status: Optional[str] = Query(None, description="Booking status to filter by (checked-in, reserved, checked-out, cancelled)"),
+    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
@@ -367,8 +378,8 @@ def list_booking_by_id(
 
 @router.get("/list_by_date/")
 def list_bookings_by_date(
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
+    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):

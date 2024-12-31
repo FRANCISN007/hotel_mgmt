@@ -37,5 +37,6 @@ def on_startup():
 
 app.include_router(user_router, prefix="/user", tags=["Users"])
 app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
-app.include_router(bookings_router, prefix="/guest", tags=["Bookings"])
+app.include_router(bookings_router, prefix="/bookings", tags=["Bookings"])
 app.include_router(payments_router, prefix="/payments", tags=["Payments"])  # Include the new payments routes
+

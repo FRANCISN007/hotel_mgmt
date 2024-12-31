@@ -146,48 +146,90 @@ def create_payment(
     
     
 
+
 @router.get("/list/")
 def list_payments(
-    skip: int = Query(0, ge=0, description="Number of records to skip."),
-    limit: int = Query(10, ge=1, le=100, description="Maximum number of records to return."),
+    start_date: Optional[str] = Query(None, description="(ISO format: YYYY-MM-DD)."),
+    end_date: Optional[str] = Query(None, description="(ISO format: YYYY-MM-DD)."),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     """
-    List payments with pagination.
+    List all payments with optional date range filtering.
+    Payments are returned in descending order of payment_date.
+    The booking cost is calculated as (number of days * room price), and the amount paid is the sum of all payments for each booking, excluding void payments.
     """
     try:
-        total_payments, payments = crud.get_list_payments(db, skip, limit)
+        # Parse the start_date and end_date if they are provided
+        if start_date:
+            start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+        # Fetch all payments (no pagination) using the original CRUD function
+        payments = crud.get_list_payments_no_pagination(
+            db, start_date, end_date
+        )
 
         if not payments:
             return {"message": "No payments found."}
 
+        # Group payments by booking_id
+        payment_groups = {}
+        for payment in payments:
+            # Exclude "void" payments from the total amount paid
+            if payment.status == "voided":
+                continue
+
+            if payment.booking_id not in payment_groups:
+                payment_groups[payment.booking_id] = {
+                    "room_number": payment.room_number,
+                    "guest_name": payment.guest_name,
+                    "total_amount_paid": 0,
+                    "booking_cost": 0,
+                    "discount_allowed": payment.discount_allowed,
+                    "balance_due": payment.balance_due,
+                    "payment_method": payment.payment_method,
+                    "payment_date": payment.payment_date,
+                    "status": payment.status,
+                    "booking_id": payment.booking_id,
+                    "number_of_days": 0,  # Placeholder for number of days
+                    "room_price": 0,  # Placeholder for room price
+                }
+
+            # Summing up the total amount paid for each booking, excluding void payments
+            payment_groups[payment.booking_id]["total_amount_paid"] += payment.amount_paid
+
+            # You can fetch booking details (like number of days and room price) from the booking table
+            booking = db.query(booking_models.Booking).filter(booking_models.Booking.id == payment.booking_id).first()
+            if booking:
+                payment_groups[payment.booking_id]["number_of_days"] = booking.number_of_days
+                payment_groups[payment.booking_id]["room_price"] = booking.room_price
+                # Calculate the booking cost: number of days * room price
+                payment_groups[payment.booking_id]["booking_cost"] = booking.number_of_days * booking.room_price
+
+        # Prepare the list of payments to return
         payment_list = [
             {
-                "payment_id": payment.id,
-                "guest_name": payment.guest_name,
-                "room_number": payment.room_number,
-                "booking_cost": payment.booking_cost,
-                "amount_paid": payment.amount_paid,
-                "discount_allowed": payment.discount_allowed,
-                "balance_due": payment.balance_due,
-                "payment_method": payment.payment_method,
-                "payment_date": payment.payment_date.isoformat(),
-                "status": payment.status,  
-                "booking_id": payment.booking_id,
+                "payment_id": payment_id,
+                "guest_name": data["guest_name"],
+                "room_number": data["room_number"],
+                "booking_cost": data["booking_cost"],
+                "amount_paid": data["total_amount_paid"],
+                "discount_allowed": data["discount_allowed"],
+                "balance_due": data["balance_due"],
+                "payment_method": data["payment_method"],
+                "payment_date": data["payment_date"].isoformat() if data["payment_date"] else None,
+                "status": data["status"],
+                "booking_id": data["booking_id"],
             }
-            for payment in payments
+            for payment_id, data in payment_groups.items()
         ]
 
-        return {
-            "total_payments": total_payments,
-            "payments": payment_list,
-            "page_info": {
-                "current_skip": skip,
-                "limit": limit,
-                "remaining": max(0, total_payments - (skip + limit)),
-            },
-        }
+        # Sort payments in descending order of payment_date
+        payment_list.sort(key=lambda payment: payment["payment_date"], reverse=True)
+
+        return {"payments": payment_list}
 
     except Exception as e:
         logger.error(f"Error retrieving payments: {str(e)}")
@@ -195,7 +237,6 @@ def list_payments(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}",
         )
-
 
 
 
@@ -254,8 +295,8 @@ def get_payment_by_id(
 
 @router.get("/list_by_date/") 
 def list_payments_by_date(
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
+    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):

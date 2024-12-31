@@ -77,13 +77,28 @@ def get_payment_by_booking_id(db: Session, booking_id: int):
 
 
 
-def get_list_payments(db: Session, skip: int, limit: int):
-    """
-    Retrieve a paginated list of payments.
-    """
-    total_payments = db.query(payment_models.Payment).count()
-    payments = db.query(payment_models.Payment).offset(skip).limit(limit).all()
-    return total_payments, payments
+# Assuming you're using SQLAlchemy
+
+# Assuming you're using SQLAlchemy
+
+def get_list_payments_no_pagination(
+    db: Session, start_date: Optional[datetime], end_date: Optional[datetime]
+):
+    query = db.query(payment_models.Payment)  # Assuming `Payment` is the model representing the payments
+
+    # Apply date filters if provided
+    if start_date:
+        query = query.filter(payment_models.Payment.payment_date >= start_date)
+    if end_date:
+        query = query.filter(payment_models.Payment.payment_date <= end_date)
+
+    # Order the query results by payment_date in descending order
+    query = query.order_by(payment_models.Payment.payment_date.desc())
+
+    # Fetch all the results without pagination
+    payments = query.all()
+
+    return payments
 
 
 
