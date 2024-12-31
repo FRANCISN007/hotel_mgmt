@@ -196,19 +196,21 @@ def list_bookings(
     }
 
 
-@router.get("/list_reserved/")
-def list_reserved_bookings_by_date(
+@router.get("/status/")
+def list_bookings_by_status(
+    status: Optional[str] = Query(None, description="Booking status to filter by (check-in, reserved, checked-out, cancelled)"),
     start_date: Optional[date] = Query(None, description="Filter bookings starting from this date."),
     end_date: Optional[date] = Query(None, description="Filter bookings up to this date."),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-   
     try:
-        # Build the query to filter reserved bookings
-        query = db.query(booking_models.Booking).filter(
-            booking_models.Booking.status == "reserved"
-        )
+        # Build the query to filter bookings by status (if provided)
+        query = db.query(booking_models.Booking)
+
+        # Filter by booking status if provided (e.g., "check-in", "reserved", "checked-out", "cancelled")
+        if status:
+            query = query.filter(booking_models.Booking.status == status)
 
         # Apply date filters if provided
         if start_date:
@@ -216,13 +218,14 @@ def list_reserved_bookings_by_date(
         if end_date:
             query = query.filter(booking_models.Booking.departure_date <= end_date)
 
+        # Execute the query and get the results
         bookings = query.all()
 
+        # If no bookings are found, return a message with no bookings found
         if not bookings:
-            raise HTTPException(
-                status_code=404, detail="No reserved bookings found for the given criteria."
-            )
+            return {"message": "No bookings found for the given criteria."}
 
+        # Format the bookings to include necessary details
         formatted_bookings = [
             {
                 "id": booking.id,
@@ -232,25 +235,26 @@ def list_reserved_bookings_by_date(
                 "departure_date": booking.departure_date,
                 "number_of_days": booking.number_of_days,
                 "phone_number": booking.phone_number,
-                "booking_date":booking.booking_date,
-                "booking_status": booking.status,
-                "payment_status":booking.payment_status, 
-                "booking_cost":booking.booking_cost,
+                "booking_date": booking.booking_date,
+                "status": booking.status,
+                "payment_status": booking.payment_status,  # Assumes payment status is already calculated elsewhere
+                "booking_cost": booking.booking_cost,
             }
             for booking in bookings
         ]
 
+        # Return the formatted response
         return {
-            "total_reserved_bookings": len(formatted_bookings),
+            "total_bookings": len(formatted_bookings),
             "bookings": formatted_bookings,
         }
-    except Exception as e:
-        logger.error(f"Error retrieving reserved bookings by date: {str(e)}")
-        raise HTTPException(
-            status_code=404,
-            detail=f" {str(e)}",
-        )
 
+    except Exception as e:
+        logger.error(f"Error retrieving bookings by status and date: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred: {str(e)}",
+        )
 
 
 @router.get("/search/")
@@ -372,7 +376,7 @@ def list_bookings_by_date(
     try:
         # Build the base query
         query = db.query(booking_models.Booking).filter(
-            booking_models.Booking.status != "checked-out"
+            #booking_models.Booking.status != "checked-out"
         )
 
         # Apply date filters if provided
@@ -700,3 +704,7 @@ def cancel_booking(
             status_code=500,
             detail=f"An error occurred while canceling the booking: {str(e)}"
         )
+
+
+
+
