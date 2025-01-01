@@ -143,19 +143,26 @@ def create_booking(
 
 @router.get("/list/")
 def list_bookings(
-    limit: int = Query(10, ge=1),  # Maximum number of records to return
-    skip: int = Query(0, ge=0),  # Number of records to skip
+    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    List bookings with pagination, sorted in descending order of booking_date.
-    """
+   
     try:
-        # Fetch bookings with pagination, sorted by booking_date descending
-        bookings = db.query(booking_models.Booking).filter(
-            booking_models.Booking.status != "checked-out"
-        ).order_by(booking_models.Booking.booking_date.desc()).offset(skip).limit(limit).all()
+        # Build the base query, now filtering by booking_date
+        query = db.query(booking_models.Booking).filter(
+            # booking_models.Booking.status != "checked-out"  # Uncomment if you want to filter out checked-out bookings
+        )
+
+        # Apply date filters based on booking_date (not arrival_date or departure_date)
+        if start_date:
+            query = query.filter(booking_models.Booking.booking_date >= start_date)
+        if end_date:
+            query = query.filter(booking_models.Booking.booking_date <= end_date)
+
+        # Retrieve the bookings
+        bookings = query.all()
 
         formatted_bookings = []
         for booking in bookings:
@@ -177,18 +184,18 @@ def list_bookings(
             # Update booking payment status in the database if it has changed
             if payment_status != booking.payment_status:
                 booking.payment_status = payment_status
-                db.commit()  # Commit the change to the database
+                db.commit()
 
+            # Add booking to the formatted list
             formatted_bookings.append({
                 "id": booking.id,
                 "room_number": booking.room_number,
                 "guest_name": booking.guest_name,
                 "arrival_date": booking.arrival_date,
                 "departure_date": booking.departure_date,
-                "number_of_days": booking.number_of_days,
                 "booking_type": booking.booking_type,
-                "booking_date": booking.booking_date,
                 "phone_number": booking.phone_number,
+                "booking_date": booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,  # Updated payment status
                 "booking_cost": booking.booking_cost,
@@ -200,7 +207,7 @@ def list_bookings(
         }
 
     except Exception as e:
-        logger.error(f"Error retrieving bookings: {str(e)}")
+        logger.error(f"Error retrieving bookings by date: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred while retrieving bookings: {str(e)}",
@@ -376,75 +383,6 @@ def list_booking_by_id(
 
 
 
-@router.get("/list_by_date/")
-def list_bookings_by_date(
-    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
-    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
-   
-    try:
-        # Build the base query
-        query = db.query(booking_models.Booking).filter(
-            #booking_models.Booking.status != "checked-out"
-        )
-
-        # Apply date filters if provided
-        if start_date:
-            query = query.filter(booking_models.Booking.arrival_date >= start_date)
-        if end_date:
-            query = query.filter(booking_models.Booking.departure_date <= end_date)
-
-        bookings = query.all()
-
-        formatted_bookings = []
-        for booking in bookings:
-            # Fetch the most recent payment for the booking
-            latest_payment = db.query(payment_models.Payment).filter(
-                payment_models.Payment.booking_id == booking.id
-            ).order_by(payment_models.Payment.payment_date.desc()).first()  # Get the latest payment
-
-            # Determine payment status based on the latest payment
-            if not latest_payment:  # No payment made
-                payment_status = "pending"
-            elif latest_payment.status == "voided":  # Payment was voided
-                payment_status = "pending"  # Revert to pending to allow further payments
-            elif latest_payment.balance_due > 0:  # Partial payment remaining
-                payment_status = "incomplete payment"
-            else:  # Full payment completed
-                payment_status = "payment completed"
-
-            # Update booking payment status in the database if it has changed
-            if payment_status != booking.payment_status:
-                booking.payment_status = payment_status
-                db.commit()
-
-            formatted_bookings.append({
-                "id": booking.id,
-                "room_number": booking.room_number,
-                "guest_name": booking.guest_name,
-                "arrival_date": booking.arrival_date,
-                "departure_date": booking.departure_date,
-                "booking_type": booking.booking_type,
-                "phone_number":booking.phone_number,
-                "booking_date":booking.booking_date,
-                "status": booking.status,
-                "payment_status": booking.payment_status,  # Updated payment status
-                "booking_cost":booking.booking_cost,
-            })
-
-        return {
-            "total_bookings": len(formatted_bookings),
-            "bookings": formatted_bookings,
-        }
-
-    except Exception as e:
-        logger.error(f"Error retrieving bookings by date: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred while retrieving bookings: {str(e)}",
-        )
 
 @router.get("/{room_number}/")
 def list_bookings_by_room(
