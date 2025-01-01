@@ -594,38 +594,40 @@ def update_booking(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    
+    
   
-@router.put("/checkout/{booking_id}/")
+@router.put("/{room_number}/")
 def guest_checkout(
-    booking_id: int,
+    room_number: str,  # Room number is now passed as a string
     db: Session = Depends(get_db),
 ):
     """
-    Endpoint to check out a guest by booking ID. 
+    Endpoint to check out a guest by room number.
     Updates the booking status to 'checked-out' and the room status to 'available'.
     """
     try:
-        # Step 1: Retrieve the booking by ID and ensure it is 'checked-in' or 'reserved'
+        # Step 1: Retrieve the booking by room number and ensure it is 'checked-in' or 'reserved'
         booking = db.query(booking_models.Booking).filter(
-            booking_models.Booking.id == booking_id,
+            func.lower(booking_models.Booking.room_number) == room_number.lower(),  # Case-insensitive comparison
             booking_models.Booking.status.in_(["checked-in", "reserved"])  # Allow both statuses
         ).first()
 
         if not booking:
             raise HTTPException(
                 status_code=404,
-                detail=f"Booking with ID {booking_id} not found or is not in a valid state for checkout."
+                detail=f"Ths room number {room_number} is not booked yet, so it's not in a valid state for checkout."
             )
 
-        # Step 2: Retrieve the associated room
+        # Step 2: Retrieve the associated room with case-insensitive comparison
         room = db.query(room_models.Room).filter(
-            func.lower(room_models.Room.room_number) == booking.room_number.lower()
+            func.lower(room_models.Room.room_number) == room_number.lower()  # Match the room number case-insensitively
         ).first()
 
         if not room:
             raise HTTPException(
                 status_code=404,
-                detail=f"Room associated with booking ID {booking_id} not found."
+                detail=f"Room number {room_number} not found."
             )
 
         # Step 3: Update booking and room statuses
@@ -636,7 +638,7 @@ def guest_checkout(
         db.commit()
 
         return {
-            "message": f"Guest checked out successfully for booking ID {booking_id}.",
+            "message": f"Guest checked out successfully for room number {room_number}.",
             "room_status": room.status,
             "booking_status": booking.status,
         }
@@ -651,6 +653,8 @@ def guest_checkout(
             status_code=500,
             detail=f"An error occurred during checkout: {str(e)}"
         )
+
+
    
     
 @router.post("/cancel/{booking_id}/")
