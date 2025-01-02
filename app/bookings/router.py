@@ -182,10 +182,12 @@ def list_bookings(
                 "guest_name": booking.guest_name,
                 "arrival_date": booking.arrival_date,
                 "departure_date": booking.departure_date,
+                "number_of_days":booking.number_of_days,
                 "booking_type": booking.booking_type,
                 "phone_number": booking.phone_number,
                 "booking_date": booking.booking_date,
                 "status": booking.status,
+                "payment_status": booking.payment_status,
                 "booking_cost": booking.booking_cost,
             })
 
