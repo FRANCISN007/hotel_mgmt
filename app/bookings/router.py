@@ -27,6 +27,7 @@ logger.add("app.log", rotation="500 MB", level="DEBUG")
 def create_booking(
     booking_request: schemas.BookingSchema,
     db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     room_number_input = booking_request.room_number.strip()  # Preserve the original input
     normalized_room_number = room_number_input.lower()  # Normalize input for comparison
@@ -148,45 +149,33 @@ def list_bookings(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-   
     try:
-        # Build the base query, now filtering by booking_date
+        # Ensure that the start_date is not greater than end_date
+        if start_date and end_date and start_date > end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Start date cannot be later than end date, check your date entry"
+            )
+
+        # Set the start and end dates to the beginning and end of the day, if provided
+        if start_date:
+            start_datetime = datetime.combine(start_date, datetime.min.time())  # Start of the day
+        if end_date:
+            end_datetime = datetime.combine(end_date, datetime.max.time())  # End of the day
+
+        # Build the base query for bookings
         query = db.query(booking_models.Booking).filter(
-            # booking_models.Booking.status != "checked-out"  # Uncomment if you want to filter out checked-out bookings
+            # Filter bookings by booking_date within the range
+            (booking_models.Booking.booking_date >= start_datetime) if start_date else True,
+            (booking_models.Booking.booking_date <= end_datetime) if end_date else True
         )
 
-        # Apply date filters based on booking_date (not arrival_date or departure_date)
-        if start_date:
-            query = query.filter(booking_models.Booking.booking_date >= start_date)
-        if end_date:
-            query = query.filter(booking_models.Booking.booking_date <= end_date)
-
-        # Retrieve the bookings
-        bookings = query.all()
+        # Retrieve the bookings sorted by booking_date in descending order
+        bookings = query.order_by(booking_models.Booking.booking_date.desc()).all()
 
         formatted_bookings = []
         for booking in bookings:
-            # Fetch the most recent payment for the booking
-            latest_payment = db.query(payment_models.Payment).filter(
-                payment_models.Payment.booking_id == booking.id
-            ).order_by(payment_models.Payment.payment_date.desc()).first()  # Get the latest payment
-
-            # Determine payment status based on the latest payment
-            if not latest_payment:  # No payment made
-                payment_status = "pending"
-            elif latest_payment.status == "voided":  # Payment was voided
-                payment_status = "pending"  # Revert to pending to allow further payments
-            elif latest_payment.balance_due > 0:  # Partial payment remaining
-                payment_status = "incomplete payment"
-            else:  # Full payment completed
-                payment_status = "payment completed"
-
-            # Update booking payment status in the database if it has changed
-            if payment_status != booking.payment_status:
-                booking.payment_status = payment_status
-                db.commit()
-
-            # Add booking to the formatted list
+            # Add booking information to the formatted list
             formatted_bookings.append({
                 "id": booking.id,
                 "room_number": booking.room_number,
@@ -197,7 +186,6 @@ def list_bookings(
                 "phone_number": booking.phone_number,
                 "booking_date": booking.booking_date,
                 "status": booking.status,
-                "payment_status": booking.payment_status,  # Updated payment status
                 "booking_cost": booking.booking_cost,
             })
 
@@ -210,8 +198,9 @@ def list_bookings(
         logger.error(f"Error retrieving bookings by date: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while retrieving bookings: {str(e)}",
+            detail=f" {str(e)}",
         )
+
 
 
 @router.get("/status/")

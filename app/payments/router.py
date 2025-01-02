@@ -184,8 +184,8 @@ def list_payments(
         elif end_date:
             query = query.filter(payment_models.Payment.payment_date <= end_datetime)
 
-        # Retrieve all payments within the date range (including void and cancelled)
-        payments = query.all()
+        # Retrieve all payments within the date range, ordered by payment_date in descending order
+        payments = query.order_by(payment_models.Payment.payment_date.desc()).all()
 
         if not payments:
             logger.info("No payments found for the specified criteria.")
@@ -229,7 +229,6 @@ def list_payments(
             status_code=500,
             detail=f"An error occurred while retrieving payments: {str(e)}"
         )
-
 
 
 @router.get("/payment/{payment_id}/")
