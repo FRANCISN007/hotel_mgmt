@@ -1,4 +1,4 @@
-HOTEL MANAGEMENT SYSTEM/
+HOTEL MGMT SYS/
 │
 ├── app/                      # Backend (FastAPI application)
 │   ├── __init__.py
@@ -26,7 +26,7 @@ HOTEL MANAGEMENT SYSTEM/
 │   │   ├── models.py
 │   │   ├── schemas.py
 │
-├── frontend/                 # Frontend (React application)
+├── hotel-management-frontend/                 # Frontend (React application)
 │   ├── public/
 │   │   ├── index.html        # React entry point
 │   ├── src/
