@@ -1,11 +1,11 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.users.router import router as user_router
 from app.rooms.router import router as rooms_router
 from app.bookings.router import router as bookings_router
-from app.payments.router import router as payments_router  # Import the payments router
-from loguru import logger
-from fastapi.middleware.cors import CORSMiddleware
+from app.payments.router import router as payments_router
+import uvicorn
 
 app = FastAPI(
     title="Hotel Management System",
@@ -13,30 +13,27 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
-
-# Allow CORS for the frontend React app running on localhost:3000
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Or use ["*"] for all origins (less secure)
+    allow_origins=["http://localhost:3000"],  # Or ["*"] to allow all origins (not recommended for production)
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
 )
 
-
-
-# Set up logging
-logger.add("app.log", rotation="500 MB", level="DEBUG")
+# Include your routers
+app.include_router(user_router, prefix="/user", tags=["Users"])
+app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
+app.include_router(bookings_router, prefix="/bookings", tags=["Bookings"])
+app.include_router(payments_router, prefix="/payments", tags=["Payments"])
 
 # Database initialization
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)  # Create all tables in the database
-    
+    Base.metadata.create_all(bind=engine)
 
-app.include_router(user_router, prefix="/user", tags=["Users"])
-app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
-app.include_router(bookings_router, prefix="/bookings", tags=["Bookings"])
-app.include_router(payments_router, prefix="/payments", tags=["Payments"])  # Include the new payments routes
 
+# Entry point for running directly
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

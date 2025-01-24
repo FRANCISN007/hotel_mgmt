@@ -26,27 +26,43 @@ HOTEL MGMT SYS/
 │   │   ├── models.py
 │   │   ├── schemas.py
 │
-├── hotel-management-frontend/                 # Frontend (React application)
-│   ├── public/
-│   │   ├── index.html        # React entry point
-│   ├── src/
-│   │   ├── App.js
-│   │   ├── index.js
-│   │   ├── pages/            # React pages
-│   │   │   ├── LoginPage.js
-│   │   │   ├── DashboardPage.js
-│   │   ├── components/       # Reusable components
-│   │   │   ├── Header.js
-│   │   │   ├── Footer.js
-│   │   ├── contexts/         # Context for state management
-│   │       ├── AuthContext.js
-│   ├── package.json
+├
 │
 ├── env/                      # Python virtual environment
 │
 ├── .gitignore
 ├── requirements.txt          # Python dependencies
 ├── README.md
+
+
+
+docker build -t hotel-management-system .
+docker run -p 8000:8000 hotel-management-system
+
+
+
+hotel-management-frontend/
+├── src/
+│   ├── api/
+│   │   ├── users.js       # API functions for users
+│   │   ├── rooms.js       # API functions for rooms
+│   │   ├── bookings.js    # API functions for bookings
+│   │   └── payments.js    # API functions for payments
+│   ├── components/
+│   │   ├── Users/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Register.jsx
+│   │   │   └── UsersList.jsx
+│   │   ├── Rooms/
+│   │   ├── Bookings/
+│   │   └── Payments/
+│   ├── App.js
+│   ├── index.js
+│   └── styles.css
+├── .env                # Environment variables
+├── package.json
+└── README.md
+
 
 
 Run the following command to create a new React app:
