@@ -1,0 +1,35 @@
+2025-01-24 22:28:21.149 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:28:21.149 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:28:21.149 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:28:21.149 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:28:21.149 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:30:13.681 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:30:13.681 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:30:13.681 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:30:13.681 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:30:13.681 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:31:24.544 | INFO     | app.rooms.router:create_room:26 - Room creation request received. User: fcn, Role: admin
+2025-01-24 22:31:24.544 | INFO     | app.rooms.router:create_room:26 - Room creation request received. User: fcn, Role: admin
+2025-01-24 22:31:24.544 | INFO     | app.rooms.router:create_room:26 - Room creation request received. User: fcn, Role: admin
+2025-01-24 22:31:24.544 | INFO     | app.rooms.router:create_room:26 - Room creation request received. User: fcn, Role: admin
+2025-01-24 22:31:24.544 | INFO     | app.rooms.router:create_room:26 - Room creation request received. User: fcn, Role: admin
+2025-01-24 22:31:24.545 | DEBUG    | app.rooms.router:create_room:36 - Original room number: S1, Normalized room number: s1
+2025-01-24 22:31:24.545 | DEBUG    | app.rooms.router:create_room:36 - Original room number: S1, Normalized room number: s1
+2025-01-24 22:31:24.545 | DEBUG    | app.rooms.router:create_room:36 - Original room number: S1, Normalized room number: s1
+2025-01-24 22:31:24.545 | DEBUG    | app.rooms.router:create_room:36 - Original room number: S1, Normalized room number: s1
+2025-01-24 22:31:24.545 | DEBUG    | app.rooms.router:create_room:36 - Original room number: S1, Normalized room number: s1
+2025-01-24 22:31:24.559 | INFO     | app.rooms.router:create_room:48 - Creating a new room: S1
+2025-01-24 22:31:24.559 | INFO     | app.rooms.router:create_room:48 - Creating a new room: S1
+2025-01-24 22:31:24.559 | INFO     | app.rooms.router:create_room:48 - Creating a new room: S1
+2025-01-24 22:31:24.559 | INFO     | app.rooms.router:create_room:48 - Creating a new room: S1
+2025-01-24 22:31:24.559 | INFO     | app.rooms.router:create_room:48 - Creating a new room: S1
+2025-01-24 22:31:24.577 | INFO     | app.rooms.router:create_room:53 - Room S1 created successfully.
+2025-01-24 22:31:24.577 | INFO     | app.rooms.router:create_room:53 - Room S1 created successfully.
+2025-01-24 22:31:24.577 | INFO     | app.rooms.router:create_room:53 - Room S1 created successfully.
+2025-01-24 22:31:24.577 | INFO     | app.rooms.router:create_room:53 - Room S1 created successfully.
+2025-01-24 22:31:24.577 | INFO     | app.rooms.router:create_room:53 - Room S1 created successfully.
+2025-01-24 22:39:34.708 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:39:34.708 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:39:34.708 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:39:34.708 | INFO     | app.users.router:login:48 - user authentication successful: fcn
+2025-01-24 22:39:34.708 | INFO     | app.users.router:login:48 - user authentication successful: fcn
