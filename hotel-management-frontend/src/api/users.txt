@@ -1,0 +1,22 @@
+import apiClient from './index';
+
+// User login
+export const loginUser = async (credentials) => {
+  try {
+    const response = await apiClient.post(
+      '/user/token',
+      new URLSearchParams({
+        username: credentials.username,
+        password: credentials.password,
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    return response.data; // Contains access token
+  } catch (error) {
+    throw error.response?.data || 'Login failed';
+  }
+};

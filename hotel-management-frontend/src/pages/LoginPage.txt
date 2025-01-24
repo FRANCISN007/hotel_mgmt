@@ -1,0 +1,137 @@
+import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+const LoginPage = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { login, loading } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+  
+    if (!username || !password) {
+      setError("Please enter both username and password.");
+      return;
+    }
+  
+    try {
+      const response = await api.post("/auth/login", { username, password });
+      login(response.data); // Assuming API returns { token, user }
+      navigate("/dashboard");
+    } catch (err) {
+      setError("Login failed. Please check your credentials.");
+      console.error("Login failed:", err);
+    }
+  };
+  
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.formContainer}>
+        <h2 style={styles.title}>Login</h2>
+        {error && <p style={styles.error}>{error}</p>}
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.inputGroup}>
+            <label htmlFor="username" style={styles.label}>
+              Username
+            </label>
+            <input
+              type="text"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label htmlFor="password" style={styles.label}>
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={styles.input}
+            />
+          </div>
+          <button type="submit" style={styles.button} disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const styles = {
+  container: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    backgroundColor: '#f4f4f4',
+  },
+  formContainer: {
+    backgroundColor: '#fff',
+    width: '350px',
+    padding: '2rem',
+    borderRadius: '8px',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: '24px',
+    marginBottom: '1rem',
+    color: '#333',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  inputGroup: {
+    marginBottom: '1.5rem',
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  label: {
+    fontSize: '16px',
+    color: '#333',
+    width: '35%',
+  },
+  input: {
+    width: '60%',
+    padding: '0.6rem',
+    fontSize: '16px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    outline: 'none',
+  },
+  button: {
+    backgroundColor: '#007bff',
+    color: '#fff',
+    padding: '0.5rem 1rem',
+    fontSize: '14px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    width: '100%',
+  },
+  error: {
+    color: 'red',
+    fontSize: '14px',
+    marginBottom: '1rem',
+  },
+};
+
+export default LoginPage;
