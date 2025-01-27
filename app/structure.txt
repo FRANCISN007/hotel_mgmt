@@ -34,6 +34,27 @@ HOTEL MGMT SYS/
 ├── requirements.txt          # Python dependencies
 ├── README.md
 
+Proposed Structure for the Tkinter GUI:
+HOTEL MGMT SYS/
+│
+├── app/                      # Backend (FastAPI application)
+│   ├── ...                   # Your existing backend files
+│
+├── frontend/                 # New directory for the Tkinter GUI
+│   ├── __init__.py           # To make this a package
+│   ├── main.py               # Main entry point for the Tkinter GUI
+│   ├── users_gui.py          # GUI logic for the Users module
+│   ├── rooms_gui.py          # GUI logic for the Rooms module
+│   ├── bookings_gui.py       # GUI logic for the Bookings module
+│   ├── payments_gui.py       # GUI logic for the Payments module
+│   ├── utils.py              # Common helper functions (e.g., API requests)
+│
+├── env/                      # Python virtual environment
+│
+├── .gitignore
+├── requirements.txt          # Python dependencies
+├── README.md
+
 
 
 docker build -t hotel-management-system .

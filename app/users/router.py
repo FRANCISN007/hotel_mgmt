@@ -10,6 +10,8 @@ from loguru import logger
 
 router = APIRouter()
 
+
+
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
 
 logger.add("app.log", rotation="500 MB", level="DEBUG")
@@ -85,3 +87,5 @@ def delete_user(
     db.commit()
     logger.info(f"user {username} deleted successfully")
     return {"message": f"User {username} deleted successfully"}
+
+

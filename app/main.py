@@ -9,7 +9,7 @@ import uvicorn
 
 app = FastAPI(
     title="Hotel Management System",
-    description="An API for managing hotel operations including guests, reservations, rooms, and payments.",
+    description="An API for managing hotel operations including Bookings, Reservations, Rooms, and Payments.",
     version="1.0.0",
 )
 
@@ -23,7 +23,7 @@ app.add_middleware(
 )
 
 # Include your routers
-app.include_router(user_router, prefix="/user", tags=["Users"])
+app.include_router(user_router, prefix="/users", tags=["Users"])
 app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
 app.include_router(bookings_router, prefix="/bookings", tags=["Bookings"])
 app.include_router(payments_router, prefix="/payments", tags=["Payments"])
