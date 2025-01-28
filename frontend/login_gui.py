@@ -1,60 +1,9 @@
+#login and registration
 import tkinter as tk
 from tkinter import ttk, messagebox
 import requests
+from dashboard import Dashboard  # Import the Dashboard class
 
-# Dashboard Window
-class Dashboard:
-    def __init__(self, root, token):
-        self.root = root
-        self.token = token
-        self.root.title("Dashboard - Hotel Management System")
-        self.root.geometry("600x400")
-
-        # UI Components for Dashboard
-        self.setup_dashboard_ui()
-
-    def setup_dashboard_ui(self):
-        # Title Label
-        title_label = ttk.Label(self.root, text="Welcome to the Dashboard", font=("Helvetica", 18))
-        title_label.pack(pady=20)
-
-        # Button for Users Management
-        users_button = ttk.Button(self.root, text="Manage Users", command=self.manage_users)
-        users_button.pack(pady=10)
-
-        # Button for Rooms Management
-        rooms_button = ttk.Button(self.root, text="Manage Rooms", command=self.manage_rooms)
-        rooms_button.pack(pady=10)
-
-        # Button for Bookings Management
-        bookings_button = ttk.Button(self.root, text="Manage Bookings", command=self.manage_bookings)
-        bookings_button.pack(pady=10)
-
-        # Button for Payments Management
-        payments_button = ttk.Button(self.root, text="Manage Payments", command=self.manage_payments)
-        payments_button.pack(pady=10)
-
-        # Logout Button
-        logout_button = ttk.Button(self.root, text="Logout", command=self.logout)
-        logout_button.pack(pady=20)
-
-    def manage_users(self):
-        messagebox.showinfo("Manage Users", "Manage Users functionality goes here.")
-
-    def manage_rooms(self):
-        messagebox.showinfo("Manage Rooms", "Manage Rooms functionality goes here.")
-
-    def manage_bookings(self):
-        messagebox.showinfo("Manage Bookings", "Manage Bookings functionality goes here.")
-
-    def manage_payments(self):
-        messagebox.showinfo("Manage Payments", "Manage Payments functionality goes here.")
-
-    def logout(self):
-        self.root.destroy()
-        root = tk.Tk()
-        app = LoginGUI(root)
-        root.mainloop()
 
 
 # Login and Registration Window
