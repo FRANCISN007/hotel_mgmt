@@ -53,19 +53,50 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 
-@router.get("/users/", response_model=list[schemas.UserDisplaySchema])
+@router.get("/", response_model=list[schemas.UserDisplaySchema])
 def list_all_users(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 10,
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    #if current_user.role != "admin":
+        #raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     users = user_crud.get_all_users(db)
     logger.info("Fetching list of users")
     return users
+
+@router.put("/users/{username}")
+def update_user(
+    username: str,
+    updated_user: schemas.UserSchema,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    if current_user.role != "admin":
+        logger.warning(f"Unauthorized update attempt by {current_user.username}")
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    user = user_crud.get_user_by_username(db, username)
+    if not user:
+        logger.warning(f"User not found: {username}")
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Prevent username change
+    if updated_user.username != username:
+        logger.warning(f"Attempt to change username from {username} to {updated_user.username}")
+        raise HTTPException(status_code=400, detail="Username change not allowed")
+
+    # Update fields
+    if updated_user.password:
+        user.hashed_password = pwd_context.hash(updated_user.password)
+    user.role = updated_user.role
+
+    db.commit()
+    db.refresh(user)
+    logger.info(f"User {username} updated successfully")
+    return {"message": f"User {username} updated successfully"}
 
 
 @router.delete("/users/{username}")
@@ -75,17 +106,20 @@ def delete_user(
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     if current_user.role != "admin":
-        logger.warning(f"user trying to delete a user but current user does not have admin right: {username}")
+        logger.warning(f"Unauthorized delete attempt by {current_user.username}")
         raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    # Prevent self-deletion
+    if username == current_user.username:
+        logger.warning(f"Admin {current_user.username} attempted to delete themselves.")
+        raise HTTPException(status_code=400, detail="You cannot delete yourself.")
 
     user = user_crud.get_user_by_username(db, username)
     if not user:
-        logger.warning(f"user not found with id: {username}")
+        logger.warning(f"User not found: {username}")
         raise HTTPException(status_code=404, detail="User not found")
 
     db.delete(user)
     db.commit()
-    logger.info(f"user {username} deleted successfully")
+    logger.info(f"User {username} deleted successfully")
     return {"message": f"User {username} deleted successfully"}
-
-

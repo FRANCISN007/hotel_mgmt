@@ -427,11 +427,11 @@ def get_debtor_list(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    
     try:
-        # Query all bookings that are not canceled
+        # Query all bookings that are not canceled and not complimentary
         bookings = db.query(booking_models.Booking).filter(
-            booking_models.Booking.status != "cancelled"
+            booking_models.Booking.status != "cancelled",
+            booking_models.Booking.payment_status != "complimentary"  # Exclude complimentary bookings
         ).all()
 
         if not bookings:
@@ -450,10 +450,10 @@ def get_debtor_list(
             if not room:
                 continue
 
-            # Fetch payments for this booking that are not voided
+            # Fetch payments for this booking, excluding voided ones
             payments = db.query(payment_models.Payment).filter(
                 payment_models.Payment.booking_id == booking.id,
-                payment_models.Payment.status != "voided"
+                payment_models.Payment.status != "voided"  # Exclude voided payments
             ).all()
 
             # Calculate total payments (ignoring voided payments)

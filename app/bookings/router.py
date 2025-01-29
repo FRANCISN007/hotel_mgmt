@@ -139,7 +139,105 @@ def create_booking(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
    
-    
+@router.post("/create_complimentary/")
+def create_complimentary_booking(
+    booking_request: schemas.BookingSchema,
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    room_number_input = booking_request.room_number.strip()
+    normalized_room_number = room_number_input.lower()
+    today = date.today()
+
+    # Validate dates
+    if booking_request.departure_date < booking_request.arrival_date:
+        raise HTTPException(
+            status_code=400,
+            detail="Departure date must be later than the arrival date.",
+        )
+
+    if booking_request.arrival_date != today:
+        raise HTTPException(
+            status_code=400,
+            detail="Complimentary bookings can only be made for today's date.",
+        )
+
+    # Validate room existence
+    room = (
+        db.query(room_models.Room)
+        .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
+        .first()
+    )
+    if not room:
+        raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
+
+    # Check if the room is available
+    overlapping_booking = db.query(booking_models.Booking).filter(
+        func.lower(booking_models.Booking.room_number) == normalized_room_number,
+        booking_models.Booking.status != "checked-out",
+        booking_models.Booking.status != "cancelled",
+        or_(
+            and_(
+                booking_models.Booking.arrival_date < booking_request.departure_date,
+                booking_models.Booking.departure_date > booking_request.arrival_date,
+            )
+        )
+    ).first()
+
+    if overlapping_booking:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Room {room_number_input} is already booked for the requested dates.",
+        )
+
+    # Complimentary booking (zero price)
+    booking_cost = 0
+    payment_status = "complimentary"  # Set payment status to complimentary
+
+    # Create new complimentary booking
+    try:
+        new_booking = booking_models.Booking(
+            room_number=room.room_number,
+            guest_name=booking_request.guest_name,
+            arrival_date=booking_request.arrival_date,
+            departure_date=booking_request.departure_date,
+            booking_type="C",  # Complimentary booking type
+            phone_number=booking_request.phone_number,
+            status="checked-in",
+            room_price=0,  # Complimentary booking = free room price
+            booking_cost=booking_cost,  # Complimentary booking = zero cost
+            payment_status=payment_status,  # Store payment status
+        )
+        db.add(new_booking)
+
+        # Update room status
+        room.status = "checked-in"
+        db.commit()
+        db.refresh(new_booking)
+
+        return {
+            "message": f"Complimentary booking created successfully for room {room.room_number}.",
+            "booking_details": {
+                "id": new_booking.id,
+                "room_number": new_booking.room_number,
+                "guest_name": new_booking.guest_name,
+                "room_price": new_booking.room_price,
+                "arrival_date": new_booking.arrival_date,
+                "departure_date": new_booking.departure_date,
+                "booking_type": "C",  # Complimentary booking
+                "phone_number": new_booking.phone_number,
+                "booking_date": new_booking.booking_date.isoformat(),
+                "number_of_days": new_booking.number_of_days,
+                "status": new_booking.status,
+                "booking_cost": new_booking.booking_cost,
+                "payment_status": new_booking.payment_status,  # Include payment status in response
+            },
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+   
     
 
 @router.get("/list/")
