@@ -60,12 +60,19 @@ def list_all_users(
     limit: int = 10,
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    #if current_user.role != "admin":
-        #raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     users = user_crud.get_all_users(db)
     logger.info("Fetching list of users")
     return users
+
+@router.get("/me", response_model=schemas.UserDisplaySchema)
+def get_current_user_info(
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user)
+):
+    return current_user  # Ensure this returns a dictionary, not a list
+
 
 @router.put("/{username}")
 def update_user(
