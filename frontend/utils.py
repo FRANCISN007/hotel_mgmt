@@ -36,19 +36,29 @@ def get_user_role(token):
         print("Error fetching user role:", e)
         return "guest"  # Safe fallback
 
+import requests
+
 def api_request(endpoint, method="GET", data=None, token=None):
+    url = f"http://127.0.0.1:8000{endpoint}"  # Ensure this is the correct API base URL
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    url = f"{API_BASE_URL}{endpoint}"
 
-    if method == "GET":
-        response = requests.get(url, headers=headers)
-    elif method == "POST":
-        response = requests.post(url, json=data, headers=headers)
-    elif method == "PUT":
-        response = requests.put(url, json=data, headers=headers)
-    elif method == "DELETE":
-        response = requests.delete(url, headers=headers)
-    else:
-        raise ValueError("Unsupported HTTP method")
+    try:
+        if method == "GET":
+            response = requests.get(url, headers=headers)
+        elif method == "POST":
+            response = requests.post(url, json=data, headers=headers)
+        elif method == "PUT":
+            response = requests.put(url, json=data, headers=headers)
+        elif method == "DELETE":
+            response = requests.delete(url, headers=headers)
+        else:
+            return None
 
-    return response.json() if response.status_code == 200 else None
+        if response.status_code == 200:
+            return response.json()  # Ensure correct JSON handling
+        else:
+            print(f"Error: {response.status_code}, Response: {response.text}")  # Print error details
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return None
