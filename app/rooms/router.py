@@ -58,7 +58,7 @@ def create_room(
 
 
 @router.get("/", response_model=dict)
-def list_rooms(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+def list_rooms(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     """
     Fetch a list of rooms with basic details: room number, room type, and amount.
     Also include the total number of rooms in the hotel.
@@ -183,7 +183,7 @@ def update_room(
         room.amount = room_update.amount
 
     if room_update.status:
-        if room_update.status not in ["available", "booked", "maintenance", "reserved"]:
+        if room_update.status not in ["available", "checked-in", "reserved"]:
             raise HTTPException(status_code=400, detail="Invalid status value")
         room.status = room_update.status
 
@@ -193,6 +193,12 @@ def update_room(
 
     return {"message": "Room updated successfully", "room": room}
 
+@router.get("/{room_number}", response_model=room_schemas.RoomSchema)
+def get_room(room_number: str, db: Session = Depends(get_db)):
+    room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    return room
 
 
 @router.get("/summary")
