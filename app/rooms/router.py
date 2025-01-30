@@ -195,9 +195,13 @@ def update_room(
 
 @router.get("/{room_number}", response_model=room_schemas.RoomSchema)
 def get_room(room_number: str, db: Session = Depends(get_db)):
-    room = db.query(room_models.Room).filter(room_models.Room.room_number == room_number).first()
+    room = db.query(room_models.Room).filter(
+        func.lower(room_models.Room.room_number) == room_number.lower()
+    ).first()
+
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
+    
     return room
 
 
