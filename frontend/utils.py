@@ -35,3 +35,20 @@ def get_user_role(token):
     except Exception as e:
         print("Error fetching user role:", e)
         return "guest"  # Safe fallback
+
+def api_request(endpoint, method="GET", data=None, token=None):
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    url = f"{API_BASE_URL}{endpoint}"
+
+    if method == "GET":
+        response = requests.get(url, headers=headers)
+    elif method == "POST":
+        response = requests.post(url, json=data, headers=headers)
+    elif method == "PUT":
+        response = requests.put(url, json=data, headers=headers)
+    elif method == "DELETE":
+        response = requests.delete(url, headers=headers)
+    else:
+        raise ValueError("Unsupported HTTP method")
+
+    return response.json() if response.status_code == 200 else None

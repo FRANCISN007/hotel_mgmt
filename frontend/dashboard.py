@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from users_gui import UserManagement
+from rooms_gui import RoomManagement
 from utils import load_token, get_user_role 
 from tkinter import messagebox  # Add this line
 
@@ -48,8 +49,8 @@ class Dashboard:
         UserManagement(self.root, self.token)
 
     def manage_rooms(self):
-        print("Manage Rooms functionality coming soon!")
-
+        RoomManagement(self.root, self.token)  # Open RoomManagement
+        
     def manage_bookings(self):
         print("Manage Bookings functionality coming soon!")
 
