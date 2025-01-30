@@ -45,20 +45,34 @@ class RoomManagement:
             self.delete_button.config(state=tk.DISABLED)
 
     def fetch_rooms(self):
+        """Fetch all rooms from the API and update the display with their latest statuses."""
         response = api_request("/rooms", "GET", token=self.token)
-        if not response:
+
+        if not response or "rooms" not in response:
             messagebox.showerror("Error", "Failed to fetch rooms")
             return
 
-        self.tree.delete(*self.tree.get_children())
-        rooms = response.get("rooms", response)
+        self.tree.delete(*self.tree.get_children())  # Clear existing entries
+
+        rooms = response["rooms"]  # Get the list of rooms
         for room in rooms:
-            self.tree.insert("", tk.END, values=(
-                room.get("room_number", "N/A"),
-                room.get("room_type", "N/A"),
-                room.get("amount", "N/A"),
-                room.get("status", "N/A")
-            ))
+            room_number = room.get("room_number", "N/A")
+            room_type = room.get("room_type", "N/A")
+            amount = room.get("amount", "N/A")
+
+        # Fetch the latest status for each room from the API
+            room_details = api_request(f"/rooms/{room_number}", "GET", token=self.token)
+
+        # Ensure we get a valid status
+            current_status = room_details.get("status", "N/A") if room_details else room.get("status", "N/A")
+
+        # Insert the room details into the display
+            self.tree.insert("", tk.END, values=(room_number, room_type, amount, current_status))
+
+    print("Rooms updated successfully!")  # Debugging statement
+
+
+
 
     def open_room_form(self):
         form = tk.Toplevel(self.root)
