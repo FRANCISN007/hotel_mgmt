@@ -35,24 +35,26 @@ class UserManagement:
             button = ttk.Button(options_frame, text=text, command=command)
             button.grid(row=0, column=idx, padx=10)
 
-        # User Treeview (Removed ID Column)
+        # User Treeview
         self.users_treeview = ttk.Treeview(
             self.user_management_window,
-            columns=("Username", "Role"),
+            columns=("ID", "Username", "Role"),
             show="headings",
         )
-
-        self.users_treeview.heading("Username", text="Username")
-        self.users_treeview.column("Username", width=250)
-
-        self.users_treeview.heading("Role", text="Role")
-        self.users_treeview.column("Role", width=150)
+        for col in ["ID", "Username", "Role"]:
+            self.users_treeview.heading(col, text=col)
+            self.users_treeview.column(col, width=200)
 
         self.users_treeview.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-    def fetch_users(self):
+    def fetch_users(self, skip=0, limit=10):
         """Fetch users from the API and populate the users list."""
+        
+        # Debugging: Print the token before making the request
+        print(f"DEBUG: Token Loaded - {self.token}")  
+
         if not self.token:
+            print("ERROR: No token found. Please log in again.")
             messagebox.showerror("Error", "No authentication token found. Please log in again.")
             self.user_management_window.destroy()
             return
@@ -62,20 +64,38 @@ class UserManagement:
                 f"{self.api_base_url}/users",
                 headers={"Authorization": f"Bearer {self.token}"}
             )
+
+            print(f"DEBUG: Response Status - {response.status_code}")
+            print(f"DEBUG: Response Body - {response.text}")  # Debug response
+
+            if response.status_code == 404:
+                print("ERROR: Unauthorized! Token may be invalid or expired.")
+                messagebox.showerror("Unauthorized", "Invalid or expired token. Please log in again.")
+                self.user_management_window.destroy()
+                return
+            elif response.status_code == 401:
+                messagebox.showerror("Unauthorized", "Invalid credentials. Please log in again.")
+                self.user_management_window.destroy()
+                return
+            elif response.status_code == 403:
+                messagebox.showerror("Forbidden", "You do not have permission to access this resource.")
+                self.user_management_window.destroy()
+                return
+
             response.raise_for_status()
             users = response.json()
             self.populate_treeview(users)
 
         except requests.exceptions.RequestException as e:
+            print(f"ERROR: Failed to fetch users - {e}")
             messagebox.showerror("Error", f"Failed to fetch users: {e}")
 
     def populate_treeview(self, users):
         """Populate the Treeview widget with the list of users."""
         for row in self.users_treeview.get_children():
             self.users_treeview.delete(row)
-        
         for user in users:
-            self.users_treeview.insert("", tk.END, values=(user["username"], user["role"]))
+            self.users_treeview.insert("", tk.END, values=(user["id"], user["username"], user["role"]))
 
     def add_user(self):
         self.open_user_form("Add User", self.submit_new_user)
@@ -95,12 +115,12 @@ class UserManagement:
             messagebox.showerror("Error", "Please select a user to delete.")
             return
 
-        username = self.users_treeview.item(selected_item)["values"][0]
+        username = self.users_treeview.item(selected_item)["values"][1]  # Get username
 
         if messagebox.askyesno("Delete User", f"Are you sure you want to delete user '{username}'?"):
             try:
                 response = requests.delete(
-                    f"{self.api_base_url}/users/{username}",
+                    f"{self.api_base_url}/users/{username}",  # Use username instead of user ID
                     headers={"Authorization": f"Bearer {self.token}"}
                 )
 
@@ -124,10 +144,6 @@ class UserManagement:
         for idx, label in enumerate(labels):
             ttk.Label(form_window, text=f"{label}:").pack(anchor=tk.W, padx=20)
             entry = ttk.Entry(form_window, width=30)
-            
-            if label == "Password":
-                entry.config(show="*")  # Mask password input
-            
             entry.pack(padx=20, pady=5)
             if values and idx < len(values):
                 entry.insert(0, values[idx])
@@ -141,31 +157,29 @@ class UserManagement:
 
         try:
             response = requests.post(
-                f"{self.api_base_url}/users/register/",
+                f"{self.api_base_url}/users/register",  # Ensure correct path
                 json=data,
                 headers={"Authorization": f"Bearer {self.token}"}
             )
 
-            if response.status_code in [200, 201]:  # Accept both success status codes
+            if response.status_code == 200:
                 messagebox.showinfo("Success", "User added successfully.")
                 form_window.destroy()
                 self.fetch_users()
             else:
-                error_message = response.json().get("detail", response.text)  # Get error details
-                messagebox.showerror("Error", f"Failed to add user: {error_message}")
+                messagebox.showerror("Error", f"Failed to add user: {response.text}")
 
         except Exception as e:
             messagebox.showerror("Error", f"Error: {e}")
 
 
-
     def submit_updated_user(self, entries, form_window):
         data = {key.lower(): entry.get() for key, entry in entries.items()}
-        username = self.users_treeview.item(self.users_treeview.selection())["values"][0]
+        username = self.users_treeview.item(self.users_treeview.selection())["values"][1]  # Get username
 
         try:
             response = requests.put(
-                f"{self.api_base_url}/users/{username}",
+                f"{self.api_base_url}/users/{username}",  # Use username instead of user ID
                 json=data,
                 headers={"Authorization": f"Bearer {self.token}"}
             )
@@ -179,3 +193,4 @@ class UserManagement:
 
         except Exception as e:
             messagebox.showerror("Error", f"Error: {e}")
+

@@ -1,7 +1,6 @@
-# utils.py
+#utilis file
 import os
 
-# Token file location
 TOKEN_FILE = "token.txt"
 
 def save_token(token):

@@ -1,8 +1,7 @@
-#dashboard
 import tkinter as tk
 from tkinter import ttk
-from users_gui import UserManagement  # Import UserManagement correctly
-
+from users_gui import UserManagement
+from utils import load_token
 
 
 class Dashboard:
@@ -11,9 +10,6 @@ class Dashboard:
         self.token = token
         self.root.title("Dashboard - Hotel Management System")
         self.root.geometry("800x600")
-        
-        # Base API URL
-        self.api_base_url = "http://127.0.0.1:8000"  # Adjust to match your FastAPI base URL
 
         # UI Components for Dashboard
         self.setup_dashboard_ui()
@@ -23,42 +19,47 @@ class Dashboard:
         title_label = ttk.Label(self.root, text="Welcome to the Dashboard", font=("Helvetica", 18))
         title_label.pack(pady=20)
 
-        # Button for Users Management
-        users_button = ttk.Button(self.root, text="Manage Users", command=self.manage_users)
-        users_button.pack(pady=10)
+        # Buttons for Management Modules
+        buttons = [
+            ("Manage Users", self.manage_users),
+            ("Manage Rooms", self.manage_rooms),
+            ("Manage Bookings", self.manage_bookings),
+            ("Manage Payments", self.manage_payments),
+        ]
 
-        # Button for Rooms Management
-        rooms_button = ttk.Button(self.root, text="Manage Rooms", command=self.manage_rooms)
-        rooms_button.pack(pady=10)
-
-        # Button for Bookings Management
-        bookings_button = ttk.Button(self.root, text="Manage Bookings", command=self.manage_bookings)
-        bookings_button.pack(pady=10)
-
-        # Button for Payments Management
-        payments_button = ttk.Button(self.root, text="Manage Payments", command=self.manage_payments)
-        payments_button.pack(pady=10)
+        for text, command in buttons:
+            button = ttk.Button(self.root, text=text, command=command)
+            button.pack(pady=10)
 
         # Logout Button
         logout_button = ttk.Button(self.root, text="Logout", command=self.logout)
         logout_button.pack(pady=20)
 
     def manage_users(self):
-        # Create a new instance of UserManagement in a Toplevel window
         UserManagement(self.root, self.token)
 
     def manage_rooms(self):
-        print("Manage Rooms button clicked")  # Placeholder for Rooms management logic
+        print("Manage Rooms functionality coming soon!")
 
     def manage_bookings(self):
-        print("Manage Bookings button clicked")  # Placeholder for Bookings management logic
+        print("Manage Bookings functionality coming soon!")
 
     def manage_payments(self):
-        print("Manage Payments button clicked")  # Placeholder for Payments management logic
+        print("Manage Payments functionality coming soon!")
 
     def logout(self):
         self.root.destroy()
-        root = tk.Tk()  # You might want to return to a login screen after logging out
-        from login_gui import LoginGUI  # Import the Login GUI if you have one
-        app = LoginGUI(root)
+        root = tk.Tk()
+        from login_gui import LoginGUI
+        LoginGUI(root)
         root.mainloop()
+
+
+if __name__ == "__main__":
+    token = load_token()
+    if token:
+        root = tk.Tk()
+        Dashboard(root, token)
+        root.mainloop()
+    else:
+        print("No token found. Please log in.")
