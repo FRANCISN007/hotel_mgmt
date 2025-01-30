@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
 from users_gui import UserManagement
-from utils import load_token
+from utils import load_token, get_user_role 
+from tkinter import messagebox  # Add this line
+
 
 
 class Dashboard:
@@ -10,6 +12,10 @@ class Dashboard:
         self.token = token
         self.root.title("Dashboard - Hotel Management System")
         self.root.geometry("800x600")
+        
+        # Fetch and store user role
+        self.user_role = get_user_role(self.token)  # Fetch the role from API
+
 
         # UI Components for Dashboard
         self.setup_dashboard_ui()
@@ -36,6 +42,9 @@ class Dashboard:
         logout_button.pack(pady=20)
 
     def manage_users(self):
+        if self.user_role != "admin":
+            messagebox.showerror("Access Denied", "Insufficient permissions")
+            return
         UserManagement(self.root, self.token)
 
     def manage_rooms(self):
