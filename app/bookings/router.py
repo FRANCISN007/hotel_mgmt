@@ -305,19 +305,22 @@ def list_bookings(
 
 @router.get("/status/")
 def list_bookings_by_status(
-    status: Optional[str] = Query(None, description="Booking status to filter by (checked-in, reserved, checked-out, cancelled)"),
+    status: Optional[str] = Query(None, description="Booking status to filter by (checked-in, reserved, checked-out, cancelled, complimentary)"),
     start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     try:
-        # Build the query to filter bookings by status (if provided)
+        # Build the base query
         query = db.query(booking_models.Booking)
 
-        # Filter by booking status if provided (e.g., "check-in", "reserved", "checked-out", "cancelled")
+        # Special condition: If searching for "complimentary", filter by payment_status
         if status:
-            query = query.filter(booking_models.Booking.status == status)
+            if status.lower() == "complimentary":
+                query = query.filter(booking_models.Booking.payment_status == "complimentary")
+            else:
+                query = query.filter(booking_models.Booking.status == status)
 
         # Apply date filters if provided
         if start_date:
@@ -344,7 +347,7 @@ def list_bookings_by_status(
                 "phone_number": booking.phone_number,
                 "booking_date": booking.booking_date,
                 "status": booking.status,
-                "payment_status": booking.payment_status,  # Assumes payment status is already calculated elsewhere
+                "payment_status": booking.payment_status,  # Includes payment status
                 "booking_cost": booking.booking_cost,
             }
             for booking in bookings
