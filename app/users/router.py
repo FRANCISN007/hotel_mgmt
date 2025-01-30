@@ -67,7 +67,7 @@ def list_all_users(
     logger.info("Fetching list of users")
     return users
 
-@router.put("/users/{username}")
+@router.put("/{username}")
 def update_user(
     username: str,
     updated_user: schemas.UserSchema,
@@ -99,7 +99,7 @@ def update_user(
     return {"message": f"User {username} updated successfully"}
 
 
-@router.delete("/users/{username}")
+@router.delete("/{username}")
 def delete_user(
     username: str,
     db: Session = Depends(get_db),
