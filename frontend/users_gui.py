@@ -35,18 +35,22 @@ class UserManagement:
             button = ttk.Button(options_frame, text=text, command=command)
             button.grid(row=0, column=idx, padx=10)
 
-        # User Treeview (Removed ID Column)
+        # User Treeview (Added Index Column)
         self.users_treeview = ttk.Treeview(
             self.user_management_window,
-            columns=("Username", "Role"),
+            columns=("Index", "Username", "Role"),
             show="headings",
         )
 
+        # Set the headings and column widths, with alignment for all columns
+        self.users_treeview.heading("Index", text="Index")
+        self.users_treeview.column("Index", width=50, anchor="center")  # Center-align the index
+
         self.users_treeview.heading("Username", text="Username")
-        self.users_treeview.column("Username", width=250)
+        self.users_treeview.column("Username", width=250, anchor="center")  # Center-align the username
 
         self.users_treeview.heading("Role", text="Role")
-        self.users_treeview.column("Role", width=150)
+        self.users_treeview.column("Role", width=150, anchor="center")  # Center-align the role
 
         self.users_treeview.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -70,12 +74,12 @@ class UserManagement:
             messagebox.showerror("Error", f"Failed to fetch users: {e}")
 
     def populate_treeview(self, users):
-        """Populate the Treeview widget with the list of users."""
+        """Populate the Treeview widget with the list of users, including an index."""
         for row in self.users_treeview.get_children():
             self.users_treeview.delete(row)
-        
-        for user in users:
-            self.users_treeview.insert("", tk.END, values=(user["username"], user["role"]))
+
+        for idx, user in enumerate(users, start=1):  # Start the index from 1
+            self.users_treeview.insert("", tk.END, values=(idx, user["username"], user["role"]))
 
     def add_user(self):
         self.open_user_form("Add User", self.submit_new_user)
@@ -95,7 +99,7 @@ class UserManagement:
             messagebox.showerror("Error", "Please select a user to delete.")
             return
 
-        username = self.users_treeview.item(selected_item)["values"][0]
+        username = self.users_treeview.item(selected_item)["values"][1]  # Username is now in the second column
 
         if messagebox.askyesno("Delete User", f"Are you sure you want to delete user '{username}'?"):
             try:
@@ -157,11 +161,9 @@ class UserManagement:
         except Exception as e:
             messagebox.showerror("Error", f"Error: {e}")
 
-
-
     def submit_updated_user(self, entries, form_window):
         data = {key.lower(): entry.get() for key, entry in entries.items()}
-        username = self.users_treeview.item(self.users_treeview.selection())["values"][0]
+        username = self.users_treeview.item(self.users_treeview.selection())["values"][1]  # Get the username from the selected row
 
         try:
             response = requests.put(
