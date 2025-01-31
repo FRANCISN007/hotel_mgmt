@@ -35,20 +35,34 @@ class UserManagement:
         tree_frame = ttk.Frame(self.user_management_window)
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+    # Create Canvas for Scrollable Frame
+        canvas = tk.Canvas(tree_frame)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
     # Add Vertical Scrollbar
-        tree_scroll_y = ttk.Scrollbar(tree_frame, orient="vertical")
+        tree_scroll_y = ttk.Scrollbar(tree_frame, orient="vertical", command=canvas.yview)
         tree_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
 
     # Add Horizontal Scrollbar (Optional)
-        tree_scroll_x = ttk.Scrollbar(tree_frame, orient="horizontal")
+        tree_scroll_x = ttk.Scrollbar(self.user_management_window, orient="horizontal")
         tree_scroll_x.pack(side=tk.BOTTOM, fill=tk.X)
 
-    # User Treeview (Set Height to Show More Rows)
+    # Scrollable Frame inside Canvas
+        scrollable_frame = ttk.Frame(canvas)
+        scrollable_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+     )
+
+    # Add Frame to Canvas
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=tree_scroll_y.set)
+
+    # User Treeview (Increased Height)
         self.users_treeview = ttk.Treeview(
-            tree_frame,
+            scrollable_frame,
             columns=("Index", "Username", "Role"),
             show="headings",
-            height=20  # Change this value to increase the number of visible rows
+            height=20  # Display more users
         )
 
         self.users_treeview.heading("Index", text="Index")
@@ -60,10 +74,10 @@ class UserManagement:
 
     # Link Treeview with Scrollbars
         self.users_treeview.configure(yscrollcommand=tree_scroll_y.set, xscrollcommand=tree_scroll_x.set)
-        tree_scroll_y.configure(command=self.users_treeview.yview)
         tree_scroll_x.configure(command=self.users_treeview.xview)
 
         self.users_treeview.pack(fill=tk.BOTH, expand=True)
+
 
 
     def fetch_users(self):
