@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from users_gui import UserManagement
 from rooms_gui import RoomManagement
+from bookings_gui import BookingManagement
 from utils import load_token, get_user_role
 from tkinter import messagebox  # For access control popups
 
@@ -62,7 +63,7 @@ class Dashboard:
         RoomManagement(self.root, self.token)
     
     def manage_bookings(self):
-        messagebox.showinfo("Coming Soon", "Manage Bookings functionality will be added soon!")
+        BookingManagement(self.root, self.token)
 
     def manage_payments(self):
         messagebox.showinfo("Coming Soon", "Manage Payments functionality will be added soon!")

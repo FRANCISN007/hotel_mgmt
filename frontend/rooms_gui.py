@@ -14,8 +14,10 @@ class RoomManagement:
         self.fetch_rooms()
 
     def setup_ui(self):
+        self.root.configure(bg="#f0f0f0")  # Set the background color of the main window
+
         title_label = tk.Label(self.root, text="Room Management", font=("Helvetica", 18, "bold"),
-                               bg="#007BFF", fg="white", padx=10, pady=10)
+                           bg="#007BFF", fg="white", padx=10, pady=10)
         title_label.pack(fill=tk.X)
 
         self.tree = ttk.Treeview(self.root, columns=("Room Number", "Type", "Amount", "Status"), show="headings")
@@ -24,7 +26,7 @@ class RoomManagement:
             self.tree.column(col, width=140, anchor="center")
         self.tree.pack(pady=10, fill=tk.BOTH, expand=True)
 
-        btn_frame = tk.Frame(self.root)
+        btn_frame = tk.Frame(self.root, bg="#f0f0f0")  # Set background color for button frame
         btn_frame.pack(pady=10)
 
         self.add_button = ttk.Button(btn_frame, text="➕ Add Room", command=self.open_room_form)
@@ -33,15 +35,18 @@ class RoomManagement:
         self.update_button = ttk.Button(btn_frame, text="✏️ Update Room", command=self.update_room)
         self.update_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
-        self.delete_button = ttk.Button(btn_frame, text="❌Delete Room", command=self.delete_room)
+        self.delete_button = ttk.Button(btn_frame, text="❌ Delete Room", command=self.delete_room)
         self.delete_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
+        
+        self.available_rooms_button = ttk.Button(btn_frame, text="🟢 List Available Rooms", command=self.list_available_rooms)
+        self.available_rooms_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
-        self.refresh_button = ttk.Button(btn_frame, text="🔄Refresh", command=self.fetch_rooms)
+        self.refresh_button = ttk.Button(btn_frame, text="🔄 Refresh", command=self.fetch_rooms)
         self.refresh_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
+        
+        
 
         if self.user_role != "admin":
-            #self.add_button.config(state=tk.DISABLED)
-            #self.update_button.config(state=tk.DISABLED)
             self.delete_button.config(state=tk.DISABLED)
 
     def fetch_rooms(self):
@@ -71,6 +76,32 @@ class RoomManagement:
 
     print("Rooms updated successfully!")  # Debugging statement
 
+    def list_available_rooms(self):
+        """Fetch and display available rooms."""
+        response = api_request("/rooms/available", "GET", token=self.token)
+
+        if not response or "available_rooms" not in response:
+            messagebox.showerror("Error", "Failed to fetch available rooms")
+            return
+
+        available_rooms = response["available_rooms"]
+
+        available_window = tk.Toplevel(self.root)
+        available_window.title("Available Rooms")
+        available_window.geometry("500x300")
+
+        ttk.Label(available_window, text="Available Rooms", font=("Helvetica", 14, "bold")).pack(pady=10)
+
+        tree = ttk.Treeview(available_window, columns=("Room Number", "Type", "Amount"), show="headings")
+        for col in ("Room Number", "Type", "Amount"):
+            tree.heading(col, text=col)
+            tree.column(col, width=150, anchor="center")
+        tree.pack(pady=10, fill=tk.BOTH, expand=True)
+
+        for room in available_rooms:
+            tree.insert("", tk.END, values=(room["room_number"], room["room_type"], room["amount"]))
+
+        ttk.Button(available_window, text="Close", command=available_window.destroy).pack(pady=10)
 
 
 

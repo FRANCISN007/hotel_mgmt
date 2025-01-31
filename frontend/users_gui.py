@@ -1,8 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import requests
-from tkinter import font  # Import font module for custom styling
-
 
 class UserManagement:
     def __init__(self, parent, token):
@@ -13,32 +11,25 @@ class UserManagement:
         self.user_management_window = tk.Toplevel(parent)
         self.user_management_window.title("User Management")
         self.user_management_window.geometry("850x600")
-        self.user_management_window.configure(bg="#f0f0f0")
+        self.user_management_window.configure(bg="#e0e0e0")
 
         self.setup_ui()
         self.fetch_users()
 
     def setup_ui(self):
         """Set up UI components including buttons and user table."""
-        
-         # Define a custom style for the Treeview heading
         style = ttk.Style()
-        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))  # Apply bold font to headings
-        # Title Header
+        style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
+        
         header_label = tk.Label(
-            self.user_management_window, 
-            text="User Management", 
-            font=("Arial", 18, "bold"), 
-            bg="#f0f0f0", 
-            fg="#333"
+            self.user_management_window, text="User Management", 
+            font=("Arial", 18, "bold"), bg="#e0e0e0", fg="#333"
         )
         header_label.pack(pady=10)
 
-        # Frame for Buttons
         options_frame = ttk.Frame(self.user_management_window)
         options_frame.pack(fill=tk.X, pady=5, padx=10)
 
-        # Buttons
         self.add_button = ttk.Button(options_frame, text="➕ Add User", command=self.add_user)
         self.add_button.grid(row=0, column=0, padx=5, pady=5, ipadx=5)
         
@@ -48,15 +39,12 @@ class UserManagement:
         self.delete_button = ttk.Button(options_frame, text="❌ Delete User", command=self.delete_user)
         self.delete_button.grid(row=0, column=2, padx=5, pady=5, ipadx=5)
 
-        # Frame for Table and Scrollbars
         tree_frame = ttk.Frame(self.user_management_window)
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Vertical Scrollbar
         tree_scroll_y = ttk.Scrollbar(tree_frame, orient="vertical")
         tree_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # User Table (Treeview)
         self.users_treeview = ttk.Treeview(
             tree_frame,
             columns=("ID", "Username", "Role"),
@@ -92,7 +80,6 @@ class UserManagement:
             self.users_treeview.delete(row)
         for user in users:
             self.users_treeview.insert("", tk.END, values=(user["id"], user["username"], user["role"]))
-
     def add_user(self):
         self.open_user_form("Add User", self.submit_new_user)
 
