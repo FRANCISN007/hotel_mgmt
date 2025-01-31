@@ -26,7 +26,7 @@ class LoginGUI:
         username_label = tk.Label(frame, text="Username:", font=("Arial", 14), bg="white")
         username_label.pack(anchor="w")
         self.username_entry = ttk.Entry(frame, width=40)
-        self.username_entry.pack(pady=8)
+        self.username_entry.pack(pady=6)
 
         password_label = tk.Label(frame, text="Password:", font=("Arial", 14), bg="white")
         password_label.pack(anchor="w")
