@@ -60,13 +60,13 @@ class UserManagement:
     # User Treeview (Increased Height)
         self.users_treeview = ttk.Treeview(
             scrollable_frame,
-            columns=("Index", "Username", "Role"),
+            columns=("ID", "Username", "Role"),
             show="headings",
             height=20  # Display more users
         )
 
-        self.users_treeview.heading("Index", text="Index")
-        self.users_treeview.column("Index", width=50, anchor="center")
+        self.users_treeview.heading("ID", text="User ID")
+        self.users_treeview.column("ID", width=50, anchor="center")
         self.users_treeview.heading("Username", text="Username")
         self.users_treeview.column("Username", width=250, anchor="center")
         self.users_treeview.heading("Role", text="Role")
@@ -96,7 +96,7 @@ class UserManagement:
         for row in self.users_treeview.get_children():
             self.users_treeview.delete(row)
         for idx, user in enumerate(users, start=1):
-            self.users_treeview.insert("", tk.END, values=(idx, user["username"], user["role"]))
+            self.users_treeview.insert("", tk.END, values=(user["id"], user["username"], user["role"]))
 
     def add_user(self):
         self.open_user_form("Add User", self.submit_new_user)
