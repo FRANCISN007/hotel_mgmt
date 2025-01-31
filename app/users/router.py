@@ -57,7 +57,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def list_all_users(
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 50,
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     if current_user.role != "admin":
