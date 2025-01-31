@@ -27,21 +27,21 @@ class RoomManagement:
         btn_frame = tk.Frame(self.root)
         btn_frame.pack(pady=10)
 
-        self.add_button = ttk.Button(btn_frame, text="Add Room", command=self.open_room_form)
+        self.add_button = ttk.Button(btn_frame, text="➕ Add Room", command=self.open_room_form)
         self.add_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
-        self.update_button = ttk.Button(btn_frame, text="Update Room", command=self.update_room)
+        self.update_button = ttk.Button(btn_frame, text="✏️ Update Room", command=self.update_room)
         self.update_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
-        self.delete_button = ttk.Button(btn_frame, text="Delete Room", command=self.delete_room)
+        self.delete_button = ttk.Button(btn_frame, text="❌Delete Room", command=self.delete_room)
         self.delete_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
-        self.refresh_button = ttk.Button(btn_frame, text="Refresh", command=self.fetch_rooms)
+        self.refresh_button = ttk.Button(btn_frame, text="🔄Refresh", command=self.fetch_rooms)
         self.refresh_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
         if self.user_role != "admin":
-            self.add_button.config(state=tk.DISABLED)
-            self.update_button.config(state=tk.DISABLED)
+            #self.add_button.config(state=tk.DISABLED)
+            #self.update_button.config(state=tk.DISABLED)
             self.delete_button.config(state=tk.DISABLED)
 
     def fetch_rooms(self):
