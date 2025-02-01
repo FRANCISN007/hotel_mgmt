@@ -62,3 +62,16 @@ def api_request(endpoint, method="GET", data=None, token=None):
     except requests.exceptions.RequestException as e:
         print(f"Request error: {e}")
         return None
+
+import requests
+
+def perform_booking_action(endpoint, data, token):
+    """ Perform API requests for booking management """
+    url = f"http://127.0.0.1:8000/bookings/{endpoint}"  # Adjust base URL if needed
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(url, json=data, headers=headers)  # Change method if necessary
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}

@@ -63,7 +63,7 @@ class Dashboard:
         RoomManagement(self.root, self.token)
     
     def manage_bookings(self):
-        BookingManagement(self.root, self.token)
+        BookingManagement(self.root)
         
 
     def manage_payments(self):
