@@ -99,3 +99,95 @@ class BookingManagement:
         else:
             messagebox.showerror("Error", "Failed to fetch bookings")
 
+
+
+
+
+ import tkinter as tk
+from tkinter import ttk, messagebox
+from tkcalendar import DateEntry  # Import for date picker
+import requests
+
+class BookingManagement:
+    def __init__(self, root, token):
+        self.root = tk.Toplevel(root)
+        self.root.title("Booking Management")
+        self.root.geometry("700x500")
+        self.token = token
+        self.root.configure(bg="#f0f0f0")
+
+        # Header Section
+        self.header_frame = tk.Frame(self.root, bg="#A0A0A0", height=50)
+        self.header_frame.pack(fill=tk.X)
+
+        self.header_label = tk.Label(self.header_frame, text="Booking Management", 
+                                     fg="white", bg="#A0A0A0", font=("Helvetica", 16, "bold"))
+        self.header_label.pack(pady=10)
+
+        # Booking Form
+        self.form_frame = tk.Frame(self.root, bg="#ffffff", padx=20, pady=20)
+        self.form_frame.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+
+        # Labels & Entry Fields
+        fields = [
+            ("Room Number:", "room_number"),
+            ("Guest Name:", "guest_name"),
+            ("Phone Number:", "phone_number"),
+            ("Arrival Date:", "arrival_date"),
+            ("Departure Date:", "departure_date"),
+            ("Booking Type:", "booking_type"),
+        ]
+
+        self.entries = {}
+
+        for idx, (label, key) in enumerate(fields):
+            tk.Label(self.form_frame, text=label, bg="#ffffff", font=("Arial", 10)).grid(row=idx, column=0, sticky="w", pady=5)
+
+            if key == "booking_type":
+                self.entries[key] = ttk.Combobox(self.form_frame, values=["Checked-in", "Reservation"], state="readonly")
+                self.entries[key].current(0)  # Default selection
+            elif key in ["arrival_date", "departure_date"]:
+                self.entries[key] = DateEntry(self.form_frame, date_pattern="yyyy-mm-dd")  # Date Picker
+            else:
+                self.entries[key] = tk.Entry(self.form_frame, font=("Arial", 10))
+
+            self.entries[key].grid(row=idx, column=1, padx=10, pady=5, ipadx=10, ipady=2)
+
+        # Submit Button
+        self.submit_button = ttk.Button(self.form_frame, text="Submit", command=self.submit_booking)
+        self.submit_button.grid(row=len(fields), column=1, pady=20)
+
+    def submit_booking(self):
+        """Collects form data and sends a request to create a booking."""
+        booking_data = {
+            "room_number": self.entries["room_number"].get(),
+            "guest_name": self.entries["guest_name"].get(),
+            "phone_number": self.entries["phone_number"].get(),
+            "arrival_date": self.entries["arrival_date"].get(),
+            "departure_date": self.entries["departure_date"].get(),
+            "booking_type": self.entries["booking_type"].get(),
+        }
+
+        if not all(booking_data.values()):  # Ensure all fields are filled
+            messagebox.showerror("Error", "Please fill in all fields")
+            return
+
+        api_url = "http://127.0.0.1:8000/bookings/create/"  # Adjust if needed
+        headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+        try:
+            response = requests.post(api_url, json=booking_data, headers=headers)
+            if response.status_code == 200:
+                messagebox.showinfo("Success", "Booking created successfully!")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Booking failed."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+# Test Window
+if __name__ == "__main__":
+    root = tk.Tk()
+    BookingManagement(root, token="dummy_token")
+    root.mainloop()
+          
+
