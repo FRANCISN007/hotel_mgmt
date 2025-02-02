@@ -239,8 +239,9 @@ class BookingManagement:
 
     
     def list_bookings_by_status(self):
-        self.clear_right_frame()
-        
+        """Displays the List Bookings by Status UI."""
+        self.clear_right_frame()  # Ensure old UI elements are removed
+
         # Create a new frame for the table with scrollable functionality
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True)
@@ -278,9 +279,12 @@ class BookingManagement:
         
         columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
                 "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
-        
-        if not hasattr(self, "tree"):
-            self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        # ✅ Prevent recreation of table on every call
+        if hasattr(self, "tree"):
+            self.tree.destroy()
+
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         
         for col in columns:
             self.tree.heading(col, text=col)
@@ -311,16 +315,16 @@ class BookingManagement:
 
         try:
             response = requests.get(api_url, params=params, headers=headers)
+            print("API Response:", response.json())  # Debugging output
+
             if response.status_code == 200:
                 data = response.json()
-                print("API Response:", data)  # Debugging output
-                
 
-                if "bookings" in data:
-                    bookings = data["bookings"]
-                    self.tree.delete(*self.tree.get_children())  # Clear table
+                # ✅ Ensure "bookings" exists before accessing it
+                if "bookings" in data and data["bookings"]:
+                    self.tree.delete(*self.tree.get_children())  # ✅ Clear table
 
-                    for booking in bookings:
+                    for booking in data["bookings"]:
                         self.tree.insert("", "end", values=(
                             booking.get("id", ""),
                             booking.get("room_number", ""),
@@ -337,16 +341,94 @@ class BookingManagement:
                         ))
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
-
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
-    def clear_right_frame(self):
-        for widget in self.right_frame.winfo_children():
-            widget.pack_forget()    
+            
+            
+    
+    def search_booking(self):
+        self.clear_right_frame()
+        
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(frame, text="Search Booking by Guest Name", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        search_frame = tk.Frame(frame, bg="#ffffff")
+        search_frame.pack(pady=5)
+        
+        tk.Label(search_frame, text="Guest Name:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.search_entry = tk.Entry(search_frame, font=("Arial", 11))
+        self.search_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        search_btn = ttk.Button(
+            search_frame, text="Search", command=self.fetch_booking_by_guest_name
+        )
+        search_btn.grid(row=0, column=2, padx=10, pady=5)
+        
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+        
+        self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.search_tree.heading(col, text=col)
+            self.search_tree.column(col, width=120, anchor="center")
+        
+        self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.search_tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.search_tree.configure(xscroll=x_scroll.set)
+
+    def fetch_booking_by_guest_name(self):
+        guest_name = self.search_entry.get().strip()
+        if not guest_name:
+            messagebox.showerror("Error", "Please enter a guest name to search.")
+            return
+        
+        api_url = "http://127.0.0.1:8000/bookings/search"
+        params = {"guest_name": guest_name}
+        headers = {"Authorization": f"Bearer {self.token}"}
+        
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                bookings = data.get("bookings", [])
+                
+                self.search_tree.delete(*self.search_tree.get_children())
+                
+                for booking in bookings:
+                    self.search_tree.insert("", "end", values=(
+                        booking.get("id", ""),
+                        booking.get("room_number", ""),
+                        booking.get("guest_name", ""),
+                        booking.get("arrival_date", ""),
+                        booking.get("departure_date", ""),
+                        booking.get("status", ""),
+                        booking.get("number_of_days", ""),
+                        booking.get("booking_type", ""),
+                        booking.get("phone_number", ""),
+                        booking.get("booking_date", ""),
+                        booking.get("payment_status", ""),
+                        booking.get("booking_cost", ""),
+                    ))
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "No bookings found."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
             
 
     #def complimentary_booking(self):
@@ -358,8 +440,8 @@ class BookingManagement:
     #def list_by_status(self):
        #messagebox.showinfo("Info", "List By Status Selected")
     
-    def search_booking(self):
-        messagebox.showinfo("Info", "Search Booking Selected")
+    #def search_booking(self):
+        #messagebox.showinfo("Info", "Search Booking Selected")
     
     def list_by_id(self):
         messagebox.showinfo("Info", "List By ID Selected")
@@ -384,3 +466,5 @@ if __name__ == "__main__":
     root = tk.Tk()
     BookingManagement(root, token="dummy_token")
     root.mainloop()
+    
+    
