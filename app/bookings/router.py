@@ -41,11 +41,11 @@ def create_booking(
         )
 
     # Check if booking type is Complimentary
-    if booking_request.booking_type == "Complimentary":
+    if booking_request.booking_type == "complimentary":
         if booking_request.arrival_date != today:
             raise HTTPException(
                 status_code=400,
-                detail="Complimentary bookings can only be made for today's date.",
+                detail="complimentary bookings can only be made for today's date.",
             )
         
         # Validate room existence
@@ -82,13 +82,13 @@ def create_booking(
 
     else:
         # Validate standard booking types
-        if booking_request.booking_type == "Checked-in":
+        if booking_request.booking_type == "checked-in":
             if booking_request.arrival_date != today:
                 raise HTTPException(
                     status_code=400,
                     detail="Check-in bookings can only be made for today's date.",
                 )
-        elif booking_request.booking_type == "Reservation":
+        elif booking_request.booking_type == "reservation":
             if booking_request.arrival_date <= today:
                 raise HTTPException(
                     status_code=400,
@@ -128,7 +128,7 @@ def create_booking(
         
         booking_cost = room.amount * booking_request.number_of_days
         payment_status = "pending"
-        booking_status = "reserved" if booking_request.booking_type == "Reservation" else "checked-in"
+        booking_status = "reserved" if booking_request.booking_type == "reservation" else "checked-in"
 
     try:
         new_booking = booking_models.Booking(
@@ -237,12 +237,11 @@ def list_bookings(
         )
 
 
-
-@router.get("/status/")
+@router.get("/status")
 def list_bookings_by_status(
     status: Optional[str] = Query(None, description="Booking status to filter by (checked-in, reserved, checked-out, cancelled, complimentary)"),
-    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
-    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
+    start_date: Optional[date] = Query(None, description="Filter by booking date (start) in format yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="Filter by booking date (end) in format yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
@@ -257,11 +256,11 @@ def list_bookings_by_status(
             else:
                 query = query.filter(booking_models.Booking.status == status)
 
-        # Apply date filters if provided
+        # Apply date filters based on booking_date
         if start_date:
-            query = query.filter(booking_models.Booking.arrival_date >= start_date)
+            query = query.filter(booking_models.Booking.booking_date >= start_date)
         if end_date:
-            query = query.filter(booking_models.Booking.departure_date <= end_date)
+            query = query.filter(booking_models.Booking.booking_date <= end_date)
 
         # Execute the query and get the results
         bookings = query.all()
@@ -280,8 +279,9 @@ def list_bookings_by_status(
                 "departure_date": booking.departure_date,
                 "number_of_days": booking.number_of_days,
                 "phone_number": booking.phone_number,
-                "booking_date": booking.booking_date,
+                "booking_date": booking.booking_date,  # Booking Date as the filter
                 "status": booking.status,
+                "booking_type": booking.booking_type,
                 "payment_status": booking.payment_status,  # Includes payment status
                 "booking_cost": booking.booking_cost,
             }
@@ -291,18 +291,20 @@ def list_bookings_by_status(
         # Return the formatted response
         return {
             "total_bookings": len(formatted_bookings),
-            "bookings": formatted_bookings,
+            "bookings": formatted_bookings if formatted_bookings else []  # Ensure bookings is always a list
         }
 
     except Exception as e:
-        logger.error(f"Error retrieving bookings by status and date: {str(e)}")
+        logger.error(f"Error retrieving bookings by status and booking date: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"An error occurred: {str(e)}",
         )
 
 
-@router.get("/search/")
+
+
+@router.get("/search")
 def search_guest_name(
     guest_name: str,
     db: Session = Depends(get_db),
