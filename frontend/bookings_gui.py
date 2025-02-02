@@ -123,7 +123,67 @@ class BookingManagement:
             messagebox.showerror("Error", f"Request failed: {e}")
 
             
-            
+    def list_bookings(self):
+        """Fetch and display bookings with filtering by date."""
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Filters
+        tk.Label(frame, text="Start Date:", bg="#ffffff").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        start_date_entry = DateEntry(frame, width=12, background='darkblue', foreground='white', borderwidth=2)
+        start_date_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(frame, text="End Date:", bg="#ffffff").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        end_date_entry = DateEntry(frame, width=12, background='darkblue', foreground='white', borderwidth=2)
+        end_date_entry.grid(row=0, column=3, padx=5, pady=5)
+
+        fetch_btn = ttk.Button(frame, text="Fetch Bookings", command=lambda: self.fetch_bookings(start_date_entry, end_date_entry))
+        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
+
+        # Table
+        columns = ("ID", "Room Number", "Guest Name", "Room Price", "Arrival Date", "Departure Date", "Number of Days", 
+                   "Booking Cost", "Booking Type", "Phone Number", "Status", "Payment Status", "Booking Date", "Cancellation Reason")
+
+        self.tree = ttk.Treeview(frame, columns=columns, show="headings")
+        self.tree.grid(row=1, column=0, columnspan=5, padx=10, pady=10, sticky="nsew")
+
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, anchor="center", width=100)
+
+        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
+        scrollbar.grid(row=1, column=5, sticky="ns")
+        self.tree.configure(yscroll=scrollbar.set)
+
+    def fetch_bookings(self, start_date_entry, end_date_entry):
+        """Fetch bookings from the API and populate the table."""
+        api_url = "http://127.0.0.1:8000/list/"
+        params = {"start_date": start_date_entry.get_date(), "end_date": end_date_entry.get_date()}
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            if response.status_code == 200:
+                data = response.json()["bookings"]
+                self.tree.delete(*self.tree.get_children())  # Clear existing data
+                for booking in data:
+                    self.tree.insert("", "end", values=(
+                        booking["id"], booking["room_number"], booking["guest_name"], booking["room_price"],
+                        booking["arrival_date"], booking["departure_date"], booking["number_of_days"], 
+                        booking["booking_cost"], booking["booking_type"], booking["phone_number"], 
+                        booking["status"], booking["payment_status"], booking["booking_date"], 
+                        booking["cancellation_reason"]
+                    ))
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def clear_right_frame(self):
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()
+        
             
             
             
@@ -132,8 +192,8 @@ class BookingManagement:
     #def complimentary_booking(self):
         messagebox.showinfo("Info", "Complimentary Booking Selected")
     
-    def list_bookings(self):
-        messagebox.showinfo("Info", "List Bookings Selected")
+    #def list_bookings(self):
+        #messagebox.showinfo("Info", "List Bookings Selected")
     
     def list_by_status(self):
         messagebox.showinfo("Info", "List By Status Selected")
