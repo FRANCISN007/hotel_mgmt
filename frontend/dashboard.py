@@ -16,6 +16,7 @@ class Dashboard:
 
         # Fetch and store user role
         self.user_role = get_user_role(self.token)
+        
 
         # UI Components
         self.setup_dashboard_ui()
@@ -41,12 +42,15 @@ class Dashboard:
         button_frame = tk.Frame(self.root, bg="#f0f0f0")
         button_frame.pack(pady=20)
 
+        
+
         buttons = [
             ("Manage Users", self.manage_users),
             ("Manage Rooms", self.manage_rooms),
             ("Manage Bookings", self.manage_bookings),
             ("Manage Payments", self.manage_payments),
         ]
+        
 
         for text, command in buttons:
             btn = ttk.Button(button_frame, text=text, command=command, width=25)
@@ -55,6 +59,8 @@ class Dashboard:
         # Logout Button at Bottom
         logout_button = ttk.Button(self.root, text="Logout", command=self.logout, width=20)
         logout_button.pack(pady=30)
+        
+        
 
     def manage_users(self):
         if self.user_role != "admin":

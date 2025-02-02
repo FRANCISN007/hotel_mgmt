@@ -122,75 +122,101 @@ class BookingManagement:
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
-            
+    
+    
     def list_bookings(self):
-        """Fetch and display bookings with filtering by date."""
         self.clear_right_frame()
+        
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
-        frame.pack(fill=tk.BOTH, expand=True)
+        frame.grid(row=0, column=0, sticky="nsew")
 
-        # Filters
-        tk.Label(frame, text="Start Date:", bg="#ffffff").grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        start_date_entry = DateEntry(frame, width=12, background='darkblue', foreground='white', borderwidth=2)
-        start_date_entry.grid(row=0, column=1, padx=5, pady=5)
+        tk.Label(frame, text="List Bookings", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=4, pady=10)
 
-        tk.Label(frame, text="End Date:", bg="#ffffff").grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        end_date_entry = DateEntry(frame, width=12, background='darkblue', foreground='white', borderwidth=2)
-        end_date_entry.grid(row=0, column=3, padx=5, pady=5)
+        tk.Label(frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(frame, font=("Arial", 11))
+        self.start_date.grid(row=1, column=1, padx=5, pady=5)
 
-        fetch_btn = ttk.Button(frame, text="Fetch Bookings", command=lambda: self.fetch_bookings(start_date_entry, end_date_entry))
-        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
+        tk.Label(frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=2, padx=5, pady=5)
+        self.end_date = DateEntry(frame, font=("Arial", 11))
+        self.end_date.grid(row=1, column=3, padx=5, pady=5)
 
-        # Table
-        columns = ("ID", "Room Number", "Guest Name", "Room Price", "Arrival Date", "Departure Date", "Number of Days", 
-                   "Booking Cost", "Booking Type", "Phone Number", "Status", "Payment Status", "Booking Date", "Cancellation Reason")
+        fetch_btn = ttk.Button(
+            frame,
+            text="Fetch Bookings",
+            command=lambda: self.fetch_bookings(self.start_date, self.end_date)
+        )
+        fetch_btn.grid(row=1, column=4, padx=10, pady=5)
 
+        # Define Treeview with matching columns
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status")
         self.tree = ttk.Treeview(frame, columns=columns, show="headings")
-        self.tree.grid(row=1, column=0, columnspan=5, padx=10, pady=10, sticky="nsew")
 
+        # Define headings
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Room", text="Room Number")
+        self.tree.heading("Guest", text="Guest Name")
+        self.tree.heading("Arrival", text="Arrival Date")
+        self.tree.heading("Departure", text="Departure Date")
+        self.tree.heading("Status", text="Status")
+
+        # Adjust column widths
         for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, anchor="center", width=100)
+            self.tree.column(col, width=100, anchor="center")
 
+        # Use grid instead of pack
+        self.tree.grid(row=2, column=0, columnspan=5, padx=10, pady=10, sticky="nsew")
+
+        # Add scrollbar
         scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        scrollbar.grid(row=1, column=5, sticky="ns")
+        scrollbar.grid(row=2, column=5, sticky="ns")
         self.tree.configure(yscroll=scrollbar.set)
 
     def fetch_bookings(self, start_date_entry, end_date_entry):
         """Fetch bookings from the API and populate the table."""
-        api_url = "http://127.0.0.1:8000/list/"
-        params = {"start_date": start_date_entry.get_date(), "end_date": end_date_entry.get_date()}
+        api_url = "http://127.0.0.1:8000/bookings/list"  # Ensure correct endpoint
+        params = {
+            "start_date": start_date_entry.get_date().strftime("%Y-%m-%d"),
+            "end_date": end_date_entry.get_date().strftime("%Y-%m-%d"),
+        }
         headers = {"Authorization": f"Bearer {self.token}"}
 
         try:
             response = requests.get(api_url, params=params, headers=headers)
             if response.status_code == 200:
-                data = response.json()["bookings"]
-                self.tree.delete(*self.tree.get_children())  # Clear existing data
-                for booking in data:
+                data = response.json()
+                print("API Response:", data)  # Debugging output
+
+                if isinstance(data, dict) and "bookings" in data:
+                    bookings = data["bookings"]
+                elif isinstance(data, list):
+                    bookings = data
+                else:
+                    messagebox.showerror("Error", "Unexpected API response format")
+                    return
+
+                self.tree.delete(*self.tree.get_children())  # Clear table
+
+                for booking in bookings:
                     self.tree.insert("", "end", values=(
-                        booking["id"], booking["room_number"], booking["guest_name"], booking["room_price"],
-                        booking["arrival_date"], booking["departure_date"], booking["number_of_days"], 
-                        booking["booking_cost"], booking["booking_type"], booking["phone_number"], 
-                        booking["status"], booking["payment_status"], booking["booking_date"], 
-                        booking["cancellation_reason"]
+                        booking.get("id", ""),
+                        booking.get("room_number", ""),
+                        booking.get("guest_name", ""),
+                        booking.get("arrival_date", ""),
+                        booking.get("departure_date", ""),
+                        booking.get("status", ""),
                     ))
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
-    def clear_right_frame(self):
-        for widget in self.right_frame.winfo_children():
-            widget.pack_forget()
-        
             
             
             
             
 
     #def complimentary_booking(self):
-        messagebox.showinfo("Info", "Complimentary Booking Selected")
+        #messagebox.showinfo("Info", "Complimentary Booking Selected")
     
     #def list_bookings(self):
         #messagebox.showinfo("Info", "List Bookings Selected")

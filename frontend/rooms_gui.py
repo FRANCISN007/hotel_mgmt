@@ -56,6 +56,8 @@ class RoomManagement:
 
         if self.user_role != "admin":
             self.delete_button.config(state=tk.DISABLED)
+            self.update_button.config(state=tk.DISABLED)
+            self.add_button.config(state=tk.DISABLED)
 
     def fetch_rooms(self):
         """Fetch all rooms from the API and update the display with their latest statuses."""
