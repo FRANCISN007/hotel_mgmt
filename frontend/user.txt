@@ -1,0 +1,178 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import requests
+
+
+class UserManagement:
+    def __init__(self, parent, token):
+        self.token = token
+        self.parent = parent
+        self.api_base_url = "http://127.0.0.1:8000"
+
+        # Create User Management Window
+        self.user_management_window = tk.Toplevel(parent)
+        self.user_management_window.title("User Management")
+        self.user_management_window.geometry("800x600")
+
+        # UI Components
+        self.setup_ui()
+
+        # Fetch Users
+        self.fetch_users()
+
+    def setup_ui(self):
+        # Buttons for User Management
+        options_frame = ttk.Frame(self.user_management_window)
+        options_frame.pack(fill=tk.X, pady=10)
+
+        buttons = [
+            ("Add User", self.add_user),
+            ("Update User", self.update_user),
+            ("Delete User", self.delete_user),
+        ]
+
+        for idx, (text, command) in enumerate(buttons):
+            button = ttk.Button(options_frame, text=text, command=command)
+            button.grid(row=0, column=idx, padx=10)
+
+        # User Treeview (Removed ID Column)
+        self.users_treeview = ttk.Treeview(
+            self.user_management_window,
+            columns=("Username", "Role"),
+            show="headings",
+        )
+
+        self.users_treeview.heading("Username", text="Username")
+        self.users_treeview.column("Username", width=250)
+
+        self.users_treeview.heading("Role", text="Role")
+        self.users_treeview.column("Role", width=150)
+
+        self.users_treeview.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    def fetch_users(self):
+        """Fetch users from the API and populate the users list."""
+        if not self.token:
+            messagebox.showerror("Error", "No authentication token found. Please log in again.")
+            self.user_management_window.destroy()
+            return
+
+        try:
+            response = requests.get(
+                f"{self.api_base_url}/users",
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+            response.raise_for_status()
+            users = response.json()
+            self.populate_treeview(users)
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Failed to fetch users: {e}")
+
+    def populate_treeview(self, users):
+        """Populate the Treeview widget with the list of users."""
+        for row in self.users_treeview.get_children():
+            self.users_treeview.delete(row)
+        
+        for user in users:
+            self.users_treeview.insert("", tk.END, values=(user["username"], user["role"]))
+
+    def add_user(self):
+        self.open_user_form("Add User", self.submit_new_user)
+
+    def update_user(self):
+        selected_item = self.users_treeview.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a user to update.")
+            return
+
+        values = self.users_treeview.item(selected_item)["values"]
+        self.open_user_form("Update User", self.submit_updated_user, values)
+
+    def delete_user(self):
+        selected_item = self.users_treeview.selection()
+        if not selected_item:
+            messagebox.showerror("Error", "Please select a user to delete.")
+            return
+
+        username = self.users_treeview.item(selected_item)["values"][0]
+
+        if messagebox.askyesno("Delete User", f"Are you sure you want to delete user '{username}'?"):
+            try:
+                response = requests.delete(
+                    f"{self.api_base_url}/users/{username}",
+                    headers={"Authorization": f"Bearer {self.token}"}
+                )
+
+                if response.status_code == 200:
+                    messagebox.showinfo("Success", "User deleted successfully.")
+                    self.fetch_users()
+                else:
+                    messagebox.showerror("Error", f"Failed to delete user: {response.text}")
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Error: {e}")
+
+    def open_user_form(self, title, submit_callback, values=None):
+        form_window = tk.Toplevel(self.user_management_window)
+        form_window.title(title)
+        form_window.geometry("400x300")
+
+        labels = ["Username", "Password", "Role"]
+        entries = {}
+
+        for idx, label in enumerate(labels):
+            ttk.Label(form_window, text=f"{label}:").pack(anchor=tk.W, padx=20)
+            entry = ttk.Entry(form_window, width=30)
+            
+            if label == "Password":
+                entry.config(show="*")  # Mask password input
+            
+            entry.pack(padx=20, pady=5)
+            if values and idx < len(values):
+                entry.insert(0, values[idx])
+            entries[label] = entry
+
+        submit_button = ttk.Button(form_window, text="Submit", command=lambda: submit_callback(entries, form_window))
+        submit_button.pack(pady=20)
+
+    def submit_new_user(self, entries, form_window):
+        data = {key.lower(): entry.get() for key, entry in entries.items()}
+
+        try:
+            response = requests.post(
+                f"{self.api_base_url}/users/register",
+                json=data,
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+
+            if response.status_code == 200:
+                messagebox.showinfo("Success", "User added successfully.")
+                form_window.destroy()
+                self.fetch_users()
+            else:
+                messagebox.showerror("Error", f"Failed to add user: {response.text}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error: {e}")
+
+    def submit_updated_user(self, entries, form_window):
+        data = {key.lower(): entry.get() for key, entry in entries.items()}
+        username = self.users_treeview.item(self.users_treeview.selection())["values"][0]
+
+        try:
+            response = requests.put(
+                f"{self.api_base_url}/users/{username}",
+                json=data,
+                headers={"Authorization": f"Bearer {self.token}"}
+            )
+
+            if response.status_code == 200:
+                messagebox.showinfo("Success", "User updated successfully.")
+                form_window.destroy()
+                self.fetch_users()
+            else:
+                messagebox.showerror("Error", f"Failed to update user: {response.text}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Error: {e}")
