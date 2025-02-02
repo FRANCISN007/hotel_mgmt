@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from tkinter import ttk, messagebox
 from utils import api_request, get_user_role
 
@@ -12,6 +13,9 @@ class RoomManagement:
 
         self.setup_ui()
         self.fetch_rooms()
+        
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Helvetica", 10, "bold"))
 
     def setup_ui(self):
         self.root.configure(bg="#f0f0f0")  # Set the background color of the main window
@@ -20,8 +24,11 @@ class RoomManagement:
                            bg="#007BFF", fg="white", padx=10, pady=10)
         title_label.pack(fill=tk.X)
 
-        self.tree = ttk.Treeview(self.root, columns=("Room Number", "Type", "Amount", "Status"), show="headings")
-        for col in ("Room Number", "Type", "Amount", "Status"):
+        #self.tree = ttk.Treeview(self.root, columns=("Room Number", "Type", "Amount", "Status", "Booking Type"), show="headings")
+        columns = ("Room Number", "Room Type", "Amount", "Status", "Booking Type")
+        self.tree = ttk.Treeview(self.root, columns=columns, show="headings")
+        
+        for col in ("Room Number", "Room Type", "Amount", "Status", "Booking Type"):
             self.tree.heading(col, text=col)
             self.tree.column(col, width=140, anchor="center")
         self.tree.pack(pady=10, fill=tk.BOTH, expand=True)
@@ -64,15 +71,20 @@ class RoomManagement:
             room_number = room.get("room_number", "N/A")
             room_type = room.get("room_type", "N/A")
             amount = room.get("amount", "N/A")
+           
 
         # Fetch the latest status for each room from the API
             room_details = api_request(f"/rooms/{room_number}", "GET", token=self.token)
+            current_status = room_details.get("status", "N/A") if room_details else room.get("status", "N/A")
+            booking_type = room_details.get("booking_type", "N/A") if room_details else "No active booking"
+            
 
         # Ensure we get a valid status
             current_status = room_details.get("status", "N/A") if room_details else room.get("status", "N/A")
 
         # Insert the room details into the display
-            self.tree.insert("", tk.END, values=(room_number, room_type, amount, current_status))
+            self.tree.insert("", tk.END, values=(room_number, room_type, amount, current_status, booking_type))
+
 
     print("Rooms updated successfully!")  # Debugging statement
 
@@ -92,8 +104,8 @@ class RoomManagement:
 
         ttk.Label(available_window, text="Available Rooms", font=("Helvetica", 14, "bold")).pack(pady=10)
 
-        tree = ttk.Treeview(available_window, columns=("Room Number", "Type", "Amount"), show="headings")
-        for col in ("Room Number", "Type", "Amount"):
+        tree = ttk.Treeview(available_window, columns=("Room Number", "Room Type", "Amount"), show="headings")
+        for col in ("Room Number", "Room Type", "Amount"):
             tree.heading(col, text=col)
             tree.column(col, width=150, anchor="center")
         tree.pack(pady=10, fill=tk.BOTH, expand=True)
