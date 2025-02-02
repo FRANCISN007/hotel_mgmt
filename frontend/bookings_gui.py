@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import DateEntry  # Import DateEntry for date selection
 import requests
+from utils import BASE_URL
+
 
 class BookingManagement:
     def __init__(self, root, token):
@@ -36,7 +38,7 @@ class BookingManagement:
             ("Create Booking", self.create_booking),
             #("Complimentary Booking", self.complimentary_booking),
             ("List Bookings", self.list_bookings),
-            ("List By Status", self.list_by_status),
+            ("List By Status", self.list_bookings_by_status),
             ("Search Booking", self.search_booking),
             ("List By ID", self.list_by_id),
             ("List By Room", self.list_by_room),
@@ -231,9 +233,115 @@ class BookingManagement:
             widget.pack_forget()
 
 
-            
-            
-            
+    
+    def list_bookings_by_status(self):
+        self.clear_right_frame()
+        
+        # Create a new frame for the table with scrollable functionality
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(frame, text="List Bookings by Status", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
+        
+        tk.Label(filter_frame, text="Status:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        status_options = ["checked-in", "reserved", "checked-out", "cancelled", "complimentary"]
+        self.status_var = tk.StringVar()
+        self.status_var.set(status_options[0])  # Default to first status
+        status_menu = ttk.Combobox(filter_frame, textvariable=self.status_var, values=status_options, state="readonly")
+        status_menu.grid(row=0, column=1, padx=5, pady=5)
+        
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=3, padx=5, pady=5)
+        
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=4, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.grid(row=0, column=5, padx=5, pady=5)
+        
+        fetch_btn = ttk.Button(
+            filter_frame,
+            text="Fetch Bookings",
+            command=self.fetch_bookings_by_status
+        )
+        fetch_btn.grid(row=0, column=6, padx=10, pady=5)
+        
+        # Table Frame
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+        
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+        
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Scrollbars
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+
+    def fetch_bookings_by_status(self):
+        """Fetch bookings based on status and date filters."""
+        api_url = "http://127.0.0.1:8000/bookings/status"
+        
+        params = {
+            "status": self.status_var.get(),
+            "start_date": self.start_date.get_date().strftime("%Y-%m-%d"),
+            "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
+        }
+
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                print("API Response:", data)  # Debugging output
+                
+
+                if "bookings" in data:
+                    bookings = data["bookings"]
+                    self.tree.delete(*self.tree.get_children())  # Clear table
+
+                    for booking in bookings:
+                        self.tree.insert("", "end", values=(
+                            booking.get("id", ""),
+                            booking.get("room_number", ""),
+                            booking.get("guest_name", ""),
+                            booking.get("arrival_date", ""),
+                            booking.get("departure_date", ""),
+                            booking.get("status", ""),
+                            booking.get("number_of_days", ""),
+                            booking.get("booking_type", ""),
+                            booking.get("phone_number", ""),
+                            booking.get("booking_date", ""),
+                            booking.get("payment_status", ""),
+                            booking.get("booking_cost", ""),
+                        ))
+                else:
+                    messagebox.showinfo("No Results", "No bookings found for the selected filters.")
+
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def clear_right_frame(self):
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()    
             
 
     #def complimentary_booking(self):
@@ -242,8 +350,8 @@ class BookingManagement:
     #def list_bookings(self):
         #messagebox.showinfo("Info", "List Bookings Selected")
     
-    def list_by_status(self):
-        messagebox.showinfo("Info", "List By Status Selected")
+    #def list_by_status(self):
+       #messagebox.showinfo("Info", "List By Status Selected")
     
     def search_booking(self):
         messagebox.showinfo("Info", "Search Booking Selected")

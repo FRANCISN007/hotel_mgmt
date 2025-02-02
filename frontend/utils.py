@@ -3,6 +3,8 @@ import requests
 
 TOKEN_FILE = "token.txt"
 API_BASE_URL = "http://127.0.0.1:8000"  # Update this if needed
+BASE_URL = f"{API_BASE_URL}/bookings"  # For booking-related endpoints
+
 
 def save_token(token):
     """Save the token to a file."""
@@ -75,3 +77,5 @@ def perform_booking_action(endpoint, data, token):
         return response.json()
     except Exception as e:
         return {"error": str(e)}
+    
+   
