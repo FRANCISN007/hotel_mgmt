@@ -127,49 +127,59 @@ class BookingManagement:
     def list_bookings(self):
         self.clear_right_frame()
         
+        # Create a new frame for the table with scrollable functionality
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
-        frame.grid(row=0, column=0, sticky="nsew")
+        frame.pack(fill=tk.BOTH, expand=True)
 
-        tk.Label(frame, text="List Bookings", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=4, pady=10)
+        tk.Label(frame, text="List Bookings", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
 
-        tk.Label(frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=0, padx=5, pady=5)
-        self.start_date = DateEntry(frame, font=("Arial", 11))
-        self.start_date.grid(row=1, column=1, padx=5, pady=5)
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
 
-        tk.Label(frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=2, padx=5, pady=5)
-        self.end_date = DateEntry(frame, font=("Arial", 11))
-        self.end_date.grid(row=1, column=3, padx=5, pady=5)
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.grid(row=0, column=3, padx=5, pady=5)
 
         fetch_btn = ttk.Button(
-            frame,
+            filter_frame,
             text="Fetch Bookings",
             command=lambda: self.fetch_bookings(self.start_date, self.end_date)
         )
-        fetch_btn.grid(row=1, column=4, padx=10, pady=5)
+        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
 
-        # Define Treeview with matching columns
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status")
-        self.tree = ttk.Treeview(frame, columns=columns, show="headings")
+        # Create a frame to hold the treeview and scrollbars
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Define headings
-        self.tree.heading("ID", text="ID")
-        self.tree.heading("Room", text="Room Number")
-        self.tree.heading("Guest", text="Guest Name")
-        self.tree.heading("Arrival", text="Arrival Date")
-        self.tree.heading("Departure", text="Departure Date")
-        self.tree.heading("Status", text="Status")
+        # Define Treeview columns
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
 
-        # Adjust column widths
+        # Create a Treeview widget
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        # Define headings and set column widths
         for col in columns:
-            self.tree.column(col, width=100, anchor="center")
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
 
-        # Use grid instead of pack
-        self.tree.grid(row=2, column=0, columnspan=5, padx=10, pady=10, sticky="nsew")
+        # Pack the Treeview inside a scrollable frame
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Add scrollbar
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        scrollbar.grid(row=2, column=5, sticky="ns")
-        self.tree.configure(yscroll=scrollbar.set)
+        # Add vertical scrollbar
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+
+        # Add horizontal scrollbar
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+
 
     def fetch_bookings(self, start_date_entry, end_date_entry):
         """Fetch bookings from the API and populate the table."""
@@ -204,11 +214,22 @@ class BookingManagement:
                         booking.get("arrival_date", ""),
                         booking.get("departure_date", ""),
                         booking.get("status", ""),
+                        booking.get("number_of_days", ""),
+                        booking.get("booking_type", ""),
+                        booking.get("phone_number", ""),
+                        booking.get("booking_date", ""),
+                        booking.get("payment_status", ""),
+                        booking.get("booking_cost", ""),
                     ))
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
+    def clear_right_frame(self):
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()
+
 
             
             
