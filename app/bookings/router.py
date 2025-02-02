@@ -29,91 +29,123 @@ def create_booking(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    room_number_input = booking_request.room_number.strip()  # Preserve the original input
-    normalized_room_number = room_number_input.lower()  # Normalize input for comparison
+    room_number_input = booking_request.room_number.strip()
+    normalized_room_number = room_number_input.lower()
     today = date.today()
 
-    # Step 1: Validate booking dates
+    # Validate dates
     if booking_request.departure_date < booking_request.arrival_date:
         raise HTTPException(
             status_code=400,
             detail="Departure date must be later than the arrival date.",
         )
 
-    # Step 2: Validate booking type and dates
-    if booking_request.booking_type == "Checked-in":  # Check-in
+    # Check if booking type is Complimentary
+    if booking_request.booking_type == "Complimentary":
         if booking_request.arrival_date != today:
             raise HTTPException(
                 status_code=400,
-                detail="Check-in bookings can only be made for today's date.",
+                detail="Complimentary bookings can only be made for today's date.",
             )
-    elif booking_request.booking_type == "Reservation":  # Reserved
-        if booking_request.arrival_date <= today:
+        
+        # Validate room existence
+        room = (
+            db.query(room_models.Room)
+            .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
+            .first()
+        )
+        if not room:
+            raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
+
+        # Check if the room is available
+        overlapping_booking = db.query(booking_models.Booking).filter(
+            func.lower(booking_models.Booking.room_number) == normalized_room_number,
+            booking_models.Booking.status != "checked-out",
+            booking_models.Booking.status != "cancelled",
+            or_(
+                and_(
+                    booking_models.Booking.arrival_date < booking_request.departure_date,
+                    booking_models.Booking.departure_date > booking_request.arrival_date,
+                )
+            )
+        ).first()
+
+        if overlapping_booking:
             raise HTTPException(
                 status_code=400,
-                detail="Reserved bookings must be for a future date. Use the check-in option for today's booking.",
+                detail=f"Room {room_number_input} is already booked for the requested dates.",
             )
+        
+        booking_cost = 0
+        payment_status = "complimentary"
+        booking_status = "checked-in"
+
     else:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid booking type. Use 'Checked-in' for check-in or 'Reservation' for reserved.",
-        )
-
-    # Step 3: Prevent past dates
-    if booking_request.arrival_date < today:
-        raise HTTPException(
-            status_code=400, detail="Bookings cannot start in the past."
-        )
-
-    # Step 4: Check room existence (case-insensitive)
-    room = (
-        db.query(room_models.Room)
-        .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
-        .first()
-    )
-    if not room:
-        raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
-
-    # Step 5: Check for overlapping bookings, excluding canceled and checked-out ones
-    overlapping_booking = db.query(booking_models.Booking).filter(
-        func.lower(booking_models.Booking.room_number) == normalized_room_number,
-        booking_models.Booking.status != "checked-out",  # Exclude checked-out bookings
-        booking_models.Booking.status != "cancelled",    # Exclude canceled bookings
-        or_(
-            # Check for overlap with existing bookings
-            and_(
-                booking_models.Booking.arrival_date < booking_request.departure_date,
-                booking_models.Booking.departure_date > booking_request.arrival_date,
+        # Validate standard booking types
+        if booking_request.booking_type == "Checked-in":
+            if booking_request.arrival_date != today:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Check-in bookings can only be made for today's date.",
+                )
+        elif booking_request.booking_type == "Reservation":
+            if booking_request.arrival_date <= today:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Reserved bookings must be for a future date. Use the check-in option for today's booking.",
+                )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid booking type. Use 'Checked-in', 'Reservation', or 'Com' for complimentary.",
             )
+
+        room = (
+            db.query(room_models.Room)
+            .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
+            .first()
         )
-    ).first()
+        if not room:
+            raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
 
-    if overlapping_booking:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Room {room_number_input} is already booked for the requested dates.",
-        )
+        overlapping_booking = db.query(booking_models.Booking).filter(
+            func.lower(booking_models.Booking.room_number) == normalized_room_number,
+            booking_models.Booking.status != "checked-out",
+            booking_models.Booking.status != "cancelled",
+            or_(
+                and_(
+                    booking_models.Booking.arrival_date < booking_request.departure_date,
+                    booking_models.Booking.departure_date > booking_request.arrival_date,
+                )
+            )
+        ).first()
 
-    # Step 6: Calculate booking cost based on room price and number of days
-    booking_cost = room.amount * booking_request.number_of_days
+        if overlapping_booking:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Room {room_number_input} is already booked for the requested dates.",
+            )
+        
+        booking_cost = room.amount * booking_request.number_of_days
+        payment_status = "pending"
+        booking_status = "reserved" if booking_request.booking_type == "Reservation" else "checked-in"
 
-    # Step 7: Create new booking
     try:
         new_booking = booking_models.Booking(
-            room_number=room.room_number,  # Use the room's stored case
+            room_number=room.room_number,
             guest_name=booking_request.guest_name,
             arrival_date=booking_request.arrival_date,
-            departure_date=booking_request.departure_date,          
+            departure_date=booking_request.departure_date,
             booking_type=booking_request.booking_type,
             phone_number=booking_request.phone_number,
-            status="reserved" if booking_request.booking_type == "Reservation" else "checked-in",
-            room_price=room.amount,  # Include room price
-            booking_cost=booking_cost,  # Set the calculated booking cost
+            status=booking_status,
+            room_price=room.amount if booking_request.booking_type != "Com" else 0,
+            booking_cost=booking_cost,
+            payment_status=payment_status,
         )
         db.add(new_booking)
 
-        # Update room status
-        room.status = "reserved" if booking_request.booking_type == "Reservation" else "checked-in"
+        room.status = booking_status
         db.commit()
         db.refresh(new_booking)
 
@@ -128,114 +160,17 @@ def create_booking(
                 "departure_date": new_booking.departure_date,
                 "booking_type": new_booking.booking_type,
                 "phone_number": new_booking.phone_number,
-                "booking_date": new_booking.booking_date.isoformat(),  # Serialize as ISO 8601
-                "number_of_days": new_booking.number_of_days,
-                "status": new_booking.status,
-                "booking_cost": new_booking.booking_cost,  # Include booking cost in response
-            },
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
-   
-@router.post("/create_complimentary/")
-def create_complimentary_booking(
-    booking_request: schemas.BookingSchema,
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
-    room_number_input = booking_request.room_number.strip()
-    normalized_room_number = room_number_input.lower()
-    today = date.today()
-
-    # Validate dates
-    if booking_request.departure_date < booking_request.arrival_date:
-        raise HTTPException(
-            status_code=400,
-            detail="Departure date must be later than the arrival date.",
-        )
-
-    if booking_request.arrival_date != today:
-        raise HTTPException(
-            status_code=400,
-            detail="Complimentary bookings can only be made for today's date.",
-        )
-
-    # Validate room existence
-    room = (
-        db.query(room_models.Room)
-        .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
-        .first()
-    )
-    if not room:
-        raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
-
-    # Check if the room is available
-    overlapping_booking = db.query(booking_models.Booking).filter(
-        func.lower(booking_models.Booking.room_number) == normalized_room_number,
-        booking_models.Booking.status != "checked-out",
-        booking_models.Booking.status != "cancelled",
-        or_(
-            and_(
-                booking_models.Booking.arrival_date < booking_request.departure_date,
-                booking_models.Booking.departure_date > booking_request.arrival_date,
-            )
-        )
-    ).first()
-
-    if overlapping_booking:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Room {room_number_input} is already booked for the requested dates.",
-        )
-
-    # Complimentary booking (zero price)
-    booking_cost = 0
-    payment_status = "complimentary"  # Set payment status to complimentary
-
-    # Create new complimentary booking
-    try:
-        new_booking = booking_models.Booking(
-            room_number=room.room_number,
-            guest_name=booking_request.guest_name,
-            arrival_date=booking_request.arrival_date,
-            departure_date=booking_request.departure_date,
-            booking_type="Complimentary",  # Complimentary booking type
-            phone_number=booking_request.phone_number,
-            status="checked-in",
-            room_price=0,  # Complimentary booking = free room price
-            booking_cost=booking_cost,  # Complimentary booking = zero cost
-            payment_status=payment_status,  # Store payment status
-        )
-        db.add(new_booking)
-
-        # Update room status
-        room.status = "checked-in"
-        db.commit()
-        db.refresh(new_booking)
-
-        return {
-            "message": f"Complimentary booking created successfully for room {room.room_number}.",
-            "booking_details": {
-                "id": new_booking.id,
-                "room_number": new_booking.room_number,
-                "guest_name": new_booking.guest_name,
-                "room_price": new_booking.room_price,
-                "arrival_date": new_booking.arrival_date,
-                "departure_date": new_booking.departure_date,
-                "booking_type": "Complimentary",  # Complimentary booking
-                "phone_number": new_booking.phone_number,
                 "booking_date": new_booking.booking_date.isoformat(),
                 "number_of_days": new_booking.number_of_days,
                 "status": new_booking.status,
                 "booking_cost": new_booking.booking_cost,
-                "payment_status": new_booking.payment_status,  # Include payment status in response
+                "payment_status": new_booking.payment_status,
             },
         }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
 
    
     

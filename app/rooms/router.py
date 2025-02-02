@@ -193,7 +193,7 @@ def update_room(
 
     return {"message": "Room updated successfully", "room": room}
 
-@router.get("/{room_number}", response_model=room_schemas.RoomSchema)
+@router.get("/{room_number}")
 def get_room(room_number: str, db: Session = Depends(get_db)):
     logger.info(f"Fetching room with room_number: {room_number}")
 
@@ -206,7 +206,7 @@ def get_room(room_number: str, db: Session = Depends(get_db)):
         normalized_room_number = room_number.strip().lower()
         logger.debug(f"Normalized room number: {normalized_room_number}")
 
-        # Query using case-insensitive filtering
+        # Query the room details
         room = db.query(room_models.Room).filter(
             room_models.Room.room_number.ilike(normalized_room_number)
         ).first()
@@ -215,8 +215,29 @@ def get_room(room_number: str, db: Session = Depends(get_db)):
             logger.warning(f"Room {room_number} not found.")
             raise HTTPException(status_code=404, detail="Room not found")
 
-        logger.info(f"Successfully fetched room: {room.room_number}")
-        return room
+        # Fetch the latest active booking for this room
+        latest_booking = (
+            db.query(booking_models.Booking)
+            .filter(
+                booking_models.Booking.room_number.ilike(normalized_room_number),
+                booking_models.Booking.status.notin_(["checked-out", "cancelled"])
+            )
+            .order_by(booking_models.Booking.booking_date.desc())  # Get the most recent booking
+            .first()
+        )
+
+        # Get the booking type if a booking exists, otherwise return "No active booking"
+        booking_type = latest_booking.booking_type if latest_booking else "No active booking"
+
+        logger.info(f"Successfully fetched room: {room.room_number}, Booking Type: {booking_type}")
+
+        return {
+            "room_number": room.room_number,
+            "room_type": room.room_type,
+            "amount": room.amount,
+            "status": room.status,
+            "booking_type": booking_type
+        }
 
     except HTTPException as http_err:
         raise http_err  # Re-raise known HTTP exceptions
