@@ -34,7 +34,7 @@ class BookingManagement:
         # Booking action buttons
         buttons = [
             ("Create Booking", self.create_booking),
-            ("Complimentary Booking", self.complimentary_booking),
+            #("Complimentary Booking", self.complimentary_booking),
             ("List Bookings", self.list_bookings),
             ("List By Status", self.list_by_status),
             ("Search Booking", self.search_booking),
@@ -129,7 +129,7 @@ class BookingManagement:
             
             
 
-    def complimentary_booking(self):
+    #def complimentary_booking(self):
         messagebox.showinfo("Info", "Complimentary Booking Selected")
     
     def list_bookings(self):

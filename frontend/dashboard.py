@@ -19,6 +19,9 @@ class Dashboard:
 
         # UI Components
         self.setup_dashboard_ui()
+        
+        style = ttk.Style()
+        style.configure("TButton", font=("Helvetica", 12))  # Increase font size for buttons
 
     def setup_dashboard_ui(self):
         # Header Frame
