@@ -12,6 +12,10 @@ class BookingManagement:
         self.root.geometry("900x600")
         self.token = token
         self.root.configure(bg="#f0f0f0")
+        
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
+        style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
 
         # Header Section
         self.header_frame = tk.Frame(self.root, bg="#A0A0A0", height=50)
@@ -275,7 +279,8 @@ class BookingManagement:
         columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
                 "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
         
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        if not hasattr(self, "tree"):
+            self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         
         for col in columns:
             self.tree.heading(col, text=col)
