@@ -16,7 +16,7 @@ class BookingSchema(BaseModel):
     guest_name: str
     arrival_date: date
     departure_date: date
-    booking_type: Literal["C", "R"]
+    booking_type: Literal["Checked-in", "Reservation", "Complimentary"]
     phone_number: str
     #payment_status: Optional[str] = "pending"  # Optional for check-ins
     number_of_days: Optional[int] = None  # Optional for input
@@ -50,7 +50,7 @@ class BookingSchemaResponse(BaseModel):
     guest_name: str
     arrival_date: date
     departure_date: date
-    booking_type: Literal["C", "R"]
+    booking_type: Literal["Checked-in", "Reservation", "Complimentary"]
     phone_number: str
     status: Optional[str] = "reserved"
     payment_status: Optional[str] = "pending"

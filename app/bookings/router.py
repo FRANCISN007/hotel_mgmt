@@ -41,13 +41,13 @@ def create_booking(
         )
 
     # Step 2: Validate booking type and dates
-    if booking_request.booking_type == "C":  # Check-in
+    if booking_request.booking_type == "Checked-in":  # Check-in
         if booking_request.arrival_date != today:
             raise HTTPException(
                 status_code=400,
                 detail="Check-in bookings can only be made for today's date.",
             )
-    elif booking_request.booking_type == "R":  # Reserved
+    elif booking_request.booking_type == "Reservation":  # Reserved
         if booking_request.arrival_date <= today:
             raise HTTPException(
                 status_code=400,
@@ -56,7 +56,7 @@ def create_booking(
     else:
         raise HTTPException(
             status_code=400,
-            detail="Invalid booking type. Use 'C' for check-in or 'R' for reserved.",
+            detail="Invalid booking type. Use 'Checked-in' for check-in or 'Reservation' for reserved.",
         )
 
     # Step 3: Prevent past dates
@@ -106,14 +106,14 @@ def create_booking(
             departure_date=booking_request.departure_date,          
             booking_type=booking_request.booking_type,
             phone_number=booking_request.phone_number,
-            status="reserved" if booking_request.booking_type == "R" else "checked-in",
+            status="reserved" if booking_request.booking_type == "Reservation" else "checked-in",
             room_price=room.amount,  # Include room price
             booking_cost=booking_cost,  # Set the calculated booking cost
         )
         db.add(new_booking)
 
         # Update room status
-        room.status = "reserved" if booking_request.booking_type == "R" else "checked-in"
+        room.status = "reserved" if booking_request.booking_type == "Reservation" else "checked-in"
         db.commit()
         db.refresh(new_booking)
 
@@ -201,7 +201,7 @@ def create_complimentary_booking(
             guest_name=booking_request.guest_name,
             arrival_date=booking_request.arrival_date,
             departure_date=booking_request.departure_date,
-            booking_type="C",  # Complimentary booking type
+            booking_type="Complimentary",  # Complimentary booking type
             phone_number=booking_request.phone_number,
             status="checked-in",
             room_price=0,  # Complimentary booking = free room price
@@ -224,7 +224,7 @@ def create_complimentary_booking(
                 "room_price": new_booking.room_price,
                 "arrival_date": new_booking.arrival_date,
                 "departure_date": new_booking.departure_date,
-                "booking_type": "C",  # Complimentary booking
+                "booking_type": "Complimentary",  # Complimentary booking
                 "phone_number": new_booking.phone_number,
                 "booking_date": new_booking.booking_date.isoformat(),
                 "number_of_days": new_booking.number_of_days,
@@ -753,7 +753,6 @@ def cancel_booking(
             status_code=500,
             detail=f"An error occurred while canceling the booking: {str(e)}"
         )
-
 
 
 

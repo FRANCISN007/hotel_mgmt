@@ -195,14 +195,36 @@ def update_room(
 
 @router.get("/{room_number}", response_model=room_schemas.RoomSchema)
 def get_room(room_number: str, db: Session = Depends(get_db)):
-    room = db.query(room_models.Room).filter(
-        func.lower(room_models.Room.room_number) == room_number.lower()
-    ).first()
+    logger.info(f"Fetching room with room_number: {room_number}")
 
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    
-    return room
+    try:
+        if not room_number:
+            logger.warning("Room number is missing in the request")
+            raise HTTPException(status_code=400, detail="Room number is required")
+
+        # Normalize input
+        normalized_room_number = room_number.strip().lower()
+        logger.debug(f"Normalized room number: {normalized_room_number}")
+
+        # Query using case-insensitive filtering
+        room = db.query(room_models.Room).filter(
+            room_models.Room.room_number.ilike(normalized_room_number)
+        ).first()
+
+        if not room:
+            logger.warning(f"Room {room_number} not found.")
+            raise HTTPException(status_code=404, detail="Room not found")
+
+        logger.info(f"Successfully fetched room: {room.room_number}")
+        return room
+
+    except HTTPException as http_err:
+        raise http_err  # Re-raise known HTTP exceptions
+
+    except Exception as e:
+        logger.error(f"Unexpected error fetching room {room_number}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal server error occurred")
+
 
 
 @router.get("/summary")
