@@ -175,7 +175,7 @@ def create_booking(
    
     
 
-@router.get("/list/")
+@router.get("/list")
 def list_bookings(
     start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
