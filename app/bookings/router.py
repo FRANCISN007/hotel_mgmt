@@ -355,7 +355,7 @@ def search_guest_name(
 
 
 
-@router.get("/list_by_id/{booking_id}/")
+@router.get("/{booking_id}")
 def list_booking_by_id(
     booking_id: int,
     db: Session = Depends(get_db),
@@ -370,25 +370,6 @@ def list_booking_by_id(
     if not booking:
         raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found.")
 
-    # Calculate total payments made for this booking
-    total_paid = db.query(func.sum(payment_models.Payment.amount_paid)).filter(
-        payment_models.Payment.booking_id == booking.id,
-        payment_models.Payment.status != "voided",  # Exclude voided payments
-    ).scalar() or 0
-
-    # Determine payment status
-    if total_paid == 0:
-        payment_status = "pending"
-    elif total_paid < booking.room_price:
-        payment_status = "incomplete payment"
-    else:
-        payment_status = "payment completed"
-
-    # Update booking payment status in the database if it has changed
-    if payment_status != booking.payment_status:
-        booking.payment_status = payment_status
-        db.commit()
-
     # Format the response
     formatted_booking = {
         "id": booking.id,
@@ -398,22 +379,17 @@ def list_booking_by_id(
         "departure_date": booking.departure_date,
         "number_of_days": booking.number_of_days,
         "booking_type": booking.booking_type,
-        "phone_number":booking.phone_number,
-        "booking_date":booking.booking_date,
+        "phone_number": booking.phone_number,
+        "booking_date": booking.booking_date,
         "status": booking.status,
-        "payment_status": booking.payment_status,  # Updated payment status
-        "booking_cost":booking.booking_cost,
+        "payment_status": booking.payment_status,
+        "booking_cost": booking.booking_cost,
     }
 
-    return {
-        "message": f"Booking details for ID {booking_id} retrieved successfully.",
-        "booking": formatted_booking,
-    }
+    return {"message": f"Booking details for ID {booking_id} retrieved successfully.", "booking": formatted_booking}
 
 
-
-
-@router.get("/{room_number}/")
+@router.get("/room/{room_number}")
 def list_bookings_by_room(
     room_number: str,
     start_date: Optional[date] = Query(None),
@@ -444,11 +420,11 @@ def list_bookings_by_room(
             func.lower(booking_models.Booking.room_number) == normalized_room_number
         )
 
-        # Apply date range filters if provided
+        # Apply date range filters based on booking_date
         if start_date:
-            bookings_query = bookings_query.filter(booking_models.Booking.arrival_date >= start_date)
+            bookings_query = bookings_query.filter(booking_models.Booking.booking_date >= start_date)
         if end_date:
-            bookings_query = bookings_query.filter(booking_models.Booking.departure_date <= end_date)
+            bookings_query = bookings_query.filter(booking_models.Booking.booking_date <= end_date)
 
         # Fetch bookings
         bookings = bookings_query.all()
@@ -470,10 +446,10 @@ def list_bookings_by_room(
                 "number_of_days": booking.number_of_days,
                 "booking_type": booking.booking_type,
                 "phone_number": booking.phone_number,
-                "booking_date":booking.booking_date,
+                "booking_date": booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
-                "booking_cost":booking.booking_cost,
+                "booking_cost": booking.booking_cost,
             }
             for booking in bookings
         ]

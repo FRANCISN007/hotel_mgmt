@@ -43,9 +43,9 @@ class BookingManagement:
             #("Complimentary Booking", self.complimentary_booking),
             ("List Bookings", self.list_bookings),
             ("List By Status", self.list_bookings_by_status),
-            ("Search Booking", self.search_booking),
-            ("List By ID", self.list_by_id),
-            ("List By Room", self.list_by_room),
+            ("Search Guest Name", self.search_booking),
+            ("Search by Booking ID", self.search_booking_by_id),
+            ("Search By Room Number", self.search_booking_by_room),
             ("Update Booking", self.update_booking),
             ("Guest Checkout", self.guest_checkout),
             ("Cancel Booking", self.cancel_booking),
@@ -429,8 +429,207 @@ class BookingManagement:
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
-            
+    
+    def search_booking_by_id(self):
+        self.clear_right_frame()
+        
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(frame, text="Search Booking by ID", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        search_frame = tk.Frame(frame, bg="#ffffff")
+        search_frame.pack(pady=5)
+        
+        tk.Label(search_frame, text="Booking ID:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.booking_id_entry = tk.Entry(search_frame, font=("Arial", 11))
+        self.booking_id_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        search_btn = ttk.Button(
+            search_frame, text="Search", command=self.fetch_booking_by_id
+        )
+        search_btn.grid(row=0, column=2, padx=10, pady=5)
+        
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+        
+        self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.search_tree.heading(col, text=col)
+            self.search_tree.column(col, width=120, anchor="center")
+        
+        self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.search_tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.search_tree.configure(xscroll=x_scroll.set)
 
+    def fetch_booking_by_id(self):
+        booking_id = self.booking_id_entry.get().strip()
+    
+        if not booking_id.isdigit():  # Ensure input is numeric
+            messagebox.showerror("Error", "Please enter a valid numeric booking ID.")
+            return
+        
+        try:
+    
+            booking_id = int(booking_id)  # Convert to integer
+
+            
+            api_url = f"http://127.0.0.1:8000/bookings/{booking_id}"
+            headers = {"Authorization": f"Bearer {self.token}"}
+        
+        
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                booking = data.get("booking", {})
+                
+                # Ensure the booking details exist
+                if booking:
+                    self.search_tree.delete(*self.search_tree.get_children())
+                    self.search_tree.insert("", "end", values=(
+                        booking.get("id", ""),
+                        booking.get("room_number", ""),
+                        booking.get("guest_name", ""),
+                        booking.get("arrival_date", ""),
+                        booking.get("departure_date", ""),
+                        booking.get("status", ""),
+                        booking.get("number_of_days", ""),
+                        booking.get("booking_type", ""),
+                        booking.get("phone_number", ""),
+                        booking.get("booking_date", ""),
+                        booking.get("payment_status", ""),
+                        booking.get("booking_cost", ""),
+                    ))
+                else:
+                    messagebox.showinfo("No Results", "No booking found with the provided ID.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "No booking found."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+     
+
+    #def search_by_room(self):
+    def search_booking_by_room(self):
+        self.clear_right_frame()
+        
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(frame, text="Search Booking by Room Number", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        search_frame = tk.Frame(frame, bg="#ffffff")
+        search_frame.pack(pady=5)
+        
+        tk.Label(search_frame, text="Room Number:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.room_number_entry = tk.Entry(search_frame, font=("Arial", 11))
+        self.room_number_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        # Date input fields
+        tk.Label(search_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=0, padx=5, pady=5)
+        self.start_date_entry = DateEntry(search_frame, font=("Arial", 11), width=12, background="darkblue", foreground="white", borderwidth=2)
+        self.start_date_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        tk.Label(search_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=2, padx=5, pady=5)
+        self.end_date_entry = DateEntry(search_frame, font=("Arial", 11), width=12, background="darkblue", foreground="white", borderwidth=2)
+        self.end_date_entry.grid(row=1, column=3, padx=5, pady=5)
+        
+        search_btn = ttk.Button(
+            search_frame, text="Search", command=self.fetch_booking_by_room
+        )
+        search_btn.grid(row=2, column=0, columnspan=4, padx=10, pady=10)
+        
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+        
+        self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.search_tree.heading(col, text=col)
+            self.search_tree.column(col, width=120, anchor="center")
+        
+        self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.search_tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.search_tree.configure(xscroll=x_scroll.set)
+
+    def fetch_booking_by_room(self):
+        room_number = self.room_number_entry.get().strip()
+        
+        # Ensure room number is not empty
+        if not room_number:
+            messagebox.showerror("Error", "Please enter a room number.")
+            return
+        
+        # Ensure dates are selected
+        start_date = self.start_date_entry.get_date()  # Use the DateEntry widget for the start date
+        end_date = self.end_date_entry.get_date()  # Use the DateEntry widget for the end date
+
+        if not start_date or not end_date:
+            messagebox.showerror("Error", "Please select both start and end dates.")
+            return
+        
+        api_url = f"http://127.0.0.1:8000/bookings/room/{room_number}"
+
+        # Sending the start and end dates as parameters
+        params = {
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d"),
+        }
+        
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            print("API Response:", response.json())  # Debugging output
+
+            if response.status_code == 200:
+                data = response.json()
+
+                # Ensure "bookings" exists before accessing it
+                if "bookings" in data and data["bookings"]:
+                    self.search_tree.delete(*self.search_tree.get_children())  # Clear table before inserting new data
+
+                    for booking in data["bookings"]:
+                        self.search_tree.insert("", "end", values=(
+                            booking.get("id", ""),
+                            booking.get("room_number", ""),
+                            booking.get("guest_name", ""),
+                            booking.get("arrival_date", ""),
+                            booking.get("departure_date", ""),
+                            booking.get("status", ""),
+                            booking.get("number_of_days", ""),
+                            booking.get("booking_type", ""),
+                            booking.get("phone_number", ""),
+                            booking.get("booking_date", ""),
+                            booking.get("payment_status", ""),
+                            booking.get("booking_cost", ""),
+                        ))
+                else:
+                    messagebox.showinfo("No Results", "No bookings found for the selected filters.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    
+    
     #def complimentary_booking(self):
         #messagebox.showinfo("Info", "Complimentary Booking Selected")
     
@@ -443,11 +642,9 @@ class BookingManagement:
     #def search_booking(self):
         #messagebox.showinfo("Info", "Search Booking Selected")
     
-    def list_by_id(self):
-        messagebox.showinfo("Info", "List By ID Selected")
+    #def list_by_id(self):
+        #messagebox.showinfo("Info", "List By ID Selected")
     
-    def list_by_room(self):
-        messagebox.showinfo("Info", "List By Room Selected")
     
     def update_booking(self):
         messagebox.showinfo("Info", "Update Booking Selected")
