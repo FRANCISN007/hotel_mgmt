@@ -639,95 +639,73 @@ class BookingManagement:
             messagebox.showerror("Error", f"Request failed: {e}")
 
     
+    def update_subheading(self, text, command):
+        self.subheading_label.config(text=text)
+        command()
+
     def update_booking(self):
-        style = ttk.Style()
-        style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
-        style.configure("Treeview", font=("Helvetica", 11))
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
 
-        # Header Section
-        self.header_frame = tk.Frame(self.root, bg="#A0A0A0", height=50)
-        self.header_frame.pack(fill=tk.X)
+        tk.Label(frame, text="Update Booking Form", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
 
-        self.header_label = tk.Label(self.header_frame, text="Update Booking", fg="white", bg="#A0A0A0", font=("Helvetica", 16, "bold"))
-        self.header_label.pack(pady=10)
+        # Labels & Entry fields (same as create booking, with extra booking ID field)
+        fields = [
+            ("Booking ID", tk.Entry),
+            ("Room Number", tk.Entry),
+            ("Guest Name", tk.Entry),
+            ("Phone Number", tk.Entry),
+            ("Booking Type", ttk.Combobox),
+            ("Arrival Date", DateEntry),
+            ("Departure Date", DateEntry),
+        ]
 
-        # Create frame for booking form
-        self.form_frame = tk.Frame(self.root, bg="#ffffff", padx=20, pady=20)
-        self.form_frame.pack(fill=tk.BOTH, expand=True)
+        self.entries = {}
+        for i, (label, field_type) in enumerate(fields):
+            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            if field_type == ttk.Combobox:
+                entry = field_type(frame, values=["checked-in", "reservation", "complimentary"], state="readonly", font=("Arial", 11))
+            elif field_type == DateEntry:
+                entry = field_type(frame, font=("Arial", 11), width=12, background='darkblue', foreground='white', borderwidth=2)
+            else:
+                entry = field_type(frame, font=("Arial", 11), width=25)
+            entry.grid(row=i+1, column=1, padx=10, pady=5)
+            self.entries[label] = entry
 
-        # Booking ID
-        tk.Label(self.form_frame, text="Booking ID:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
-        self.booking_id_entry = tk.Entry(self.form_frame, font=("Arial", 11))
-        self.booking_id_entry.grid(row=0, column=1, padx=5, pady=5)
-
-        # Room Number
-        tk.Label(self.form_frame, text="Room Number:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=0, padx=5, pady=5)
-        self.room_number_entry = tk.Entry(self.form_frame, font=("Arial", 11))
-        self.room_number_entry.grid(row=1, column=1, padx=5, pady=5)
-
-        # Guest Name
-        tk.Label(self.form_frame, text="Guest Name:", font=("Arial", 11), bg="#ffffff").grid(row=2, column=0, padx=5, pady=5)
-        self.guest_name_entry = tk.Entry(self.form_frame, font=("Arial", 11))
-        self.guest_name_entry.grid(row=2, column=1, padx=5, pady=5)
-
-        # Start Date
-        tk.Label(self.form_frame, text="Arrival Date:", font=("Arial", 11), bg="#ffffff").grid(row=3, column=0, padx=5, pady=5)
-        self.start_date_entry = DateEntry(self.form_frame, font=("Arial", 11), width=12, background="darkblue", foreground="white", borderwidth=2)
-        self.start_date_entry.grid(row=3, column=1, padx=5, pady=5)
-
-        # End Date
-        tk.Label(self.form_frame, text="Departure Date:", font=("Arial", 11), bg="#ffffff").grid(row=4, column=0, padx=5, pady=5)
-        self.end_date_entry = DateEntry(self.form_frame, font=("Arial", 11), width=12, background="darkblue", foreground="white", borderwidth=2)
-        self.end_date_entry.grid(row=4, column=1, padx=5, pady=5)
-
-        # Status
-        tk.Label(self.form_frame, text="Status:", font=("Arial", 11), bg="#ffffff").grid(row=5, column=0, padx=5, pady=5)
-        self.status_combobox = ttk.Combobox(self.form_frame, font=("Arial", 11), values=["confirmed", "checked-in", "checked-out", "cancelled"], state="readonly")
-        self.status_combobox.grid(row=5, column=1, padx=5, pady=5)
-
-        # Update Button
-        self.update_btn = ttk.Button(self.form_frame, text="Update Booking", command=self.update_booking)
-        self.update_btn.grid(row=6, column=0, columnspan=2, pady=15)
-    
-    
+        # Submit Button
+        submit_btn = ttk.Button(frame, text="Submit Update", command=self.submit_update_booking, style="Bold.TButton")
+        submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
 
     def submit_update_booking(self):
-        booking_id = self.booking_id_entry.get().strip()
-        room_number = self.room_number_entry.get().strip()
-        guest_name = self.guest_name_entry.get().strip()
-        arrival_date = self.start_date_entry.get_date().strftime("%Y-%m-%d")
-        departure_date = self.end_date_entry.get_date().strftime("%Y-%m-%d")
-        status = self.status_combobox.get()
-
-        # Validate inputs
-        if not booking_id or not room_number or not guest_name or not status:
-            messagebox.showerror("Error", "Please fill all fields.")
-            return
-
+        """Collects form data and sends a request to update a booking."""
         try:
-            # Prepare data for API request
-            api_url = f"http://127.0.0.1:8000/update/"
-            headers = {"Authorization": f"Bearer {self.token}"}
-            data = {
-                "booking_id": int(booking_id),
-                "updated_data": {
-                    "room_number": room_number,
-                    "guest_name": guest_name,
-                    "arrival_date": arrival_date,
-                    "departure_date": departure_date,
-                    "status": status
-                }
+            booking_data = {
+                "booking_id": self.entries["Booking ID"].get(),
+                "room_number": self.entries["Room Number"].get(),
+                "guest_name": self.entries["Guest Name"].get(),
+                "phone_number": self.entries["Phone Number"].get(),
+                "arrival_date": self.entries["Arrival Date"].get_date().strftime("%Y-%m-%d"),
+                "departure_date": self.entries["Departure Date"].get_date().strftime("%Y-%m-%d"),
+                "booking_type": self.entries["Booking Type"].get(),
             }
 
-            response = requests.put(api_url, json=data, headers=headers)
+            if not all(booking_data.values()):  # Ensure all fields are filled
+                messagebox.showerror("Error", "Please fill in all fields")
+                return
+
+            api_url = f"http://127.0.0.1:8000/bookings/update/?booking_id={booking_data['booking_id']}"  # Adjust if needed
+            headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+            response = requests.put(api_url, json=booking_data, headers=headers)
 
             if response.status_code == 200:
-                # Successfully updated booking
-                messagebox.showinfo("Success", "Booking updated successfully.")
+                messagebox.showinfo("Success", "Booking updated successfully!")
             else:
-                # Error updating booking
-                messagebox.showerror("Error", response.json().get("detail", "Failed to update booking."))
+                messagebox.showerror("Error", response.json().get("detail", "Update failed."))
 
+        except KeyError as e:
+            messagebox.showerror("Error", f"Missing entry field: {e}")
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
