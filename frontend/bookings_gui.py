@@ -710,7 +710,54 @@ class BookingManagement:
             messagebox.showerror("Error", f"Request failed: {e}")
 
 
-    
+    def update_subheading(self, text, command):
+        self.subheading_label.config(text=text)
+        command()
+
+    def guest_checkout(self):
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Guest Checkout Form", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Labels & Entry fields
+        fields = [
+            ("Room Number", tk.Entry),
+        ]
+
+        self.entries = {}
+        for i, (label, field_type) in enumerate(fields):
+            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            entry = field_type(frame, font=("Arial", 11), width=25)
+            entry.grid(row=i+1, column=1, padx=10, pady=5)
+            self.entries[label] = entry
+
+        # Submit Button
+        submit_btn = ttk.Button(frame, text="Checkout Guest", command=self.submit_guest_checkout, style="Bold.TButton")
+        submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
+
+    def submit_guest_checkout(self):
+        """Sends a request to checkout the guest by room number."""
+        try:
+            room_number = self.entries["Room Number"].get()
+
+            if not room_number:  # Ensure room number is entered
+                messagebox.showerror("Error", "Please enter a room number.")
+                return
+
+            api_url = f"http://127.0.0.1:8000/bookings/{room_number}/"  # Adjust API URL if necessary
+            headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+            response = requests.put(api_url, headers=headers)
+
+            if response.status_code == 200:
+                messagebox.showinfo("Success", f"Guest checked out successfully for room number {room_number}!")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Checkout failed."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}") 
     
     
     #def complimentary_booking(self):
@@ -732,8 +779,8 @@ class BookingManagement:
     #def update_booking(self):
         #UpdateBooking(self.root, self.token)
     
-    def guest_checkout(self):
-        messagebox.showinfo("Info", "Guest Checkout Selected")
+    #def guest_checkout(self):
+        #messagebox.showinfo("Info", "Guest Checkout Selected")
     
     def cancel_booking(self):
         messagebox.showinfo("Info", "Cancel Booking Selected")
