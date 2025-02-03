@@ -190,6 +190,8 @@ class BookingManagement:
         self.tree.configure(xscroll=x_scroll.set)
 
 
+   
+
     def fetch_bookings(self, start_date_entry, end_date_entry):
         """Fetch bookings from the API and populate the table."""
         api_url = "http://127.0.0.1:8000/bookings/list"  # Ensure correct endpoint
@@ -213,6 +215,11 @@ class BookingManagement:
                     messagebox.showerror("Error", "Unexpected API response format")
                     return
 
+                # Check if bookings list is empty
+                if not bookings:
+                    messagebox.showinfo("No Results", "No bookings found for the selected filters.")
+                    return
+
                 self.tree.delete(*self.tree.get_children())  # Clear table
 
                 for booking in bookings:
@@ -234,6 +241,7 @@ class BookingManagement:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
 
     def clear_right_frame(self):
         for widget in self.right_frame.winfo_children():
