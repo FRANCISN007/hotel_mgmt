@@ -168,7 +168,102 @@ class PaymentManagement:
             messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 
 
+    def list_payments(self):
+        self.clear_right_frame()
+        
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(frame, text="List Payments", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
+        
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=1, padx=5, pady=5)
+        
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.grid(row=0, column=3, padx=5, pady=5)
+        
+        fetch_btn = ttk.Button(
+            filter_frame,
+            text="Fetch Payments",
+            command=self.fetch_payments
+        )
+        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
+        
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed", "Balance Due", "Payment Method", "Payment Date", "Status", "Booking ID")
+        
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+        
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+    
+    def fetch_payments(self):
+        api_url = "http://127.0.0.1:8000/payments/list"
+        params = {
+            "start_date": self.start_date.get_date().strftime("%Y-%m-%d"),
+            "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
+        }
+        headers = {"Authorization": f"Bearer {self.token}"}
+        
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
                 
+                if isinstance(data, dict) and "payments" in data:
+                    payments = data["payments"]
+                elif isinstance(data, list):
+                    payments = data
+                else:
+                    messagebox.showerror("Error", "Unexpected API response format")
+                    return
+                
+                if not payments:
+                    messagebox.showinfo("No Results", "No payments found for the selected filters.")
+                    return
+                
+                self.tree.delete(*self.tree.get_children())
+                
+                for payment in payments:
+                    self.tree.insert("", "end", values=(
+                        payment.get("payment_id", ""),
+                        payment.get("guest_name", ""),
+                        payment.get("room_number", ""),
+                        payment.get("amount_paid", ""),
+                        payment.get("discount_allowed"),
+                        payment.get("balance_due", ""),
+                        payment.get("payment_method", ""),
+                        payment.get("payment_date", ""),
+                        payment.get("status", ""),
+                        payment.get("booking_id", ""),
+                    ))
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+    
+    def clear_right_frame(self):
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()
+            
             
         
         
@@ -179,8 +274,8 @@ class PaymentManagement:
         
         
 
-    def list_payments(self):
-        messagebox.showinfo("Info", "List Payment Selected")
+    #def list_payments(self):
+        #messagebox.showinfo("Info", "List Payment Selected")
 
     def list_payment_by_id(self):
         messagebox.showinfo("Info", "List Payment by ID Selected")

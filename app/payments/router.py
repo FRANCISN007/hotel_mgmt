@@ -144,7 +144,7 @@ def create_payment(
     
 
 
-@router.get("/list/")
+@router.get("/list")
 def list_payments(
     start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
@@ -198,6 +198,7 @@ def list_payments(
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
                 #"booking_cost": payment.booking_cost,
+                "discount_allowed": payment.discount_allowed,
                 "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),

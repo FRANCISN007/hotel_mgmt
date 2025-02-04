@@ -12,7 +12,7 @@ class Payment(Base):
     guest_name = Column(String, index=True)
     #booking_cost = Column(Float, nullable=True)  # Add the booking_cost column to Payment table
     amount_paid = Column(Float)
-    discount_allowed = Column(Float, default=0.0)  # Discount allowed on the payment
+    discount_allowed = Column(Float)  # Discount allowed on the payment
     balance_due = Column(Float, default=0.0)
     payment_method = Column(String)
     payment_date = Column(DateTime, default=datetime.utcnow)
