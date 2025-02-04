@@ -41,7 +41,6 @@ class BookingManagement:
         # Booking action buttons
         buttons = [
             ("Create Booking", self.create_booking),
-            #("Complimentary Booking", self.complimentary_booking),
             ("List Bookings", self.list_bookings),
             ("List By Status", self.list_bookings_by_status),
             ("Search Guest Name", self.search_booking),
@@ -54,8 +53,8 @@ class BookingManagement:
 
         for text, command in buttons:
             btn = tk.Button(self.left_frame, text=text, command=lambda t=text, c=command: self.update_subheading(t, c),
-                    width=25, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
-            btn.pack(pady=5, padx=10, anchor="w", fill="x")
+                    width=20, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
+            btn.pack(pady=10, padx=10, anchor="w", fill="x")
 
         # Configure button styles
         style = ttk.Style()

@@ -53,8 +53,8 @@ class PaymentManagement:
         for text, command in buttons:
             btn = tk.Button(self.left_frame, text=text, 
                             command=lambda t=text, c=command: self.update_subheading(t, c),
-                            width=25, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
-            btn.pack(pady=5, padx=10, anchor="w", fill="x")
+                            width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
+            btn.pack(pady=10, padx=10, anchor="w", fill="x")
 
     def update_subheading(self, text, command):
         """Updates the subheading label and calls the selected function."""
