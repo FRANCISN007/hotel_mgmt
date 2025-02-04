@@ -229,7 +229,7 @@ def list_payments(
         )
 
 
-@router.get("/payment/{payment_id}/")
+@router.get("/{payment_id}")
 def get_payment_by_id(
     payment_id: int,
     db: Session = Depends(get_db),
@@ -263,6 +263,7 @@ def get_payment_by_id(
             "room_number": payment.room_number,
             #"booking_cost": payment.booking_cost,
             "amount_paid": payment.amount_paid,
+            "discount_allowed": payment.discount_allowed,
             "balance_due": payment.balance_due,
             "payment_method": payment.payment_method,
             "payment_date": payment.payment_date.isoformat(),
@@ -283,7 +284,7 @@ def get_payment_by_id(
 
 
 
-@router.get("/list_void_payments/")
+@router.get("/list_void_payments")
 def list_void_payments(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
@@ -358,7 +359,7 @@ def list_void_payments(
 
 
 
-@router.get("/total_daily_payment/")
+@router.get("/total_daily_payment")
 def total_payment(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
@@ -420,7 +421,7 @@ def total_payment(
 
 
 
-@router.get("/debtor_list/")
+@router.get("/debtor_list")
 def get_debtor_list(
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),

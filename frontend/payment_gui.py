@@ -43,11 +43,11 @@ class PaymentManagement:
         buttons = [
             ("Create Payment", self.create_payment),
             ("List Payment", self.list_payments),
-            ("List Payment By Id", self.list_payment_by_id),
-            ("List Void Payment", self.list_void_payment),
+            ("List Payment By Id", self.search_payment_by_id),
+            ("List Void Payment", self.void_payment),
             ("Total Daily Payment", self.total_daily_payment),
             ("Debtor List", self.debtor_list),
-            ("Void Payment", self.void_payment_by_id),
+            ("Void Payment", self.void_payment),
         ]
 
         for text, command in buttons:
@@ -267,21 +267,208 @@ class PaymentManagement:
             
         
         
-        
-        
-        
-        
-        
+    
+
+   
+
+    def search_payment_by_id(self):
+        self.clear_right_frame()
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Search Payment by ID", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        search_frame = tk.Frame(frame, bg="#ffffff")
+        search_frame.pack(pady=5)
+
+        tk.Label(search_frame, text="Payment ID:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.payment_id_entry = tk.Entry(search_frame, font=("Arial", 11))
+        self.payment_id_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        search_btn = ttk.Button(
+            search_frame, text="Search", command=self.fetch_payment_by_id
+        )
+        search_btn.grid(row=0, column=2, padx=10, pady=5)
+
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed", "Balance Due", 
+                "Payment Method", "Payment Date", "Status", "Booking ID")
+
+        self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.search_tree.heading(col, text=col)
+            self.search_tree.column(col, width=120, anchor="center")
+
+        self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.search_tree.configure(yscroll=y_scroll.set)
+
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.search_tree.configure(xscroll=x_scroll.set)
+
+    def fetch_payment_by_id(self):
+        payment_id = self.payment_id_entry.get().strip()
+
+        if not payment_id.isdigit():  # Ensure input is numeric
+            messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
+            return
+
+        try:
+            api_url = f"http://127.0.0.1:8000/payments/{payment_id}"
+            headers = {"Authorization": f"Bearer {self.token}"}
+
+            response = requests.get(api_url, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                if data:  # Ensure data exists
+                    self.search_tree.delete(*self.search_tree.get_children())
+                    self.search_tree.insert("", "end", values=(
+                        data.get("payment_id", ""),
+                        data.get("guest_name", ""),
+                        data.get("room_number", ""),
+                        data.get("amount_paid", ""),
+                        data.get("discount_allowed"),
+                        data.get("balance_due", ""),
+                        data.get("payment_method", ""),
+                        data.get("payment_date", ""),
+                        data.get("status", ""),
+                        data.get("booking_id", ""),
+                    ))
+                else:
+                    messagebox.showinfo("No Results", "No payment found with the provided ID.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "No payment found."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+            
+     
+     
+     
+    def void_payment(self):
+        self.clear_right_frame()
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Void Payment", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        input_frame = tk.Frame(frame, bg="#ffffff")
+        input_frame.pack(pady=5)
+
+        tk.Label(input_frame, text="Payment ID:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.payment_id_entry = tk.Entry(input_frame, font=("Arial", 11))
+        self.payment_id_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        void_btn = ttk.Button(
+            input_frame, text="Void Payment", command=self.process_void_payment
+        )
+        void_btn.grid(row=0, column=2, padx=10, pady=5)
+
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed", "Balance Due", 
+                    "Payment Method", "Payment Date", "Status", "Booking ID")
+
+        self.void_payment_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.void_payment_tree.heading(col, text=col)
+            self.void_payment_tree.column(col, width=120, anchor="center")
+
+        self.void_payment_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.void_payment_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.void_payment_tree.configure(yscroll=y_scroll.set)
+
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.void_payment_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.void_payment_tree.configure(xscroll=x_scroll.set)
+
+    def process_void_payment(self):
+        payment_id = self.payment_id_entry.get().strip()
+
+        if not payment_id.isdigit():  # Ensure input is numeric
+            messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
+            return
+
+        try:
+            api_url = f"http://127.0.0.1:8000/payments/void/{payment_id}"
+            headers = {"Authorization": f"Bearer {self.token}"}
+
+            response = requests.put(api_url, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+                messagebox.showinfo("Success", data.get("message", "Payment has been voided."))
+                
+                # Fetch the updated payment data
+                self.fetch_payment_by_id(payment_id)
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to void payment."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def fetch_payment_by_id(self, payment_id=None):
+        if not payment_id:
+            payment_id = self.payment_id_entry.get().strip()
+
+        if not payment_id.isdigit():
+            messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
+            return
+
+        try:
+            api_url = f"http://127.0.0.1:8000/payments/{payment_id}"
+            headers = {"Authorization": f"Bearer {self.token}"}
+
+            response = requests.get(api_url, headers=headers)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                if data:  # Ensure data exists
+                    self.void_payment_tree.delete(*self.void_payment_tree.get_children())
+                    self.void_payment_tree.insert("", "end", values=(
+                        data.get("payment_id", ""),
+                        data.get("guest_name", ""),
+                        data.get("room_number", ""),
+                        data.get("amount_paid", ""),
+                        data.get("discount_allowed"),
+                        data.get("balance_due", ""),
+                        data.get("payment_method", ""),
+                        data.get("payment_date", ""),
+                        data.get("status", ""),
+                        data.get("booking_id", ""),
+                    ))
+                else:
+                    messagebox.showinfo("No Results", "No payment found with the provided ID.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "No payment found."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+   
         
 
     #def list_payments(self):
         #messagebox.showinfo("Info", "List Payment Selected")
 
-    def list_payment_by_id(self):
-        messagebox.showinfo("Info", "List Payment by ID Selected")
+    #def list_payment_by_id(self):
+        #messagebox.showinfo("Info", "List Payment by ID Selected")
 
-    def list_void_payment(self):
-        messagebox.showinfo("Info", "List Void Payment Selected")
+    #def list_void_payment(self):
+        #messagebox.showinfo("Info", "List Void Payment Selected")
 
     def total_daily_payment(self):
         messagebox.showinfo("Info", "Total Daily Payment Selected")
@@ -289,5 +476,5 @@ class PaymentManagement:
     def debtor_list(self):
         messagebox.showinfo("Info", "Debtor List Selected")
 
-    def void_payment_by_id(self):
-        messagebox.showinfo("Info", "Void Payment by ID Selected")
+    #def void_payment(self):
+        #messagebox.showinfo("Info", "Void Payment by ID Selected")
