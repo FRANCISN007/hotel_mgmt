@@ -14,6 +14,8 @@ class PaymentManagement:
         self.root.geometry("900x600")
         self.token = token
         self.root.configure(bg="#f0f0f0")
+        self.void_payment_tree = None  
+        
         
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
@@ -44,7 +46,7 @@ class PaymentManagement:
             ("Create Payment", self.create_payment),
             ("List Payment", self.list_payments),
             ("List Payment By Id", self.search_payment_by_id),
-            ("List Void Payment", self.void_payment),
+            ("List Void Payment", self.list_void_payment),
             ("Total Daily Payment", self.total_daily_payment),
             ("Debtor List", self.debtor_list),
             ("Void Payment", self.void_payment),
@@ -329,19 +331,35 @@ class PaymentManagement:
                 data = response.json()
 
                 if data:  # Ensure data exists
+                    # ✅ Clear existing records from the TreeView
                     self.search_tree.delete(*self.search_tree.get_children())
+
+                    # ✅ Extract payment details from the response
+                    payment_id = data.get("payment_id", "")
+                    guest_name = data.get("guest_name", "")
+                    room_number = data.get("room_number", "")
+                    amount_paid = data.get("amount_paid", "")
+                    discount_allowed = data.get("discount_allowed", "")
+                    balance_due = data.get("balance_due", "")
+                    payment_method = data.get("payment_method", "")
+                    payment_date = data.get("payment_date", "")
+                    status = data.get("status", "").lower()  # Normalize status
+                    booking_id = data.get("booking_id", "")
+
+                    # ✅ Define tag for voided payments
+                    tag = "VOIDED" if status == "voided" else "normal"
+
+                    # ✅ Insert data into TreeView
                     self.search_tree.insert("", "end", values=(
-                        data.get("payment_id", ""),
-                        data.get("guest_name", ""),
-                        data.get("room_number", ""),
-                        data.get("amount_paid", ""),
-                        data.get("discount_allowed"),
-                        data.get("balance_due", ""),
-                        data.get("payment_method", ""),
-                        data.get("payment_date", ""),
-                        data.get("status", ""),
-                        data.get("booking_id", ""),
-                    ))
+                        payment_id, guest_name, room_number, amount_paid, 
+                        discount_allowed, balance_due, payment_method, 
+                        payment_date, status, booking_id
+                    ), tags=(tag,))
+
+                    # ✅ Apply color formatting
+                    self.search_tree.tag_configure("VOIDED", foreground="red")
+                    self.search_tree.tag_configure("normal", foreground="black")
+
                 else:
                     messagebox.showinfo("No Results", "No payment found with the provided ID.")
             else:
@@ -350,8 +368,7 @@ class PaymentManagement:
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
-            
-     
+
      
      
     def void_payment(self):
@@ -420,11 +437,10 @@ class PaymentManagement:
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
-    def fetch_payment_by_id(self, payment_id=None):
-        if not payment_id:
-            payment_id = self.payment_id_entry.get().strip()
+    def fetch_payment_by_id(self):
+        payment_id = self.payment_id_entry.get().strip()
 
-        if not payment_id.isdigit():
+        if not payment_id.isdigit():  # Ensure input is numeric
             messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
             return
 
@@ -438,19 +454,36 @@ class PaymentManagement:
                 data = response.json()
 
                 if data:  # Ensure data exists
-                    self.void_payment_tree.delete(*self.void_payment_tree.get_children())
-                    self.void_payment_tree.insert("", "end", values=(
-                        data.get("payment_id", ""),
-                        data.get("guest_name", ""),
-                        data.get("room_number", ""),
-                        data.get("amount_paid", ""),
-                        data.get("discount_allowed"),
-                        data.get("balance_due", ""),
-                        data.get("payment_method", ""),
-                        data.get("payment_date", ""),
-                        data.get("status", ""),
-                        data.get("booking_id", ""),
-                    ))
+                    # ✅ Use the correct Treeview (`self.search_tree`)
+                    if hasattr(self, "search_tree") and self.search_tree is not None:
+                        self.search_tree.delete(*self.search_tree.get_children())  # Fixed line
+
+                    # ✅ Extract payment details
+                    payment_id = data.get("payment_id", "")
+                    guest_name = data.get("guest_name", "")
+                    room_number = data.get("room_number", "")
+                    amount_paid = data.get("amount_paid", "")
+                    discount_allowed = data.get("discount_allowed", "")
+                    balance_due = data.get("balance_due", "")
+                    payment_method = data.get("payment_method", "")
+                    payment_date = data.get("payment_date", "")
+                    status = data.get("status", "").lower()  # Normalize status
+                    booking_id = data.get("booking_id", "")
+
+                    # ✅ Define tag for voided payments
+                    tag = "VOIDED" if status == "voided" else "normal"
+
+                    # ✅ Insert data into TreeView
+                    self.search_tree.insert("", "end", values=(
+                        payment_id, guest_name, room_number, amount_paid, 
+                        discount_allowed, balance_due, payment_method, 
+                        payment_date, status, booking_id
+                    ), tags=(tag,))
+
+                    # ✅ Apply color formatting
+                    self.search_tree.tag_configure("VOIDED", foreground="red")
+                    self.search_tree.tag_configure("normal", foreground="black")
+
                 else:
                     messagebox.showinfo("No Results", "No payment found with the provided ID.")
             else:
@@ -458,7 +491,8 @@ class PaymentManagement:
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-   
+
+    
         
 
     #def list_payments(self):
@@ -467,8 +501,8 @@ class PaymentManagement:
     #def list_payment_by_id(self):
         #messagebox.showinfo("Info", "List Payment by ID Selected")
 
-    #def list_void_payment(self):
-        #messagebox.showinfo("Info", "List Void Payment Selected")
+    def list_void_payment(self):
+        messagebox.showinfo("Info", "List Void Payment Selected")
 
     def total_daily_payment(self):
         messagebox.showinfo("Info", "Total Daily Payment Selected")
