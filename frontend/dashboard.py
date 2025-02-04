@@ -3,6 +3,7 @@ from tkinter import ttk
 from users_gui import UserManagement
 from rooms_gui import RoomManagement
 from bookings_gui import BookingManagement
+from payment_gui import PaymentManagement
 from utils import load_token, get_user_role
 from tkinter import messagebox  # For access control popups
 
@@ -76,7 +77,7 @@ class Dashboard:
         
 
     def manage_payments(self):
-        messagebox.showinfo("Coming Soon", "Manage Payments functionality will be added soon!")
+        PaymentManagement(self.root, self.token)
 
     def logout(self):
         self.root.destroy()

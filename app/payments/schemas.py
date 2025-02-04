@@ -9,8 +9,7 @@ class PaymentCreateSchema(BaseModel):
     discount_allowed: Optional[float] = 0.0  # New discount field, default to 0.0
     payment_method: str  # E.g., 'credit_card', 'cash', 'bank_transfer'
     payment_date: datetime
-    booking_cost: Optional[float]  # Include booking_cost in the schema
-
+    #booking_cost: Optional[float]  # Update booking cost if provided
     class Config:
         orm_mode = True
 
@@ -23,8 +22,8 @@ class PaymentUpdateSchema(BaseModel):
     payment_method: Optional[str] = None  # Update the payment method if provided
     payment_date: datetime # Update the payment date if provided
     status: Optional[str] = None  # Update the status (e.g., 'completed', 'pending') if provided
-    booking_cost: Optional[float] = None  # Update booking cost if provided
-
+    #booking_cost: Optional[float]   # Update booking cost if provided
+    
     class Config:
         orm_mode = True
 

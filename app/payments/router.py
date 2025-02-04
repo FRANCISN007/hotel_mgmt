@@ -19,7 +19,7 @@ router = APIRouter()
 # Set up logging
 logger.add("app.log", rotation="500 MB", level="DEBUG")
 
-@router.post("/create/{booking_id}")
+@router.post("/{booking_id}")
 def create_payment(
     booking_id: int,
     payment_request: payment_schemas.PaymentCreateSchema,
@@ -63,7 +63,7 @@ def create_payment(
         raise HTTPException(
             status_code=404, detail=f"Room {booking_record.room_number} does not exist."
         )
-
+    
     # Ensure the booking status allows payments
     if booking_record.status not in ["checked-in", "reserved"]:
         raise HTTPException(
@@ -71,9 +71,9 @@ def create_payment(
             detail=f"Booking ID {booking_id} must be checked-in or reserved to make a payment.",
         )
 
-    # Calculate the total due based on the number of days and room price
+    # Calculate the total due based on the number of days and room price (exclude booking cost)
     num_days = booking_record.number_of_days
-    total_due = (num_days * room.amount)
+    total_due = (num_days * room.amount)  # Exclude booking cost if not needed
 
     # Fetch all previous payments for this booking
     existing_payments = db.query(payment_models.Payment).filter(
@@ -81,7 +81,7 @@ def create_payment(
         payment_models.Payment.status != "voided",
     ).all()
 
-    # Calculate the total amount already paid
+    # Calculate the total amount already paid, considering any previous discount allowed
     total_existing_payment = sum(
         payment.amount_paid + (payment.discount_allowed or 0) for payment in existing_payments
     )
@@ -89,8 +89,8 @@ def create_payment(
     # Add the new payment to the total existing payments
     new_total_payment = total_existing_payment + payment_request.amount_paid + (payment_request.discount_allowed or 0)
 
-    # Adjust the total due for any discount allowed
-    effective_total_due = total_due  # Adjust if you want to apply any discount
+    # Check if you want to apply a discount to the total due here (not booking cost)
+    effective_total_due = total_due  # Adjust if a discount is applied to the room amount
 
     # Check for overpayment
     if new_total_payment > effective_total_due:
@@ -102,7 +102,7 @@ def create_payment(
     # Calculate balance due
     balance_due = max(effective_total_due - new_total_payment, 0)
 
-    # Determine payment status
+    # Determine payment status based on balance due
     status = "payment incomplete" if balance_due > 0 else "payment completed"
 
     try:
@@ -113,8 +113,7 @@ def create_payment(
                 amount_paid=payment_request.amount_paid,
                 discount_allowed=payment_request.discount_allowed,
                 payment_method=payment_request.payment_method,
-                payment_date=payment_request.payment_date.isoformat(), # System-generated payment_date in UTC
-                booking_cost=booking_record.booking_cost  # Pass booking cost from the booking
+                payment_date=payment_request.payment_date.isoformat(),  # System-generated payment_date in UTC
             ),
             booking_id=booking_id,
             balance_due=balance_due,
@@ -134,7 +133,6 @@ def create_payment(
                 "payment_date": new_payment.payment_date,
                 "balance_due": new_payment.balance_due,
                 "status": new_payment.status,
-                "booking_cost": new_payment.booking_cost,  # Return the booking cost as part of the response
             },
         }
 
@@ -142,7 +140,6 @@ def create_payment(
         db.rollback()
         logger.error(f"Error creating payment: {e}")
         raise HTTPException(status_code=500, detail="Error creating payment.")
-
     
     
 
@@ -200,7 +197,7 @@ def list_payments(
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
-                "booking_cost": payment.booking_cost,
+                #"booking_cost": payment.booking_cost,
                 "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
@@ -263,7 +260,7 @@ def get_payment_by_id(
             "payment_id": payment.id,
             "guest_name": payment.guest_name,
             "room_number": payment.room_number,
-            "booking_cost": payment.booking_cost,
+            #"booking_cost": payment.booking_cost,
             "amount_paid": payment.amount_paid,
             "balance_due": payment.balance_due,
             "payment_method": payment.payment_method,
@@ -335,7 +332,7 @@ def list_void_payments(
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
-                "booking_cost": payment.booking_cost,
+                #"booking_cost": payment.booking_cost,
                 "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
@@ -396,7 +393,7 @@ def total_payment(
                 "payment_id": payment.id,
                 "room_number": payment.room_number,
                 "guest_name": payment.guest_name,
-                "booking_cost": payment.booking_cost,
+                #"booking_cost": payment.booking_cost,
                 "amount_paid": payment.amount_paid,
                 "discount allowed": payment.discount_allowed,
                 "balance_due": payment.balance_due,

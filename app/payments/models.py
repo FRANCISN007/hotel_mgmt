@@ -10,7 +10,7 @@ class Payment(Base):
     booking_id = Column(Integer, ForeignKey('bookings.id'))  # Foreign key to bookings table
     room_number = Column(String, index=True)
     guest_name = Column(String, index=True)
-    booking_cost = Column(Float)  # Add the booking_cost column to Payment table
+    #booking_cost = Column(Float, nullable=True)  # Add the booking_cost column to Payment table
     amount_paid = Column(Float)
     discount_allowed = Column(Float, default=0.0)  # Discount allowed on the payment
     balance_due = Column(Float, default=0.0)

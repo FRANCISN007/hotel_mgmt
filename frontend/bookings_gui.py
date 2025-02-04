@@ -53,9 +53,9 @@ class BookingManagement:
         ]
 
         for text, command in buttons:
-            btn = ttk.Button(self.left_frame, text=text, command=lambda t=text, c=command: self.update_subheading(t, c),
-                             width=25, style="Bold.TButton")
-            btn.pack(pady=5, padx=10, anchor="w")
+            btn = tk.Button(self.left_frame, text=text, command=lambda t=text, c=command: self.update_subheading(t, c),
+                    width=25, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
+            btn.pack(pady=5, padx=10, anchor="w", fill="x")
 
         # Configure button styles
         style = ttk.Style()
@@ -758,6 +758,63 @@ class BookingManagement:
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}") 
+            
+            
+            
+            
+    def update_subheading(self, text, command):
+        self.subheading_label.config(text=text)
+        command()
+
+    def cancel_booking(self):
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Cancel Booking Form", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Labels & Entry fields
+        fields = [
+            ("Booking ID", tk.Entry),
+        ]
+
+        self.entries = {}
+        for i, (label, field_type) in enumerate(fields):
+            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            entry = field_type(frame, font=("Arial", 11), width=25)
+            entry.grid(row=i+1, column=1, padx=10, pady=5)
+            self.entries[label] = entry
+
+        # Submit Button
+        submit_btn = ttk.Button(frame, text="Cancel Booking", command=self.submit_cancel_booking, style="Bold.TButton")
+        submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
+
+    def submit_cancel_booking(self):
+        """Sends a request to cancel the booking by booking ID."""
+        try:
+            booking_id = self.entries["Booking ID"].get()
+
+            if not booking_id:  # Ensure booking ID is entered
+                messagebox.showerror("Error", "Please enter a booking ID.")
+                return
+
+            api_url = f"http://127.0.0.1:8000/bookings/cancel/{booking_id}/"  # Correct API URL
+
+            headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+            response = requests.post(api_url, headers=headers)
+
+            if response.status_code == 200:
+                canceled_booking = response.json().get("canceled_booking")
+                messagebox.showinfo("Success", f"Booking ID {canceled_booking['id']} has been canceled successfully!\n"
+                                              f"Room Status: {canceled_booking['room_status']}\n"
+                                              f"Booking Status: {canceled_booking['status']}")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Cancellation failed."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")       
+            
     
     
     #def complimentary_booking(self):
@@ -782,8 +839,8 @@ class BookingManagement:
     #def guest_checkout(self):
         #messagebox.showinfo("Info", "Guest Checkout Selected")
     
-    def cancel_booking(self):
-        messagebox.showinfo("Info", "Cancel Booking Selected")
+    #def cancel_booking(self):
+        #messagebox.showinfo("Info", "Cancel Booking Selected")
     
     def clear_right_frame(self):
         for widget in self.right_frame.winfo_children():
