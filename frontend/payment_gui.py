@@ -45,8 +45,8 @@ class PaymentManagement:
         buttons = [
             ("Create Payment", self.create_payment),
             ("List Payment", self.list_payments),
-            ("List Payment By Id", self.search_payment_by_id),
-            ("List Void Payment", self.list_void_payment),
+            ("List Payment By ID", self.search_payment_by_id),
+            ("List By Payment Status", self.list_payments_by_status),
             ("Total Daily Payment", self.total_daily_payment),
             ("Debtor List", self.debtor_list),
             ("Void Payment", self.void_payment),
@@ -267,6 +267,104 @@ class PaymentManagement:
             widget.pack_forget()
             
             
+ 
+    def list_payments_by_status(self):
+        """Displays the List Payments by Status UI."""
+        self.clear_right_frame()
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="List Payments by Status", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
+        
+        tk.Label(filter_frame, text="Status:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        status_options = ["Payment Completed", "Payment Incomplete", "Voided"]
+        self.payment_status_var = tk.StringVar()
+        self.payment_status_var.set(status_options[0])  # Default selection
+        status_menu = ttk.Combobox(filter_frame, textvariable=self.payment_status_var, values=status_options, state="readonly")
+        status_menu.grid(row=0, column=1, padx=5, pady=5)
+        
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.payment_start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.payment_start_date.grid(row=0, column=3, padx=5, pady=5)
+        
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=4, padx=5, pady=5)
+        self.payment_end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.payment_end_date.grid(row=0, column=5, padx=5, pady=5)
+        
+        fetch_btn = ttk.Button(filter_frame, text="Fetch Payments", command=self.fetch_payments_by_status)
+        fetch_btn.grid(row=0, column=6, padx=10, pady=5)
+        
+        # Table Frame
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount", "Balance Due", "Payment Method", "Payment Date", "Status", "Booking ID")
+        
+        if hasattr(self, "payment_tree"):
+            self.payment_tree.destroy()
+        
+        self.payment_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.payment_tree.heading(col, text=col)
+            self.payment_tree.column(col, width=120, anchor="center")
+        
+        self.payment_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.payment_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.payment_tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.payment_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.payment_tree.configure(xscroll=x_scroll.set)
+
+    def fetch_payments_by_status(self):
+        """Fetch payments based on status and date filters."""
+        api_url = "http://127.0.0.1:8000/payments/by-status"
+        
+        params = {
+            "status": self.payment_status_var.get().lower(),
+            "start_date": self.payment_start_date.get_date().strftime("%Y-%m-%d"),
+            "end_date": self.payment_end_date.get_date().strftime("%Y-%m-%d"),
+        }
+        
+        headers = {"Authorization": f"Bearer {self.token}"}
+        
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            print("API Response:", response.json())  # Debugging output
+        
+            if response.status_code == 200:
+                data = response.json()
+                
+                if "payments" in data and data["payments"]:
+                    self.payment_tree.delete(*self.payment_tree.get_children())
+                    
+                    for payment in data["payments"]:
+                        self.payment_tree.insert("", "end", values=(
+                            payment.get("payment_id", ""),
+                            payment.get("guest_name", ""),
+                            payment.get("room_number", ""),
+                            payment.get("amount_paid", ""),
+                            payment.get("discount_allowed", ""),
+                            payment.get("balance_due", ""),
+                            payment.get("payment_method", ""),
+                            payment.get("payment_date", ""),
+                            payment.get("status", ""),
+                            payment.get("booking_id", ""),
+                        ))
+                else:
+                    messagebox.showinfo("No Results", "No payments found for the selected filters.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
+        
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
         
         
     
@@ -348,7 +446,7 @@ class PaymentManagement:
                         booking_id = data.get("booking_id", "")
 
                         # ✅ Define tag for voided payments
-                        tag = "VOIDED" if status == "voided" else "normal"
+                        tag = "voided" if status == "voided" else "normal"
 
                         # ✅ Insert data into TreeView
                         self.search_tree.insert("", "end", values=(
@@ -358,7 +456,7 @@ class PaymentManagement:
                         ), tags=(tag,))
 
                         # ✅ Apply color formatting
-                        self.search_tree.tag_configure("VOIDED", foreground="red")
+                        self.search_tree.tag_configure("voided", foreground="red")
                         self.search_tree.tag_configure("normal", foreground="black")
 
                     else:
@@ -371,6 +469,7 @@ class PaymentManagement:
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
 
 
      
@@ -494,8 +593,8 @@ class PaymentManagement:
     #def list_payment_by_id(self):
         #messagebox.showinfo("Info", "List Payment by ID Selected")
 
-    def list_void_payment(self):
-        messagebox.showinfo("Info", "List Void Payment Selected")
+    #def list_by_payment_status(self):
+        #messagebox.showinfo("Info", "List Void Payment Selected")
 
     def total_daily_payment(self):
         messagebox.showinfo("Info", "Total Daily Payment Selected")

@@ -78,7 +78,7 @@ def create_payment(
     # Fetch all previous payments for this booking
     existing_payments = db.query(payment_models.Payment).filter(
         payment_models.Payment.booking_id == booking_id,
-        payment_models.Payment.status != "VOIDED",
+        payment_models.Payment.status != "voided",
     ).all()
 
     # Calculate the total amount already paid, considering any previous discount allowed
@@ -245,7 +245,7 @@ def total_payment(
         payments = db.query(payment_models.Payment).filter(
             payment_models.Payment.payment_date >= today,
             payment_models.Payment.payment_date < today + timedelta(days=1),
-            payment_models.Payment.status != "VOIDED"
+            payment_models.Payment.status != "voided"
         ).all()
 
         if not payments:
@@ -368,77 +368,63 @@ def get_debtor_list(
         )
 
 
-@router.get("/list_void_payments")
-def list_void_payments(
-    start_date: Optional[date] = Query(None),
-    end_date: Optional[date] = Query(None),
+@router.get("/by-status")
+def list_payments_by_status(
+    status: Optional[str] = Query(None, description="Payment status to filter by (payment completed, payment incomplete, VOIDED)"),
+    start_date: Optional[date] = Query(None, description="Filter by payment date (start) in format yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="Filter by payment date (end) in format yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    """
-    List all voided payments between the specified start and end date.
-    If no dates are provided, returns all voided payments, along with the total of voided payments.
-    """
     try:
-        # Build the base query to get only voided payments
-        query = db.query(payment_models.Payment).filter(
-            payment_models.Payment.status == "VOIDED"
-        )
+        # Build the base query
+        query = db.query(payment_models.Payment)
 
-        # Apply date filters based on provided inputs
-        if start_date and end_date:
-            if start_date > end_date:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Start date cannot be after end date."
-                )
-            query = query.filter(
-                payment_models.Payment.payment_date >= start_date,
-                payment_models.Payment.payment_date <= end_date
-            )
-        elif start_date:
+        # Filter by status
+        if status:
+            query = query.filter(payment_models.Payment.status == status.lower())
+
+        # Apply date filters based on payment_date
+        if start_date:
             query = query.filter(payment_models.Payment.payment_date >= start_date)
-        elif end_date:
+        if end_date:
             query = query.filter(payment_models.Payment.payment_date <= end_date)
 
-        # Retrieve voided payments
-        voided_payments = query.all()
+        # Execute the query
+        payments = query.all()
 
-        if not voided_payments:
-            logger.info("No voided payments found for the specified criteria.")
-            return {"message": "No voided payments found for the specified criteria."}
+        # If no payments found, return an informative message
+        if not payments:
+            return {"message": "No payments found for the given criteria."}
 
-        # Prepare the list of voided payment details to be returned
-        voided_payment_list = []
-        total_voided_amount = 0  # Initialize total voided amount
-
-        for payment in voided_payments:
-            voided_payment_list.append({
+        # Format the payments response
+        formatted_payments = [
+            {
                 "payment_id": payment.id,
                 "guest_name": payment.guest_name,
                 "room_number": payment.room_number,
                 "amount_paid": payment.amount_paid,
-                #"booking_cost": payment.booking_cost,
+                "discount_allowed": payment.discount_allowed,
                 "balance_due": payment.balance_due,
                 "payment_method": payment.payment_method,
                 "payment_date": payment.payment_date.isoformat(),
-                "status": payment.status,                
+                "status": payment.status,
                 "booking_id": payment.booking_id,
-            })
-            total_voided_amount += payment.amount_paid  # Add the voided payment amount to the total
+            }
+            for payment in payments
+        ]
 
-        logger.info(f"Retrieved {len(voided_payment_list)} voided payments.")
+        # Return formatted response
         return {
-            "total_voided_payments": len(voided_payment_list),
-            "total_voided_amount": total_voided_amount,  # Return the total voided amount
-            "voided_payments": voided_payment_list,
+            "total_payments": len(formatted_payments),
+            "payments": formatted_payments if formatted_payments else []
         }
 
     except Exception as e:
-        logger.error(f"Error retrieving voided payments: {str(e)}")
+        logger.error(f"Error retrieving payments by status and date: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred while retrieving voided payments: {str(e)}",
+            detail=f"An error occurred: {str(e)}",
         )
 
 
@@ -529,7 +515,7 @@ def void_payment(
             )
 
         # Update payment status to void
-        payment.status = "VOIDED"
+        payment.status = "voided"
         db.commit()
 
         logger.info(f"Payment with ID {payment_id} marked as void.")
