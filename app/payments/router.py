@@ -229,6 +229,66 @@ def list_payments(
         )
 
 
+@router.get("/by-status")
+def list_payments_by_status(
+    status: Optional[str] = Query(None, description="Payment status to filter by (payment completed, payment incomplete, VOIDED)"),
+    start_date: Optional[date] = Query(None, description="Filter by payment date (start) in format yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="Filter by payment date (end) in format yyyy-mm-dd"),
+    db: Session = Depends(get_db),
+    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
+):
+    try:
+        # Build the base query
+        query = db.query(payment_models.Payment)
+
+        # Filter by status
+        if status:
+            query = query.filter(payment_models.Payment.status == status.lower())
+
+        # Apply date filters based on payment_date
+        if start_date:
+            query = query.filter(payment_models.Payment.payment_date >= start_date)
+        if end_date:
+            query = query.filter(payment_models.Payment.payment_date <= end_date)
+
+        # Execute the query
+        payments = query.all()
+
+        # If no payments found, return an informative message
+        if not payments:
+            return {"message": "No payments found for the given criteria."}
+
+        # Format the payments response
+        formatted_payments = [
+            {
+                "payment_id": payment.id,
+                "guest_name": payment.guest_name,
+                "room_number": payment.room_number,
+                "amount_paid": payment.amount_paid,
+                "discount_allowed": payment.discount_allowed,
+                "balance_due": payment.balance_due,
+                "payment_method": payment.payment_method,
+                "payment_date": payment.payment_date.isoformat(),
+                "status": payment.status,
+                "booking_id": payment.booking_id,
+            }
+            for payment in payments
+        ]
+
+        # Return formatted response
+        return {
+            "total_payments": len(formatted_payments),
+            "payments": formatted_payments if formatted_payments else []
+        }
+
+    except Exception as e:
+        logger.error(f"Error retrieving payments by status and date: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred: {str(e)}",
+        ) 
+
+
 @router.get("/total_daily_payment")
 def total_payment(
     db: Session = Depends(get_db),
@@ -303,7 +363,7 @@ def get_debtor_list(
         ).all()
 
         if not bookings:
-            return {"message": "No Debtor bookings found."}
+            raise HTTPException(status_code=404, detail="No debtor bookings found.")
 
         debtor_list = []
         total_debt_amount = 0  # Initialize total debt amount
@@ -318,20 +378,26 @@ def get_debtor_list(
             if not room:
                 continue
 
-            # Fetch payments for this booking, excluding voided ones
-            payments = db.query(payment_models.Payment).filter(
-                payment_models.Payment.booking_id == booking.id,
-                payment_models.Payment.status != "voided"  # Exclude voided payments
-            ).all()
-
-            # Calculate total payments (ignoring voided payments)
-            total_paid = sum(
-                payment.amount_paid + (payment.discount_allowed or 0)
-                for payment in payments
-            )
-
             # Calculate total amount due based on number_of_days and room price
             total_due = booking.number_of_days * room.amount
+
+            # Query all payments for this booking, ignoring voided payments
+            all_payments = db.query(payment_models.Payment).filter(
+                payment_models.Payment.booking_id == booking.id,
+                payment_models.Payment.status != "voided"
+            ).all()
+
+            # Calculate the total amount paid for this booking
+            total_paid = sum(
+                payment.amount_paid + (payment.discount_allowed or 0)
+                for payment in all_payments
+            )
+
+            # Get the most recent payment date (if available)
+            last_payment_date = (
+                max(payment.payment_date for payment in all_payments)
+                if all_payments else None
+            )
 
             # Calculate the balance due
             balance_due = total_due - total_paid
@@ -347,12 +413,19 @@ def get_debtor_list(
                     "total_due": total_due,
                     "total_paid": total_paid,
                     "amount_due": balance_due,
+                    "last_payment_date": last_payment_date,  # Include last payment date for sorting
                 })
                 total_debt_amount += balance_due
 
-        # Return the debtor list and total debt amount
+        # Raise an exception if no debtors are found
         if not debtor_list:
-            return {"message": "No debtors found."}
+            raise HTTPException(status_code=404, detail="No debtors found.")
+
+        # Sort debtor list in descending order based on the last payment date
+        debtor_list.sort(
+            key=lambda x: x["last_payment_date"] if x["last_payment_date"] else datetime.min,
+            reverse=True
+        )
 
         return {
             "total_debtors": len(debtor_list),
@@ -366,70 +439,6 @@ def get_debtor_list(
             status_code=500,
             detail="An error occurred while retrieving the debtor list.",
         )
-
-
-@router.get("/by-status")
-def list_payments_by_status(
-    status: Optional[str] = Query(None, description="Payment status to filter by (payment completed, payment incomplete, VOIDED)"),
-    start_date: Optional[date] = Query(None, description="Filter by payment date (start) in format yyyy-mm-dd"),
-    end_date: Optional[date] = Query(None, description="Filter by payment date (end) in format yyyy-mm-dd"),
-    db: Session = Depends(get_db),
-    current_user: schemas.UserDisplaySchema = Depends(get_current_user),
-):
-    try:
-        # Build the base query
-        query = db.query(payment_models.Payment)
-
-        # Filter by status
-        if status:
-            query = query.filter(payment_models.Payment.status == status.lower())
-
-        # Apply date filters based on payment_date
-        if start_date:
-            query = query.filter(payment_models.Payment.payment_date >= start_date)
-        if end_date:
-            query = query.filter(payment_models.Payment.payment_date <= end_date)
-
-        # Execute the query
-        payments = query.all()
-
-        # If no payments found, return an informative message
-        if not payments:
-            return {"message": "No payments found for the given criteria."}
-
-        # Format the payments response
-        formatted_payments = [
-            {
-                "payment_id": payment.id,
-                "guest_name": payment.guest_name,
-                "room_number": payment.room_number,
-                "amount_paid": payment.amount_paid,
-                "discount_allowed": payment.discount_allowed,
-                "balance_due": payment.balance_due,
-                "payment_method": payment.payment_method,
-                "payment_date": payment.payment_date.isoformat(),
-                "status": payment.status,
-                "booking_id": payment.booking_id,
-            }
-            for payment in payments
-        ]
-
-        # Return formatted response
-        return {
-            "total_payments": len(formatted_payments),
-            "payments": formatted_payments if formatted_payments else []
-        }
-
-    except Exception as e:
-        logger.error(f"Error retrieving payments by status and date: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"An error occurred: {str(e)}",
-        )
-
-
-
-
 
 
 @router.get("/{payment_id}")

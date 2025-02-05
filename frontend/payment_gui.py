@@ -369,6 +369,85 @@ class PaymentManagement:
         
    
    
+    def debtor_list(self):
+        self.clear_right_frame()
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Debtor List", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        fetch_btn = ttk.Button(
+            frame,
+            text="Fetch Debtor List",
+            command=self.fetch_debtor_list
+        )
+        fetch_btn.pack(pady=5)
+
+        self.total_label = tk.Label(frame, text="Total Debt Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff")
+        self.total_label.pack(pady=5)
+
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ("Booking ID", "Guest Name", "Room Number", "Room Price", "Number of Days", "Total Due", "Total Paid", "Amount Due", "Last Payment Date")
+
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+
+    def fetch_debtor_list(self):
+        api_url = "http://127.0.0.1:8000/payments/debtor_list"
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+
+                self.total_label.config(text=f"Total Debt Amount: ${data.get('total_debt_amount', 0)}")
+
+                debtors = data.get("debtors", [])
+                if not debtors:
+                    messagebox.showinfo("Info", "No debtors found.")
+                    return
+
+                self.tree.delete(*self.tree.get_children())
+
+                for debtor in debtors:
+                    self.tree.insert("", "end", values=(
+                        debtor.get("booking_id", ""),
+                        debtor.get("guest_name", ""),
+                        debtor.get("room_number", ""),                       
+                        debtor.get("room_price", ""),
+                        debtor.get("number_of_days", ""),
+                        debtor.get("total_due", ""),
+                        debtor.get("total_paid", ""),
+                        debtor.get("amount_due", ""),
+                        debtor.get("last_payment_date", "")
+                    ))
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve debtor list."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def clear_right_frame(self):
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()
+        
+   
 
 
     def list_total_daily_payments(self):
@@ -451,7 +530,10 @@ class PaymentManagement:
             widget.pack_forget()
 
 
-        
+
+
+
+    
 
    
 
@@ -683,8 +765,8 @@ class PaymentManagement:
     #def total_daily_payment(self):
         #messagebox.showinfo("Info", "Total Daily Payment Selected")
 
-    def debtor_list(self):
-        messagebox.showinfo("Info", "Debtor List Selected")
+    #def debtor_list(self):
+        #messagebox.showinfo("Info", "Debtor List Selected")
 
     #def void_payment(self):
         #messagebox.showinfo("Info", "Void Payment by ID Selected")
