@@ -58,6 +58,7 @@ class PaymentManagement:
                             command=lambda t=text, c=command: self.update_subheading(t, c),
                             width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
             btn.pack(pady=10, padx=10, anchor="w", fill="x")
+            
 
     def update_subheading(self, text, command):
         """Updates the subheading label and calls the selected function."""
@@ -225,12 +226,12 @@ class PaymentManagement:
             "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
         }
         headers = {"Authorization": f"Bearer {self.token}"}
-        
+
         try:
             response = requests.get(api_url, params=params, headers=headers)
             if response.status_code == 200:
                 data = response.json()
-                
+
                 if isinstance(data, dict) and "payments" in data:
                     payments = data["payments"]
                 elif isinstance(data, list):
@@ -238,35 +239,47 @@ class PaymentManagement:
                 else:
                     messagebox.showerror("Error", "Unexpected API response format")
                     return
-                
+
+                self.tree.delete(*self.tree.get_children())  # Clear the table
+
                 if not payments:
-                    messagebox.showinfo("No Results", "No payments found for the selected filters.")
-                    return
-                
-                self.tree.delete(*self.tree.get_children())
-                
-                for payment in payments:
-                    self.tree.insert("", "end", values=(
-                        payment.get("payment_id", ""),
-                        payment.get("guest_name", ""),
-                        payment.get("room_number", ""),
-                        payment.get("amount_paid", ""),
-                        payment.get("discount_allowed"),
-                        payment.get("balance_due", ""),
-                        payment.get("payment_method", ""),
-                        payment.get("payment_date", ""),
-                        payment.get("status", ""),
-                        payment.get("booking_id", ""),
-                    ))
+                    messagebox.showinfo("No Results", "No payments found for the selected date range.")
+                    total_amount = 0  # No payments means total is 0
+                else:
+                    # Filter out voided payments
+                    payments = [payment for payment in payments if payment.get("status") != "voided"]
+
+                    # Calculate the total excluding voided payments
+                    total_amount = sum(payment.get("amount_paid", 0) for payment in payments)
+
+                    for payment in payments:
+                        self.tree.insert("", "end", values=(
+                            payment.get("payment_id", ""),
+                            payment.get("guest_name", ""),
+                            payment.get("room_number", ""),
+                            f"{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
+                            f"{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
+                            f"{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
+                            payment.get("payment_method", ""),
+                            payment.get("payment_date", ""),
+                            payment.get("status", ""),
+                            payment.get("booking_id", ""),
+                        ))
+
+                # Ensure any previous total label is removed before adding a new one
+                for widget in self.right_frame.winfo_children():
+                    if isinstance(widget, tk.Label) and "Total Payment" in widget.cget("text"):
+                        widget.destroy()
+
+                # Display total payment amount at the top
+                self.total_label = tk.Label(self.right_frame, text=f"Total Payment: ${total_amount:,.2f}",
+                                            font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
+                self.total_label.pack(side=tk.TOP, pady=5)
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-    
-    def clear_right_frame(self):
-        for widget in self.right_frame.winfo_children():
-            widget.pack_forget()
-            
+
             
  
     def list_payments_by_status(self):
@@ -350,9 +363,9 @@ class PaymentManagement:
                             payment.get("payment_id", ""),
                             payment.get("guest_name", ""),
                             payment.get("room_number", ""),
-                            payment.get("amount_paid", ""),
-                            payment.get("discount_allowed", ""),
-                            payment.get("balance_due", ""),
+                            f"{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
+                            f"{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
+                            f"{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
                             payment.get("payment_method", ""),
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
@@ -384,7 +397,8 @@ class PaymentManagement:
         )
         fetch_btn.pack(pady=5)
 
-        self.total_label = tk.Label(frame, text="Total Debt Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff")
+        # Update the total label with green text
+        self.total_label = tk.Label(frame, text="Total Debt Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
         self.total_label.pack(pady=5)
 
         table_frame = tk.Frame(frame, bg="#ffffff")
@@ -417,7 +431,8 @@ class PaymentManagement:
             if response.status_code == 200:
                 data = response.json()
 
-                self.total_label.config(text=f"Total Debt Amount: ${data.get('total_debt_amount', 0)}")
+                # Update the total debt amount with green color
+                self.total_label.config(text=f"Total Debt Amount: ${data.get('total_debt_amount', 0):,.2f}")
 
                 debtors = data.get("debtors", [])
                 if not debtors:
@@ -431,13 +446,15 @@ class PaymentManagement:
                         debtor.get("booking_id", ""),
                         debtor.get("guest_name", ""),
                         debtor.get("room_number", ""),                       
-                        debtor.get("room_price", ""),
+                        f"{float(debtor.get('room_price', 0)) :,.2f}",  # Format room_price
                         debtor.get("number_of_days", ""),
-                        debtor.get("total_due", ""),
-                        debtor.get("total_paid", ""),
-                        debtor.get("amount_due", ""),
+                        f"{float(debtor.get('total_due', 0)) :,.2f}",  # Format total_due
+                        f"{float(debtor.get('total_paid', 0)) :,.2f}",  # Format total_paid
+                        f"{float(debtor.get('amount_due', 0)) :,.2f}",  # Format amount_due
                         debtor.get("last_payment_date", "")
                     ))
+                    
+                    
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve debtor list."))
         except requests.exceptions.RequestException as e:
@@ -446,9 +463,10 @@ class PaymentManagement:
     def clear_right_frame(self):
         for widget in self.right_frame.winfo_children():
             widget.pack_forget()
-        
-   
-
+            
+            
+            
+            
 
     def list_total_daily_payments(self):
         self.clear_right_frame()
@@ -465,7 +483,8 @@ class PaymentManagement:
         )
         fetch_btn.pack(pady=5)
         
-        self.total_label = tk.Label(frame, text="Total Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff")
+        # Apply green color to the total amount label
+        self.total_label = tk.Label(frame, text="Total Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
         self.total_label.pack(pady=5)
         
         table_frame = tk.Frame(frame, bg="#ffffff")
@@ -488,7 +507,7 @@ class PaymentManagement:
         x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
         x_scroll.pack(fill=tk.X)
         self.tree.configure(xscroll=x_scroll.set)
-    
+
     def fetch_total_daily_payments(self):
         api_url = "http://127.0.0.1:8000/payments/total_daily_payment"
         headers = {"Authorization": f"Bearer {self.token}"}
@@ -498,8 +517,9 @@ class PaymentManagement:
             if response.status_code == 200:
                 data = response.json()
                 
-                self.total_label.config(text=f"Total Amount: ${data.get('total_amount', 0)}")
-                
+                total_amount = data.get("total_amount", 0)
+                self.total_label.config(text=f"Total Amount: ${total_amount:,.2f}")
+
                 if "payments" in data:
                     payments = data["payments"]
                 else:
@@ -512,9 +532,9 @@ class PaymentManagement:
                         payment.get("payment_id", ""),
                         payment.get("guest_name", ""),
                         payment.get("room_number", ""),
-                        payment.get("amount_paid", ""),
-                        payment.get("discount allowed", ""),
-                        payment.get("balance_due", ""),
+                        f"{float(payment.get('amount_paid', 0)) :,.2f}",
+                        f"{float(payment.get('discount allowed', 0)) :,.2f}",
+                        f"{float(payment.get('balance_due', 0)) :,.2f}",
                         payment.get("payment_method", ""),
                         payment.get("payment_date", ""),
                         payment.get("status", ""),
@@ -524,10 +544,6 @@ class PaymentManagement:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-    
-    def clear_right_frame(self):
-        for widget in self.right_frame.winfo_children():
-            widget.pack_forget()
 
 
 
@@ -603,9 +619,9 @@ class PaymentManagement:
                         payment_id = data.get("payment_id", "")
                         guest_name = data.get("guest_name", "")
                         room_number = data.get("room_number", "")
-                        amount_paid = data.get("amount_paid", "")
-                        discount_allowed = data.get("discount_allowed", "")
-                        balance_due = data.get("balance_due", "")
+                        amount_paid = f"{float(data.get('amount_paid', 0)) :,.2f}"  # Format amount
+                        discount_allowed = f"{float(data.get('discount_allowed', 0)) :,.2f}"  # Format discount
+                        balance_due = f"{float(data.get('balance_due', 0)) :,.2f}"  # Format balance
                         payment_method = data.get("payment_method", "")
                         payment_date = data.get("payment_date", "")
                         status = data.get("status", "").lower()  # Normalize status
@@ -734,9 +750,9 @@ class PaymentManagement:
                         data.get("payment_id", ""),
                         data.get("guest_name", ""),
                         data.get("room_number", ""),
-                        data.get("amount_paid", ""),
-                        data.get("discount_allowed", ""),
-                        data.get("balance_due", ""),
+                        f"{float(data.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
+                        f"{float(data.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
+                        f"{float(data.get('balance_due', 0)) :,.2f}",  # Format balance_due
                         data.get("payment_method", ""),
                         data.get("payment_date", ""),
                         data.get("status", ""),
@@ -753,20 +769,4 @@ class PaymentManagement:
     
         
 
-    #def list_payments(self):
-        #messagebox.showinfo("Info", "List Payment Selected")
-
-    #def list_payment_by_id(self):
-        #messagebox.showinfo("Info", "List Payment by ID Selected")
-
-    #def list_by_payment_status(self):
-        #messagebox.showinfo("Info", "List Void Payment Selected")
-
-    #def total_daily_payment(self):
-        #messagebox.showinfo("Info", "Total Daily Payment Selected")
-
-    #def debtor_list(self):
-        #messagebox.showinfo("Info", "Debtor List Selected")
-
-    #def void_payment(self):
-        #messagebox.showinfo("Info", "Void Payment by ID Selected")
+   

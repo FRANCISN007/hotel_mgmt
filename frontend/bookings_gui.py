@@ -234,7 +234,7 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        booking.get("booking_cost", ""),
+                        f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
@@ -346,7 +346,7 @@ class BookingManagement:
                             booking.get("phone_number", ""),
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            booking.get("booking_cost", ""),
+                            f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                         ))
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
@@ -355,8 +355,7 @@ class BookingManagement:
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-
-            
+        
             
     
     def search_booking(self):
@@ -431,7 +430,7 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        booking.get("booking_cost", ""),
+                        f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
             else:
                 messagebox.showerror("Error", response.json().get("detail", "No bookings found."))
@@ -516,7 +515,7 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        booking.get("booking_cost", ""),
+                        f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
                 else:
                     messagebox.showinfo("No Results", "No booking found with the provided ID.")
@@ -627,7 +626,7 @@ class BookingManagement:
                             booking.get("phone_number", ""),
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            booking.get("booking_cost", ""),
+                            f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                         ))
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
@@ -816,30 +815,7 @@ class BookingManagement:
             
     
     
-    #def complimentary_booking(self):
-        #messagebox.showinfo("Info", "Complimentary Booking Selected")
     
-    #def list_bookings(self):
-        #messagebox.showinfo("Info", "List Bookings Selected")
-    
-    #def list_by_status(self):
-       #messagebox.showinfo("Info", "List By Status Selected")
-    
-    #def search_booking(self):
-        #messagebox.showinfo("Info", "Search Booking Selected")
-    
-    #def list_by_id(self):
-        #messagebox.showinfo("Info", "List By ID Selected")
-    
-    
-    #def update_booking(self):
-        #UpdateBooking(self.root, self.token)
-    
-    #def guest_checkout(self):
-        #messagebox.showinfo("Info", "Guest Checkout Selected")
-    
-    #def cancel_booking(self):
-        #messagebox.showinfo("Info", "Cancel Booking Selected")
     
     def clear_right_frame(self):
         for widget in self.right_frame.winfo_children():

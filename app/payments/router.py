@@ -231,7 +231,7 @@ def list_payments(
 
 @router.get("/by-status")
 def list_payments_by_status(
-    status: Optional[str] = Query(None, description="Payment status to filter by (payment completed, payment incomplete, VOIDED)"),
+    status: Optional[str] = Query(None, description="Payment status to filter by (payment completed, payment incomplete, voided)"),
     start_date: Optional[date] = Query(None, description="Filter by payment date (start) in format yyyy-mm-dd"),
     end_date: Optional[date] = Query(None, description="Filter by payment date (end) in format yyyy-mm-dd"),
     db: Session = Depends(get_db),
