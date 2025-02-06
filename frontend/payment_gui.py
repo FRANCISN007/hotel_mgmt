@@ -247,19 +247,19 @@ class PaymentManagement:
                     total_amount = 0  # No payments means total is 0
                 else:
                     # Filter out voided payments
-                    payments = [payment for payment in payments if payment.get("status") != "voided"]
+                    #payments = [payment for payment in payments if payment.get("status") != "voided"]
 
                     # Calculate the total excluding voided payments
-                    total_amount = sum(payment.get("amount_paid", 0) for payment in payments)
+                    total_amount = sum(payment.get("amount_paid", 0) for payment in payments if payment.get("status") != "voided")
 
                     for payment in payments:
                         self.tree.insert("", "end", values=(
                             payment.get("payment_id", ""),
                             payment.get("guest_name", ""),
                             payment.get("room_number", ""),
-                            f"{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
-                            f"{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
-                            f"{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
+                            f"₦{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
+                            f"₦{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
+                            f"₦{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
                             payment.get("payment_method", ""),
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
@@ -272,7 +272,7 @@ class PaymentManagement:
                         widget.destroy()
 
                 # Display total payment amount at the top
-                self.total_label = tk.Label(self.right_frame, text=f"Total Payment: ${total_amount:,.2f}",
+                self.total_label = tk.Label(self.right_frame, text=f"Total Payment: ₦{total_amount:,.2f}",
                                             font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
                 self.total_label.pack(side=tk.TOP, pady=5)
             else:
@@ -363,9 +363,9 @@ class PaymentManagement:
                             payment.get("payment_id", ""),
                             payment.get("guest_name", ""),
                             payment.get("room_number", ""),
-                            f"{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
-                            f"{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
-                            f"{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
+                            f"₦{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
+                            f"₦{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
+                            f"₦{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
                             payment.get("payment_method", ""),
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
@@ -446,11 +446,11 @@ class PaymentManagement:
                         debtor.get("booking_id", ""),
                         debtor.get("guest_name", ""),
                         debtor.get("room_number", ""),                       
-                        f"{float(debtor.get('room_price', 0)) :,.2f}",  # Format room_price
+                        f"₦{float(debtor.get('room_price', 0)) :,.2f}",  # Format room_price
                         debtor.get("number_of_days", ""),
-                        f"{float(debtor.get('total_due', 0)) :,.2f}",  # Format total_due
-                        f"{float(debtor.get('total_paid', 0)) :,.2f}",  # Format total_paid
-                        f"{float(debtor.get('amount_due', 0)) :,.2f}",  # Format amount_due
+                        f"₦{float(debtor.get('total_due', 0)) :,.2f}",  # Format total_due
+                        f"₦{float(debtor.get('total_paid', 0)) :,.2f}",  # Format total_paid
+                        f"₦{float(debtor.get('amount_due', 0)) :,.2f}",  # Format amount_due
                         debtor.get("last_payment_date", "")
                     ))
                     
@@ -518,7 +518,7 @@ class PaymentManagement:
                 data = response.json()
                 
                 total_amount = data.get("total_amount", 0)
-                self.total_label.config(text=f"Total Amount: ${total_amount:,.2f}")
+                self.total_label.config(text=f"Total Amount: ₦{total_amount:,.2f}")
 
                 if "payments" in data:
                     payments = data["payments"]
@@ -532,9 +532,9 @@ class PaymentManagement:
                         payment.get("payment_id", ""),
                         payment.get("guest_name", ""),
                         payment.get("room_number", ""),
-                        f"{float(payment.get('amount_paid', 0)) :,.2f}",
-                        f"{float(payment.get('discount allowed', 0)) :,.2f}",
-                        f"{float(payment.get('balance_due', 0)) :,.2f}",
+                        f"₦{float(payment.get('amount_paid', 0)) :,.2f}",
+                        f"₦{float(payment.get('discount allowed', 0)) :,.2f}",
+                        f"₦{float(payment.get('balance_due', 0)) :,.2f}",
                         payment.get("payment_method", ""),
                         payment.get("payment_date", ""),
                         payment.get("status", ""),
@@ -619,9 +619,9 @@ class PaymentManagement:
                         payment_id = data.get("payment_id", "")
                         guest_name = data.get("guest_name", "")
                         room_number = data.get("room_number", "")
-                        amount_paid = f"{float(data.get('amount_paid', 0)) :,.2f}"  # Format amount
-                        discount_allowed = f"{float(data.get('discount_allowed', 0)) :,.2f}"  # Format discount
-                        balance_due = f"{float(data.get('balance_due', 0)) :,.2f}"  # Format balance
+                        amount_paid = f"₦{float(data.get('amount_paid', 0)) :,.2f}"  # Format amount
+                        discount_allowed = f"₦{float(data.get('discount_allowed', 0)) :,.2f}"  # Format discount
+                        balance_due = f"₦{float(data.get('balance_due', 0)) :,.2f}"  # Format balance
                         payment_method = data.get("payment_method", "")
                         payment_date = data.get("payment_date", "")
                         status = data.get("status", "").lower()  # Normalize status
@@ -750,9 +750,9 @@ class PaymentManagement:
                         data.get("payment_id", ""),
                         data.get("guest_name", ""),
                         data.get("room_number", ""),
-                        f"{float(data.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
-                        f"{float(data.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
-                        f"{float(data.get('balance_due', 0)) :,.2f}",  # Format balance_due
+                        f"₦{float(data.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
+                        f"₦{float(data.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
+                        f"₦{float(data.get('balance_due', 0)) :,.2f}",  # Format balance_due
                         data.get("payment_method", ""),
                         data.get("payment_date", ""),
                         data.get("status", ""),

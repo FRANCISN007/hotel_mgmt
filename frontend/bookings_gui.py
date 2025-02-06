@@ -236,12 +236,13 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        f"${float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                       f"₦{float(booking.get('booking_cost', 0)) :,.2f}"
+
                     ))
 
                 # Display total booking cost in green
                 self.total_booking_cost_label.config(
-                    text=f"Total Booking Cost: ${total_booking_cost:,.2f}"
+                    text=f"Total Booking Cost: ₦{total_booking_cost:,.2f}"
                 )
 
             else:
@@ -358,7 +359,7 @@ class BookingManagement:
                             booking.get("phone_number", ""),
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                         ))
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
@@ -442,7 +443,7 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                        f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
             else:
                 messagebox.showerror("Error", response.json().get("detail", "No bookings found."))
@@ -527,7 +528,7 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                        f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
                 else:
                     messagebox.showinfo("No Results", "No booking found with the provided ID.")
@@ -638,7 +639,7 @@ class BookingManagement:
                             booking.get("phone_number", ""),
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                         ))
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
