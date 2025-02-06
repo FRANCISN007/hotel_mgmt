@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import ttk, messagebox
 from utils import api_request, get_user_role
+import re
 
 class RoomManagement:
     def __init__(self, root, token):
@@ -17,6 +18,13 @@ class RoomManagement:
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
+        
+        
+    def natural_sort_key(self, room):
+        """Sort room numbers correctly, handling both numeric and alphanumeric values."""
+        room_number = str(room.get("room_number", ""))  # Ensure it's a string
+        parts = re.split(r'(\d+)', room_number)  # Split letters and numbers
+        return [int(part) if part.isdigit() else part for part in parts]  # Convert numeric parts to int
         
     def setup_ui(self):
         self.root.configure(bg="#f0f0f0")  # Set the background color of the main window
@@ -59,8 +67,12 @@ class RoomManagement:
             self.update_button.config(state=tk.DISABLED)
             self.add_button.config(state=tk.DISABLED)
 
+
+
+   
+
     def fetch_rooms(self):
-        """Fetch all rooms from the API and update the display with their latest statuses."""
+        """Fetch all rooms from the API and update the display with their latest statuses, sorted naturally."""
         response = api_request("/rooms", "GET", token=self.token)
 
         if not response or "rooms" not in response:
@@ -70,26 +82,28 @@ class RoomManagement:
         self.tree.delete(*self.tree.get_children())  # Clear existing entries
 
         rooms = response["rooms"]  # Get the list of rooms
+
+        # Sort rooms using natural sorting (handles "A1", "B2", "101" correctly)
+        rooms.sort(key=self.natural_sort_key)  # Use self.natural_sort_key()
+
         for room in rooms:
             room_number = room.get("room_number", "N/A")
             room_type = room.get("room_type", "N/A")
             amount = room.get("amount", "N/A")
-           
 
-        # Fetch the latest status for each room from the API
+            # Fetch the latest status for each room
             room_details = api_request(f"/rooms/{room_number}", "GET", token=self.token)
             current_status = room_details.get("status", "N/A") if room_details else room.get("status", "N/A")
             booking_type = room_details.get("booking_type", "N/A") if room_details else "No active booking"
-            
 
-        # Ensure we get a valid status
-            current_status = room_details.get("status", "N/A") if room_details else room.get("status", "N/A")
-
-        # Insert the room details into the display
+            # Insert the room details into the display
             self.tree.insert("", tk.END, values=(room_number, room_type, amount, current_status, booking_type))
-
-
-    print("Rooms updated successfully!")  # Debugging statement
+            
+            
+            
+            
+            
+            
 
     def list_available_rooms(self):
         """Fetch and display available rooms."""
@@ -100,6 +114,10 @@ class RoomManagement:
             return
 
         available_rooms = response["available_rooms"]
+        
+        # Sort available rooms using natural sorting
+        available_rooms.sort(key=self.natural_sort_key)  # Use self.natural_sort_key()
+
 
         available_window = tk.Toplevel(self.root)
         available_window.title("Available Rooms")
@@ -114,6 +132,7 @@ class RoomManagement:
         tree.pack(pady=10, fill=tk.BOTH, expand=True)
 
         for room in available_rooms:
+            
             tree.insert("", tk.END, values=(room["room_number"], room["room_type"], room["amount"]))
 
         ttk.Button(available_window, text="Close", command=available_window.destroy).pack(pady=10)
