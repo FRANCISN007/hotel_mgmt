@@ -4,7 +4,6 @@ from tkcalendar import DateEntry
 import requests
 from utils import BASE_URL
 from datetime import datetime
-from datetime import datetime
 import pytz
 
 class PaymentManagement:
@@ -13,35 +12,36 @@ class PaymentManagement:
         self.root.title("Payment Management")
         self.root.geometry("900x600")
         self.token = token
-        self.root.configure(bg="#f0f0f0")
+        self.root.configure(bg="#f0f0f0")  # Light gray background
         self.void_payment_tree = None  
-        
+
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))
 
-        # Header Section
-        self.header_frame = tk.Frame(self.root, bg="#A0A0A0", height=50)
+        # Header Section (Lighter gray instead of dark gray)
+        self.header_frame = tk.Frame(self.root, bg="#d9d9d9", height=50)
         self.header_frame.pack(fill=tk.X)
 
         self.header_label = tk.Label(self.header_frame, text="Payment Management", 
-                                     fg="white", bg="#A0A0A0", font=("Helvetica", 16, "bold"))
+                                     fg="black", bg="#d9d9d9", font=("Helvetica", 16, "bold"))
         self.header_label.pack(pady=10)
 
-        # Sidebar Section
-        self.left_frame = tk.Frame(self.root, bg="#A0A0A0", width=200)
+        # Sidebar Section (Lighter gray to match the theme)
+        self.left_frame = tk.Frame(self.root, bg="#d9d9d9", width=200)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
-        self.right_frame = tk.Frame(self.root, bg="#ffffff", width=700)
+        # Right Section (Set to light gray)
+        self.right_frame = tk.Frame(self.root, bg="#f0f0f0", width=700)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Subheading for dynamic section title
+        # Subheading for dynamic section title (Lighter background)
         self.subheading_label = tk.Label(self.right_frame, text="Select an option", 
-                                         font=("Helvetica", 12, "bold"), fg="#606060", bg="#ffffff")
+                                         font=("Helvetica", 12, "bold"), fg="#333333", bg="#f0f0f0")
         self.subheading_label.pack(pady=10)
 
-        # Payment action buttons
-        self.buttons = []  # Store buttons for reference
+        # Payment action buttons (Maintain hover effects)
+        self.buttons = []  
         buttons = [
             ("Create Payment", self.create_payment),
             ("List Payment", self.list_payments),
@@ -56,22 +56,21 @@ class PaymentManagement:
             btn = tk.Button(self.left_frame, text=text, 
                             command=lambda t=text, c=command: self.update_subheading(t, c),
                             width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10, 
-                            bg="#d9d9d9", fg="black")
+                            bg="#e0e0e0", fg="black")  # Lightened the button background
 
             # Bind hover effects
-            btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  # Hover effect
-            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#d9d9d9", fg="black"))  # Restore default
+            btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  
+            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#e0e0e0", fg="black"))  
 
             btn.pack(pady=5, padx=10, anchor="w", fill="x")
             self.buttons.append(btn)
-
 
     def update_subheading(self, text, command):
         """Updates the subheading label and calls the selected function."""
         if hasattr(self, "subheading_label") and self.subheading_label.winfo_exists():
             self.subheading_label.config(text=text)
         else:
-            self.subheading_label = tk.Label(self.right_frame, text=text, font=("Arial", 14, "bold"), bg="#ffffff")
+            self.subheading_label = tk.Label(self.right_frame, text=text, font=("Arial", 14, "bold"), bg="#f0f0f0")
             self.subheading_label.pack(pady=10)
 
         # Clear right frame before displaying new content
@@ -79,14 +78,22 @@ class PaymentManagement:
             widget.destroy()
 
         command()
+        
+        
 
     def create_payment(self):
         """Displays the create payment form inside the right frame."""
-        self.subheading_label = tk.Label(self.right_frame, text="Create Payment", font=("Arial", 14, "bold"), bg="#ffffff")
-        self.subheading_label.pack(pady=10)
+        self.clear_right_frame()  # Clear the previous content
 
-        form_frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
-        form_frame.pack(pady=10, padx=10, fill="both", expand=True)
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create the subheading label above the form
+        tk.Label(frame, text="Create Payment", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Form frame (this is where the data entry section is)
+        form_frame = tk.Frame(frame, bg="#ffffff", padx=10, pady=10)
+        form_frame.grid(row=1, columnspan=2, pady=10, padx=10, sticky="ew")
 
         # Labels and Entry fields
         labels = ["Booking ID:", "Amount Paid:", "Discount Allowed:", "Payment Method:", "Payment Date:"]
@@ -110,8 +117,7 @@ class PaymentManagement:
         # Submit Button
         submit_btn = ttk.Button(form_frame, text="Submit Payment", command=self.submit_payment)
         submit_btn.grid(row=len(labels), column=0, columnspan=2, pady=15)
-        
-    
+
     
     
 

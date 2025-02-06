@@ -1,10 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from tkcalendar import DateEntry  # Import DateEntry for date selection
+from tkcalendar import DateEntry
 import requests
 from utils import BASE_URL
-#from update_bookinggui import UpdateBooking
-
 
 class BookingManagement:
     def __init__(self, root, token):
@@ -12,61 +10,77 @@ class BookingManagement:
         self.root.title("Booking Management")
         self.root.geometry("900x600")
         self.token = token
-        self.root.configure(bg="#f0f0f0")
+        self.root.configure(bg="#f0f0f0")  # Very Light Gray (Same as Payment Management)
 
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
 
-        # Header Section
-        self.header_frame = tk.Frame(self.root, bg="#A0A0A0", height=50)
+        # Header Section 
+        self.header_frame = tk.Frame(self.root, bg="#d9d9d9", height=50)
         self.header_frame.pack(fill=tk.X)
 
         self.header_label = tk.Label(self.header_frame, text="Booking Management", 
-                                     fg="white", bg="#A0A0A0", font=("Helvetica", 16, "bold"))
+                                     fg="black", bg="#d9d9d9", font=("Helvetica", 16, "bold"))
         self.header_label.pack(pady=10)
 
-        # Sidebar Section
-        self.left_frame = tk.Frame(self.root, bg="#A0A0A0", width=200)
+        # Sidebar Section 
+        self.left_frame = tk.Frame(self.root, bg="#d9d9d9", width=200)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
-        self.right_frame = tk.Frame(self.root, bg="#ffffff", width=700)
+        # Right Section (Light Gray Background)
+        self.right_frame = tk.Frame(self.root, bg="#f0f0f0", width=700)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Subheading for dynamic section title
+        # Subheading for dynamic section title 
         self.subheading_label = tk.Label(self.right_frame, text="Select an option", 
-                                         font=("Helvetica", 12, "bold"), fg="#606060", bg="#ffffff")
+                                         font=("Helvetica", 12, "bold"), fg="#333333", bg="#f0f0f0")
         self.subheading_label.pack(pady=10)
 
-        # Booking action buttons
-        self.buttons = []  # Store buttons for reference
+        # Booking action buttons 
+        self.buttons = []
         buttons = [
             ("Create Booking", self.create_booking),
             ("List Bookings", self.list_bookings),
             ("List By Status", self.list_bookings_by_status),
             ("Search Guest Name", self.search_booking),
             ("Search by Booking ID", self.search_booking_by_id),
-            ("Search By Room Number", self.search_booking_by_room),
+            ("Search By Room No", self.search_booking_by_room),
             ("Update Booking", self.update_booking),
             ("Guest Checkout", self.guest_checkout),
             ("Cancel Booking", self.cancel_booking),
         ]
 
         for text, command in buttons:
-            btn = tk.Button(self.left_frame, text=text, command=lambda t=text, c=command: self.update_subheading(t, c),
-                            width=20, font=("Helvetica", 10, "bold"), anchor="w", padx=10, bg="#d9d9d9", fg="black")
+            btn = tk.Button(self.left_frame, text=text, 
+                            command=lambda t=text, c=command: self.update_subheading(t, c),
+                            width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10, 
+                            bg="#e0e0e0", fg="black")  # Light Gray Background (Same as Payment Management)
 
-            # Bind hover effects
+            # Bind hover effects (Same as Payment Management)
             btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  # Hover effect
-            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#d9d9d9", fg="black"))  # Restore default
+            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#e0e0e0", fg="black"))  # Restore default
 
             btn.pack(pady=5, padx=10, anchor="w", fill="x")
             self.buttons.append(btn)
 
-
     def update_subheading(self, text, command):
-        self.subheading_label.config(text=text)
+        """Updates the subheading label and calls the selected function."""
+        if hasattr(self, "subheading_label") and self.subheading_label.winfo_exists():
+            self.subheading_label.config(text=text)
+        else:
+            self.subheading_label = tk.Label(self.right_frame, text=text, font=("Arial", 14, "bold"), bg="#f0f0f0")
+            self.subheading_label.pack(pady=10)
+
+        # Clear right frame before displaying new content
+        for widget in self.right_frame.winfo_children():
+            widget.destroy()
+
         command()
+
+
+
+
         
         
 
