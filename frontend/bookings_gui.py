@@ -188,11 +188,13 @@ class BookingManagement:
         x_scroll.pack(fill=tk.X)
         self.tree.configure(xscroll=x_scroll.set)
 
+        # Label to display total booking cost (initialized empty)
+        self.total_booking_cost_label = tk.Label(frame, text="", font=("Arial", 12, "bold"), fg="green", bg="#ffffff")
+        self.total_booking_cost_label.pack(pady=10)
 
-   
 
     def fetch_bookings(self, start_date_entry, end_date_entry):
-        """Fetch bookings from the API and populate the table."""
+        """Fetch bookings from the API and populate the table, while calculating total booking cost."""
         api_url = "http://127.0.0.1:8000/bookings/list"  # Ensure correct endpoint
         params = {
             "start_date": start_date_entry.get_date().strftime("%Y-%m-%d"),
@@ -208,14 +210,14 @@ class BookingManagement:
 
                 if isinstance(data, dict) and "bookings" in data:
                     bookings = data["bookings"]
-                elif isinstance(data, list):
-                    bookings = data
+                    total_booking_cost = data.get("total_booking_cost", 0)  # Get total cost from API
                 else:
                     messagebox.showerror("Error", "Unexpected API response format")
                     return
 
                 # Check if bookings list is empty
                 if not bookings:
+                    self.total_booking_cost_label.config(text="Total Booking Cost: $0.00")  # Reset label
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
                     return
 
@@ -234,10 +236,17 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        f"{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                        f"${float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
+
+                # Display total booking cost in green
+                self.total_booking_cost_label.config(
+                    text=f"Total Booking Cost: ${total_booking_cost:,.2f}"
+                )
+
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
+
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
@@ -246,6 +255,9 @@ class BookingManagement:
         for widget in self.right_frame.winfo_children():
             widget.pack_forget()
 
+    
+    
+    
     
     def list_bookings_by_status(self):
         """Displays the List Bookings by Status UI."""

@@ -191,41 +191,47 @@ def list_bookings(
             )
 
         # Set the start and end dates to the beginning and end of the day, if provided
-        if start_date:
-            start_datetime = datetime.combine(start_date, datetime.min.time())  # Start of the day
-        if end_date:
-            end_datetime = datetime.combine(end_date, datetime.max.time())  # End of the day
+        start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
+        end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
 
         # Build the base query for bookings
         query = db.query(booking_models.Booking).filter(
-            # Filter bookings by booking_date within the range
-            (booking_models.Booking.booking_date >= start_datetime) if start_date else True,
-            (booking_models.Booking.booking_date <= end_datetime) if end_date else True
+            booking_models.Booking.status != "cancelled"  # Exclude cancelled bookings
         )
+
+        if start_datetime:
+            query = query.filter(booking_models.Booking.booking_date >= start_datetime)
+        if end_datetime:
+            query = query.filter(booking_models.Booking.booking_date <= end_datetime)
 
         # Retrieve the bookings sorted by booking_date in descending order
         bookings = query.order_by(booking_models.Booking.booking_date.desc()).all()
 
-        formatted_bookings = []
-        for booking in bookings:
-            # Add booking information to the formatted list
-            formatted_bookings.append({
+        # Calculate total booking cost (excluding cancelled bookings)
+        total_booking_cost = sum(booking.booking_cost for booking in bookings)
+
+        # Format bookings for response
+        formatted_bookings = [
+            {
                 "id": booking.id,
                 "room_number": booking.room_number,
                 "guest_name": booking.guest_name,
                 "arrival_date": booking.arrival_date,
                 "departure_date": booking.departure_date,
-                "number_of_days":booking.number_of_days,
+                "number_of_days": booking.number_of_days,
                 "booking_type": booking.booking_type,
                 "phone_number": booking.phone_number,
                 "booking_date": booking.booking_date,
                 "status": booking.status,
                 "payment_status": booking.payment_status,
                 "booking_cost": booking.booking_cost,
-            })
+            }
+            for booking in bookings
+        ]
 
         return {
             "total_bookings": len(formatted_bookings),
+            "total_booking_cost": total_booking_cost,  # Excluding canceled bookings
             "bookings": formatted_bookings,
         }
 
@@ -235,6 +241,7 @@ def list_bookings(
             status_code=500,
             detail=f" {str(e)}",
         )
+
 
 
 @router.get("/status")

@@ -237,7 +237,7 @@ class PaymentManagement:
                 elif isinstance(data, list):
                     payments = data
                 else:
-                    messagebox.showerror("Error", "Unexpected API response format")
+                    messagebox.showinfo("info", "No payments found for the specified criteria")
                     return
 
                 self.tree.delete(*self.tree.get_children())  # Clear the table
