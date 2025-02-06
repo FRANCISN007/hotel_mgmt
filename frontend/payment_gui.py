@@ -404,7 +404,7 @@ class PaymentManagement:
         fetch_btn.pack(pady=5)
 
         # Update the total label with green text
-        self.total_label = tk.Label(frame, text="Total Debt Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
+        self.total_label = tk.Label(frame, text="Total Debt Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
         self.total_label.pack(pady=5)
 
         table_frame = tk.Frame(frame, bg="#ffffff")
@@ -438,7 +438,7 @@ class PaymentManagement:
                 data = response.json()
 
                 # Update the total debt amount with green color
-                self.total_label.config(text=f"Total Debt Amount: ${data.get('total_debt_amount', 0):,.2f}")
+                self.total_label.config(text=f"Total Debt Amount: ₦{data.get('total_debt_amount', 0):,.2f}")
 
                 debtors = data.get("debtors", [])
                 if not debtors:
@@ -490,7 +490,7 @@ class PaymentManagement:
         fetch_btn.pack(pady=5)
         
         # Apply green color to the total amount label
-        self.total_label = tk.Label(frame, text="Total Amount: $0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
+        self.total_label = tk.Label(frame, text="Total Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
         self.total_label.pack(pady=5)
         
         table_frame = tk.Frame(frame, bg="#ffffff")
