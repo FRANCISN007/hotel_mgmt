@@ -8,7 +8,23 @@ class BookingManagement:
     def __init__(self, root, token):
         self.root = tk.Toplevel(root)
         self.root.title("Booking Management")
-        self.root.geometry("900x600")
+        self.root.geometry("1000x600")
+
+        # Get the position of the parent window (dashboard)
+        parent_width = root.winfo_width()
+        parent_height = root.winfo_height()
+
+        # Position the BookingManagement window just behind the dashboard heading
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+
+        # Calculate the position to center the BookingManagement window below the dashboard heading
+        position_top = 65  # Fixed space for the header of the dashboard
+        position_left = (screen_width - 1000) // 2  # Center the window horizontally
+
+        # Set the position
+        self.root.geometry(f"1000x600+{position_left}+{position_top}")
+
         self.token = token
         self.root.configure(bg="#f0f0f0")  # Very Light Gray (Same as Payment Management)
 
@@ -16,7 +32,7 @@ class BookingManagement:
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
 
-        # Header Section 
+        # Header Section
         self.header_frame = tk.Frame(self.root, bg="#d9d9d9", height=50)
         self.header_frame.pack(fill=tk.X)
 
@@ -77,6 +93,7 @@ class BookingManagement:
             widget.destroy()
 
         command()
+
 
 
 
