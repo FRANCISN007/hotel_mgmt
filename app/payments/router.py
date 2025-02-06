@@ -93,11 +93,11 @@ def create_payment(
     effective_total_due = total_due  # Adjust if a discount is applied to the room amount
 
     # Check for overpayment
-    if new_total_payment > effective_total_due:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Payment exceeds the total due amount of {effective_total_due}. Please verify the payment amount."
-        )
+    #if new_total_payment > effective_total_due:
+        #raise HTTPException(
+            #status_code=400,
+            #detail=f"Payment exceeds the total due amount of {effective_total_due}. Please verify the payment amount."
+        #)
 
     # Calculate balance due
     balance_due = max(effective_total_due - new_total_payment, 0)

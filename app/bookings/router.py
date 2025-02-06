@@ -485,66 +485,86 @@ def update_booking(
     """
     Update booking details (reservation or check-in) by booking ID.
     """
-    booking = db.query(booking_models.Booking).filter(booking_models.Booking.id == booking_id).first()
-    if not booking:
-        raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found.")
-
-    # Normalize room number for case-insensitive comparison if provided in the updated data
-    if updated_data.room_number:
-        room_number_input = updated_data.room_number.strip()
-        normalized_room_number = room_number_input.lower()
-
-        # Check if the normalized room exists
-        room = (
-            db.query(room_models.Room)
-            .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
-            .first()
-        )
-        if not room:
-            raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
-
-        # Ensure no conflicting bookings exist for the new room number
-        overlapping_booking = db.query(booking_models.Booking).filter(
-            func.lower(booking_models.Booking.room_number) == normalized_room_number,
-            booking_models.Booking.id != booking_id,  # Exclude the current booking
-            booking_models.Booking.status != "checked-out",
-            booking_models.Booking.status != "cancelled",
-            or_(
-                and_(
-                    booking_models.Booking.arrival_date < updated_data.departure_date,
-                    booking_models.Booking.departure_date > updated_data.arrival_date,
-                )
-            ),
-        ).first()
-
-        if overlapping_booking:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Room {room_number_input} is already booked for the requested dates.",
-            )
-
-        # Update the room number to match the stored case
-        updated_data.room_number = room.room_number
-
-    # Step 1: Update booking fields
-    for field, value in updated_data.dict(exclude_unset=True).items():
-        setattr(booking, field, value)
-
     try:
+        booking = db.query(booking_models.Booking).filter(booking_models.Booking.id == booking_id).first()
+        if not booking:
+            raise HTTPException(status_code=404, detail=f"Booking with ID {booking_id} not found.")
+
+        room = None  # Variable to store the room instance
+
+        # Step 1: Handle Room Number Update
+        if updated_data.room_number:
+            room_number_input = updated_data.room_number.strip()
+            normalized_room_number = room_number_input.lower()
+
+            # Fetch the new room
+            room = (
+                db.query(room_models.Room)
+                .filter(func.lower(room_models.Room.room_number) == normalized_room_number)
+                .first()
+            )
+            if not room:
+                raise HTTPException(status_code=404, detail=f"Room {room_number_input} not found.")
+
+            # Check for conflicting bookings
+            overlapping_booking = db.query(booking_models.Booking).filter(
+                func.lower(booking_models.Booking.room_number) == normalized_room_number,
+                booking_models.Booking.id != booking_id,  # Exclude the current booking
+                booking_models.Booking.status.notin_(["checked-out", "cancelled"]),
+                or_(
+                    and_(
+                        booking_models.Booking.arrival_date < updated_data.departure_date,
+                        booking_models.Booking.departure_date > updated_data.arrival_date,
+                    )
+                ),
+            ).first()
+
+            if overlapping_booking:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Room {room_number_input} is already booked for the requested dates.",
+                )
+
+            # Update room number with correct case
+            updated_data.room_number = room.room_number
+
+        # Step 2: Fetch Existing Room if Room Number is NOT Changed
+        if not room:
+            room = db.query(room_models.Room).filter(room_models.Room.room_number == booking.room_number).first()
+            if not room:
+                raise HTTPException(status_code=404, detail=f"Room {booking.room_number} not found.")
+
+        # Step 3: Ensure Number of Days is Valid
+        number_of_days = updated_data.number_of_days if updated_data.number_of_days is not None else booking.number_of_days
+        if number_of_days is None or number_of_days <= 0:
+            raise HTTPException(status_code=400, detail="Number of days must be greater than zero.")
+
+        # Step 4: Calculate Booking Cost
+        booking_cost = number_of_days * room.amount
+
+        # Step 5: Update Booking Fields
+        for field, value in updated_data.dict(exclude_unset=True).items():
+            setattr(booking, field, value)
+
+        # Ensure Booking Cost is Updated
+        booking.booking_cost = booking_cost
+
         db.commit()
         db.refresh(booking)
 
-        # Step 2: Serialize booking data using BookingSchemaResponse
+        # Step 6: Serialize Response
         serialized_booking = schemas.BookingSchemaResponse.from_orm(booking)
 
         return {
             "message": "Booking updated successfully.",
             "updated_booking": serialized_booking.dict()
         }
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-    
+        print(f"Error updating booking: {str(e)}")  # Debugging Output
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
     
   
 @router.put("/{room_number}/")
