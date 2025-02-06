@@ -13,7 +13,7 @@ class BookingManagement:
         self.root.geometry("900x600")
         self.token = token
         self.root.configure(bg="#f0f0f0")
-        
+
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
@@ -39,6 +39,7 @@ class BookingManagement:
         self.subheading_label.pack(pady=10)
 
         # Booking action buttons
+        self.buttons = []  # Store buttons for reference
         buttons = [
             ("Create Booking", self.create_booking),
             ("List Bookings", self.list_bookings),
@@ -53,12 +54,15 @@ class BookingManagement:
 
         for text, command in buttons:
             btn = tk.Button(self.left_frame, text=text, command=lambda t=text, c=command: self.update_subheading(t, c),
-                    width=20, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
-            btn.pack(pady=10, padx=10, anchor="w", fill="x")
+                            width=20, font=("Helvetica", 10, "bold"), anchor="w", padx=10, bg="#d9d9d9", fg="black")
 
-        # Configure button styles
-        style = ttk.Style()
-        style.configure("Bold.TButton", font=("Helvetica", 10, "bold"))
+            # Bind hover effects
+            btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  # Hover effect
+            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#d9d9d9", fg="black"))  # Restore default
+
+            btn.pack(pady=5, padx=10, anchor="w", fill="x")
+            self.buttons.append(btn)
+
 
     def update_subheading(self, text, command):
         self.subheading_label.config(text=text)

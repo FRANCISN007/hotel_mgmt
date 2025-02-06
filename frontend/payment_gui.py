@@ -16,8 +16,6 @@ class PaymentManagement:
         self.root.configure(bg="#f0f0f0")
         self.void_payment_tree = None  
         
-        
-        
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))
@@ -43,6 +41,7 @@ class PaymentManagement:
         self.subheading_label.pack(pady=10)
 
         # Payment action buttons
+        self.buttons = []  # Store buttons for reference
         buttons = [
             ("Create Payment", self.create_payment),
             ("List Payment", self.list_payments),
@@ -56,9 +55,16 @@ class PaymentManagement:
         for text, command in buttons:
             btn = tk.Button(self.left_frame, text=text, 
                             command=lambda t=text, c=command: self.update_subheading(t, c),
-                            width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10)
-            btn.pack(pady=10, padx=10, anchor="w", fill="x")
-            
+                            width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10, 
+                            bg="#d9d9d9", fg="black")
+
+            # Bind hover effects
+            btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  # Hover effect
+            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#d9d9d9", fg="black"))  # Restore default
+
+            btn.pack(pady=5, padx=10, anchor="w", fill="x")
+            self.buttons.append(btn)
+
 
     def update_subheading(self, text, command):
         """Updates the subheading label and calls the selected function."""
