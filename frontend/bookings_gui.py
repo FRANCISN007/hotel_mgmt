@@ -365,6 +365,11 @@ class BookingManagement:
                     self.tree.delete(*self.tree.get_children())  # ✅ Clear table
 
                     for booking in data["bookings"]:
+                        # Check if the booking is canceled and apply red text color if it is
+                        is_canceled = booking.get("status", "").lower() == "cancelled"
+                        tag = "cancelled" if is_canceled else "normal"
+                        
+                        # Insert the booking into the treeview, applying tags
                         self.tree.insert("", "end", values=(
                             booking.get("id", ""),
                             booking.get("room_number", ""),
@@ -378,15 +383,20 @@ class BookingManagement:
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
                             f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
-                        ))
+                        ), tags=(tag,))
+
+                    # Configure the treeview to display canceled bookings in red text
+                    self.tree.tag_configure("cancelled", foreground="red")  # Text color red
+                    self.tree.tag_configure("normal", foreground="black")  # Text color black
+                    
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
             else:
-                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
+                messagebox.showinfo("wrong details", response.json().get("detail", "Failed to retrieve bookings."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-        
+
             
     
     def search_booking(self):
@@ -464,7 +474,7 @@ class BookingManagement:
                         f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                     ))
             else:
-                messagebox.showerror("Error", response.json().get("detail", "No bookings found."))
+                messagebox.showinfo("No result", response.json().get("detail", "No bookings found."))
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
@@ -606,6 +616,8 @@ class BookingManagement:
         x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
         x_scroll.pack(fill=tk.X)
         self.search_tree.configure(xscroll=x_scroll.set)
+        
+        
 
     def fetch_booking_by_room(self):
         room_number = self.room_number_entry.get().strip()
@@ -662,7 +674,7 @@ class BookingManagement:
                 else:
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
             else:
-                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
+                messagebox.showinfo("info", response.json().get("detail", "Failed to retrieve bookings."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")

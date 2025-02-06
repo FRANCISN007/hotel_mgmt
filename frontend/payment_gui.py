@@ -363,7 +363,7 @@ class PaymentManagement:
         try:
             response = requests.get(api_url, params=params, headers=headers)
             print("API Response:", response.json())  # Debugging output
-        
+            
             if response.status_code == 200:
                 data = response.json()
                 
@@ -371,6 +371,11 @@ class PaymentManagement:
                     self.payment_tree.delete(*self.payment_tree.get_children())
                     
                     for payment in data["payments"]:
+                        # Check if the payment is voided and apply red text color if it is
+                        is_voided = payment.get("status", "").lower() == "voided"
+                        tag = "voided" if is_voided else "normal"
+                        
+                        # Insert the payment into the treeview, applying tags
                         self.payment_tree.insert("", "end", values=(
                             payment.get("payment_id", ""),
                             payment.get("guest_name", ""),
@@ -382,7 +387,12 @@ class PaymentManagement:
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
                             payment.get("booking_id", ""),
-                        ))
+                        ), tags=(tag,))
+                    
+                    # Configure the treeview to display voided payments in red text
+                    self.payment_tree.tag_configure("voided", foreground="red")  # Text color red
+                    self.payment_tree.tag_configure("normal", foreground="black")  # Text color black
+                    
                 else:
                     messagebox.showinfo("No Results", "No payments found for the selected filters.")
             else:
@@ -390,6 +400,8 @@ class PaymentManagement:
         
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
+
 
         
    

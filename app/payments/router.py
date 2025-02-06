@@ -29,7 +29,6 @@ def create_payment(
     """
     Create a new payment for a booking, considering discounts and payment history.
     """
-
     # Get the current system time as a timezone-aware datetime
     transaction_time = datetime.now(timezone.utc)
 
@@ -89,21 +88,16 @@ def create_payment(
     # Add the new payment to the total existing payments
     new_total_payment = total_existing_payment + payment_request.amount_paid + (payment_request.discount_allowed or 0)
 
-    # Check if you want to apply a discount to the total due here (not booking cost)
-    effective_total_due = total_due  # Adjust if a discount is applied to the room amount
-
-    # Check for overpayment
-    #if new_total_payment > effective_total_due:
-        #raise HTTPException(
-            #status_code=400,
-            #detail=f"Payment exceeds the total due amount of {effective_total_due}. Please verify the payment amount."
-        #)
-
     # Calculate balance due
-    balance_due = max(effective_total_due - new_total_payment, 0)
+    balance_due = total_due - new_total_payment  # Can be positive or negative
 
     # Determine payment status based on balance due
-    status = "payment incomplete" if balance_due > 0 else "payment completed"
+    if balance_due > 0:
+        status = "payment incomplete"
+    elif balance_due < 0:
+        status = "payment excess"
+    else:
+        status = "payment completed"
 
     try:
         # Create the new payment with system-generated payment_date
