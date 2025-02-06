@@ -1,5 +1,4 @@
 import tkinter as tk
-from tkinter import ttk
 from tkinter import ttk, messagebox
 from utils import api_request, get_user_role
 import re
@@ -9,35 +8,42 @@ class RoomManagement:
         self.root = tk.Toplevel(root)
         self.token = token
         self.root.title("Room Management")
-        self.root.geometry("800x500")
+
+        # Set window size and position at the center
+        window_width = 800
+        window_height = 600
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x_coordinate = (screen_width // 2) - (window_width // 2)
+        y_coordinate = (screen_height // 2) - (window_height // 2)
+        self.root.geometry(f"{window_width}x{window_height}+{x_coordinate}+{y_coordinate}")
+
         self.user_role = get_user_role(self.token)
 
         self.setup_ui()
         self.fetch_rooms()
-        
+
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
         style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
-        
-        
+
     def natural_sort_key(self, room):
         """Sort room numbers correctly, handling both numeric and alphanumeric values."""
         room_number = str(room.get("room_number", ""))  # Ensure it's a string
         parts = re.split(r'(\d+)', room_number)  # Split letters and numbers
         return [int(part) if part.isdigit() else part for part in parts]  # Convert numeric parts to int
-        
+
     def setup_ui(self):
         self.root.configure(bg="#f0f0f0")  # Set the background color of the main window
 
         title_label = tk.Label(self.root, text="Room Management", font=("Helvetica", 18, "bold"),
-                           bg="#007BFF", fg="white", padx=10, pady=10)
+                               bg="#007BFF", fg="white", padx=10, pady=10)
         title_label.pack(fill=tk.X)
 
-        #self.tree = ttk.Treeview(self.root, columns=("Room Number", "Type", "Amount", "Status", "Booking Type"), show="headings")
         columns = ("Room Number", "Room Type", "Amount", "Status", "Booking Type")
         self.tree = ttk.Treeview(self.root, columns=columns, show="headings")
-        
-        for col in ("Room Number", "Room Type", "Amount", "Status", "Booking Type"):
+
+        for col in columns:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=140, anchor="center")
         self.tree.pack(pady=10, fill=tk.BOTH, expand=True)
@@ -53,13 +59,13 @@ class RoomManagement:
 
         self.delete_button = ttk.Button(btn_frame, text="❌ Delete Room", command=self.delete_room)
         self.delete_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
-        
+
         self.available_rooms_button = ttk.Button(btn_frame, text="🟢 List Available Rooms", command=self.list_available_rooms)
         self.available_rooms_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
 
         self.refresh_button = ttk.Button(btn_frame, text="🔄 Refresh", command=self.fetch_rooms)
         self.refresh_button.pack(side=tk.LEFT, padx=5, pady=5, ipadx=10)
-        
+
         
 
         if self.user_role != "admin":

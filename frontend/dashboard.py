@@ -12,13 +12,19 @@ class Dashboard:
         self.root = root
         self.token = token
         self.root.title("Dashboard - Hotel Management System")
-        self.root.geometry("800x600")
+        
+        # Make the window full screen
+        self.root.state("zoomed")
+
+        # Fetch screen width and height
+        self.screen_width = self.root.winfo_screenwidth()
+        self.screen_height = self.root.winfo_screenheight()
+
         self.root.configure(bg="#f0f0f0")  # Light gray background
 
         # Fetch and store user role
         self.user_role = get_user_role(self.token)
         
-
         # UI Components
         self.setup_dashboard_ui()
         
@@ -39,11 +45,9 @@ class Dashboard:
                               font=("Arial", 12, "italic"), fg="#333", bg="#f0f0f0")
         role_label.pack(pady=10)
 
-        # Main Buttons Frame
+        # Main Buttons Frame (Centered)
         button_frame = tk.Frame(self.root, bg="#f0f0f0")
         button_frame.pack(pady=20)
-
-        
 
         buttons = [
             ("Manage Users", self.manage_users),
@@ -52,7 +56,6 @@ class Dashboard:
             ("Manage Payments", self.manage_payments),
         ]
         
-
         for text, command in buttons:
             btn = ttk.Button(button_frame, text=text, command=command, width=25)
             btn.pack(pady=10)
@@ -60,8 +63,6 @@ class Dashboard:
         # Logout Button at Bottom
         logout_button = ttk.Button(self.root, text="Logout", command=self.logout, width=20)
         logout_button.pack(pady=30)
-        
-        
 
     def manage_users(self):
         if self.user_role != "admin":
@@ -74,7 +75,6 @@ class Dashboard:
     
     def manage_bookings(self):
         BookingManagement(self.root, self.token)
-        
 
     def manage_payments(self):
         PaymentManagement(self.root, self.token)

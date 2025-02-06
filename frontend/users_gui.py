@@ -10,7 +10,16 @@ class UserManagement:
 
         self.user_management_window = tk.Toplevel(parent)
         self.user_management_window.title("User Management")
-        self.user_management_window.geometry("850x600")
+
+        # Set window size and position at the center
+        window_width = 850
+        window_height = 500
+        screen_width = self.user_management_window.winfo_screenwidth()
+        screen_height = self.user_management_window.winfo_screenheight()
+        x_coordinate = (screen_width // 2) - (window_width // 2)
+        y_coordinate = (screen_height // 2) - (window_height // 2)
+        self.user_management_window.geometry(f"{window_width}x{window_height}+{x_coordinate}+{y_coordinate}")
+        
         self.user_management_window.configure(bg="#e0e0e0")
 
         self.setup_ui()
@@ -44,6 +53,7 @@ class UserManagement:
 
         tree_scroll_y = ttk.Scrollbar(tree_frame, orient="vertical")
         tree_scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+
 
         self.users_treeview = ttk.Treeview(
             tree_frame,
