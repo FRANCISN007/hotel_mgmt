@@ -219,7 +219,7 @@ class BookingManagement:
         self.tree.configure(xscroll=x_scroll.set)
 
         # Label to display total booking cost (initialized empty)
-        self.total_booking_cost_label = tk.Label(frame, text="", font=("Arial", 12, "bold"), fg="green", bg="#ffffff")
+        self.total_booking_cost_label = tk.Label(frame, text="", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
         self.total_booking_cost_label.pack(pady=10)
 
 
@@ -353,6 +353,11 @@ class BookingManagement:
         x_scroll.pack(fill=tk.X)
         self.tree.configure(xscroll=x_scroll.set)
 
+        # ✅ Add Label for Total Booking Cost at the Bottom
+        self.total_cost_label = tk.Label(frame, text="Total Booking Cost: ₦0.00", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
+        self.total_cost_label.pack(pady=10)  # Placed at the bottom
+
+
     def fetch_bookings_by_status(self):
         """Fetch bookings based on status and date filters."""
         api_url = "http://127.0.0.1:8000/bookings/status"
@@ -366,14 +371,14 @@ class BookingManagement:
         headers = {"Authorization": f"Bearer {self.token}"}
 
         # Debugging: Print request parameters
-        print("Request Params:", params)
+        #print("Request Params:", params)
 
         try:
             response = requests.get(api_url, params=params, headers=headers)
             data = response.json()
 
             # Debugging: Print API response
-            #print("API Response:", data)
+            print("API Response:", data)
 
             # If the response contains bookings
             if response.status_code == 200 and "bookings" in data:
@@ -382,9 +387,15 @@ class BookingManagement:
                 if bookings:
                     self.tree.delete(*self.tree.get_children())  # Clear previous data
 
+                    total_cost = 0  # Initialize total booking cost
+
                     for booking in bookings:
                         is_canceled = booking.get("status", "").lower() == "cancelled"
                         tag = "cancelled" if is_canceled else "normal"
+
+                        # Convert booking_cost to float and add to total cost
+                        booking_cost = float(booking.get("booking_cost", 0))
+                        total_cost += booking_cost
 
                         self.tree.insert("", "end", values=(
                             booking.get("id", ""),
@@ -396,21 +407,28 @@ class BookingManagement:
                             booking.get("number_of_days", ""),
                             booking.get("booking_type", ""),
                             booking.get("phone_number", ""),
-                            booking.get("booking_date", ""),  
+                            booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
+                            f"₦{booking_cost:,.2f}",
                         ), tags=(tag,))
+
                     # Configure the treeview to display canceled bookings in red text
                     self.tree.tag_configure("cancelled", foreground="red")  # Text color red
                     self.tree.tag_configure("normal", foreground="black")  # Text color black
-                    
+
+                    # ✅ Update total booking cost label
+                    self.total_cost_label.config(text=f"Total Booking Cost: ₦{total_cost:,.2f}")
+
                 else:
+                    self.tree.delete(*self.tree.get_children())  # Clear table if no results
+                    self.total_cost_label.config(text="Total Booking Cost: ₦0.00")  # Reset total cost label
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
             else:
-                messagebox.showinfo("wrong details", response.json().get("detail", "Failed to retrieve bookings."))
+                messagebox.showinfo("Wrong Details", response.json().get("detail", "Failed to retrieve bookings."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
 
             
     

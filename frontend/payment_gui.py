@@ -302,7 +302,7 @@ class PaymentManagement:
 
                 # Display total payment amount at the top
                 self.total_label = tk.Label(self.right_frame, text=f"Total Payment: ₦{total_amount:,.2f}",
-                                            font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
+                                            font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
                 self.total_label.pack(side=tk.TOP, pady=5)
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
@@ -368,53 +368,66 @@ class PaymentManagement:
     def fetch_payments_by_status(self):
         """Fetch payments based on status and date filters."""
         api_url = "http://127.0.0.1:8000/payments/by-status"
-        
+
         params = {
             "status": self.payment_status_var.get().lower(),
             "start_date": self.payment_start_date.get_date().strftime("%Y-%m-%d"),
             "end_date": self.payment_end_date.get_date().strftime("%Y-%m-%d"),
         }
-        
+
         headers = {"Authorization": f"Bearer {self.token}"}
-        
+
         try:
             response = requests.get(api_url, params=params, headers=headers)
-            print("API Response:", response.json())  # Debugging output
-            
+
             if response.status_code == 200:
                 data = response.json()
-                
+
                 if "payments" in data and data["payments"]:
                     self.payment_tree.delete(*self.payment_tree.get_children())
-                    
+
+                    total_payment = 0  # Initialize total payment sum
+
                     for payment in data["payments"]:
-                        # Check if the payment is voided and apply red text color if it is
                         is_voided = payment.get("status", "").lower() == "voided"
                         tag = "voided" if is_voided else "normal"
-                        
-                        # Insert the payment into the treeview, applying tags
+
+                        amount_paid = float(payment.get("amount_paid", 0))
+                        total_payment += amount_paid  # Add to total payment sum
+
                         self.payment_tree.insert("", "end", values=(
                             payment.get("payment_id", ""),
                             payment.get("guest_name", ""),
                             payment.get("room_number", ""),
-                            f"₦{float(payment.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
-                            f"₦{float(payment.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
-                            f"₦{float(payment.get('balance_due', 0)) :,.2f}",  # Format balance_due
+                            f"₦{amount_paid:,.2f}",  # Format amount_paid
+                            f"₦{float(payment.get('discount_allowed', 0)):,.2f}",  # Format discount_allowed
+                            f"₦{float(payment.get('balance_due', 0)):,.2f}",  # Format balance_due
                             payment.get("payment_method", ""),
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
                             payment.get("booking_id", ""),
                         ), tags=(tag,))
-                    
-                    # Configure the treeview to display voided payments in red text
-                    self.payment_tree.tag_configure("voided", foreground="red")  # Text color red
-                    self.payment_tree.tag_configure("normal", foreground="black")  # Text color black
-                    
+
+                    self.payment_tree.tag_configure("voided", foreground="red")
+                    self.payment_tree.tag_configure("normal", foreground="black")
+
+                    # Display total payment amount below the table
+                    if hasattr(self, "total_payment_label"):
+                        self.total_payment_label.destroy()
+
+                    self.total_payment_label = tk.Label(
+                        self.right_frame,
+                        text=f"Total Payment: ₦{total_payment:,.2f}",
+                        font=("Arial", 12, "bold"),
+                        bg="#ffffff", fg="blue"
+                    )
+                    self.total_payment_label.pack(pady=10)
+
                 else:
                     messagebox.showinfo("No Results", "No payments found for the selected filters.")
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
-        
+
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
@@ -439,7 +452,7 @@ class PaymentManagement:
         fetch_btn.pack(pady=5)
 
         # Update the total label with green text
-        self.total_label = tk.Label(frame, text="Total Debt Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
+        self.total_label = tk.Label(frame, text="Total Debt Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
         self.total_label.pack(pady=5)
 
         table_frame = tk.Frame(frame, bg="#ffffff")
@@ -525,7 +538,7 @@ class PaymentManagement:
         fetch_btn.pack(pady=5)
         
         # Apply green color to the total amount label
-        self.total_label = tk.Label(frame, text="Total Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="green")
+        self.total_label = tk.Label(frame, text="Total Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
         self.total_label.pack(pady=5)
         
         table_frame = tk.Frame(frame, bg="#ffffff")
