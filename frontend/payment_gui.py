@@ -733,8 +733,8 @@ class PaymentManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed", "Balance Due", 
-                    "Payment Method", "Payment Date", "Status", "Booking ID")
+        columns = ("Payment ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed",
+                "Balance Due", "Payment Method", "Payment Date", "Payment Status", "Booking ID", "Booking Payment Status")
 
         self.void_payment_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -751,10 +751,11 @@ class PaymentManagement:
         x_scroll.pack(fill=tk.X)
         self.void_payment_tree.configure(xscroll=x_scroll.set)
 
+
     def process_void_payment(self):
         payment_id = self.payment_id_entry.get().strip()
 
-        if not payment_id.isdigit():  # Ensure input is numeric
+        if not payment_id.isdigit():
             messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
             return
 
@@ -768,21 +769,20 @@ class PaymentManagement:
                 data = response.json()
                 messagebox.showinfo("Success", data.get("message", "Payment has been voided."))
                 
-                # Fetch the updated payment data
+                # Fetch updated payment and booking data
                 self.fetch_voided_payment_by_id(payment_id)
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to void payment."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-        
-        
+
 
     def fetch_voided_payment_by_id(self, payment_id=None):
         if payment_id is None:
             payment_id = self.payment_id_entry.get().strip()
 
-        if not payment_id.isdigit():  # Ensure input is numeric
+        if not payment_id.isdigit():
             messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
             return
 
@@ -795,22 +795,23 @@ class PaymentManagement:
             if response.status_code == 200:
                 data = response.json()
 
-                if data:  # Ensure data exists
+                if data:
                     if hasattr(self, "void_payment_tree") and self.void_payment_tree is not None:
                         self.void_payment_tree.delete(*self.void_payment_tree.get_children())  
 
-                    # Insert payment details
+                    # Insert payment details with booking payment_status
                     self.void_payment_tree.insert("", "end", values=(
                         data.get("payment_id", ""),
                         data.get("guest_name", ""),
                         data.get("room_number", ""),
-                        f"₦{float(data.get('amount_paid', 0)) :,.2f}",  # Format amount_paid
-                        f"₦{float(data.get('discount_allowed', 0)) :,.2f}",  # Format discount_allowed
-                        f"₦{float(data.get('balance_due', 0)) :,.2f}",  # Format balance_due
+                        f"₦{float(data.get('amount_paid', 0)) :,.2f}",
+                        f"₦{float(data.get('discount_allowed', 0)) :,.2f}",
+                        f"₦{float(data.get('balance_due', 0)) :,.2f}",
                         data.get("payment_method", ""),
                         data.get("payment_date", ""),
-                        data.get("status", ""),
+                        data.get("status", ""),  # Payment status (should be "voided")
                         data.get("booking_id", ""),
+                        data.get("booking_payment_status", "N/A"),  # Display updated booking payment_status
                     ))
                 else:
                     messagebox.showinfo("No Results", "No payment found with the provided ID.")
@@ -819,8 +820,7 @@ class PaymentManagement:
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-
-    
+        
         
 
    

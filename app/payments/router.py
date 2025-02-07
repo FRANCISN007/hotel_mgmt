@@ -12,6 +12,9 @@ from app.rooms import models as room_models  # Ensure Room model is imported
 from app.bookings import models as booking_models
 from sqlalchemy.sql import func
 from loguru import logger
+from app.bookings import models  # Import the models module from bookings
+
+
 
 router = APIRouter()
 
@@ -493,7 +496,6 @@ def get_payment_by_id(
 
 
 
-# Delete Payment Endpoint
 @router.put("/void/{payment_id}/")
 def void_payment(
     payment_id: int,
@@ -503,10 +505,6 @@ def void_payment(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    
-    """
-    Mark a payment as void by its ID. This action preserves the payment record for audit purposes.
-    """
     try:
         # Retrieve the payment record by ID
         payment = crud.get_payment_by_id(db, payment_id)
@@ -517,17 +515,30 @@ def void_payment(
                 detail=f"Payment with ID {payment_id} not found."
             )
 
-        # Update payment status to void
+        # Update payment status to "voided"
         payment.status = "voided"
+
+        # Retrieve the associated booking using payment.booking_id
+        booking = db.query(models.Booking).filter(models.Booking.id == payment.booking_id).first()
+
+        if booking:
+            # Change payment_status in Booking to "pending"
+            booking.payment_status = "pending"
+
+        # Commit changes
         db.commit()
 
-        logger.info(f"Payment with ID {payment_id} marked as void.")
+        logger.info(f"Payment with ID {payment_id} marked as void. Booking payment status set to pending.")
 
         return {
-            "message": f"Payment with ID {payment_id} has been marked as void successfully.",
+            "message": f"Payment with ID {payment_id} has been voided. Booking ID {payment.booking_id} payment status is now pending.",
             "payment_details": {
                 "payment_id": payment.id,
                 "status": payment.status,
+            },
+            "booking_details": {
+                "booking_id": booking.id if booking else None,
+                "payment_status": booking.payment_status if booking else "Not Found",
             },
         }
 
@@ -538,8 +549,7 @@ def void_payment(
         logger.error(f"Error marking payment as void: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="An error occurred while marking the payment as void."
+            detail=f"An error occurred while marking the payment as void: {str(e)}"
         )
-
 
 
