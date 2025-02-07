@@ -56,15 +56,15 @@ class BookingManagement:
         # Booking action buttons 
         self.buttons = []
         buttons = [
-            ("Create Booking", self.create_booking),
-            ("List Bookings", self.list_bookings),
-            ("List By Status", self.list_bookings_by_status),
-            ("Search Guest Name", self.search_booking),
-            ("Search by Booking ID", self.search_booking_by_id),
-            ("Search By Room No", self.search_booking_by_room),
-            ("Update Booking", self.update_booking),
-            ("Guest Checkout", self.guest_checkout),
-            ("Cancel Booking", self.cancel_booking),
+            ("➕Create Booking", self.create_booking),
+            ("📑List Bookings", self.list_bookings),
+            ("📑List By Status", self.list_bookings_by_status),
+            ("🔎Search Guest Name", self.search_booking),
+            ("🔎Search by Booking ID", self.search_booking_by_id),
+            ("🔎Search By Room No", self.search_booking_by_room),
+            ("✏️Update Booking", self.update_booking),
+            ("✅Guest Checkout", self.guest_checkout),
+            ("❌Cancel Booking", self.cancel_booking),
         ]
 
         for text, command in buttons:

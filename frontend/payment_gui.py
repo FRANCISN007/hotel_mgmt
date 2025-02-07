@@ -59,13 +59,13 @@ class PaymentManagement:
         # Payment action buttons (Maintain hover effects)
         self.buttons = []  
         buttons = [
-            ("Create Payment", self.create_payment),
-            ("List Payment", self.list_payments),
-            ("List Payment By ID", self.search_payment_by_id),
-            ("List By Payment Status", self.list_payments_by_status),
-            ("Total Daily Payment", self.list_total_daily_payments),
-            ("Debtor List", self.debtor_list),
-            ("Void Payment", self.void_payment),
+            ("💳Create Payment", self.create_payment),
+            ("📜List Payment", self.list_payments),
+            ("🔍List Payment By ID", self.search_payment_by_id),
+            ("📊List Payment By Status", self.list_payments_by_status),
+            ("📅Total Daily Payment", self.list_total_daily_payments),
+            ("💸Debtor List", self.debtor_list),
+            ("❌Void Payment", self.void_payment),
         ]
 
         for text, command in buttons:
