@@ -265,9 +265,10 @@ def list_bookings_by_status(
 
         # Apply date filters based on booking_date
         if start_date:
-            query = query.filter(booking_models.Booking.booking_date >= start_date)
+            query = query.filter(booking_models.Booking.booking_date >= datetime.combine(start_date, datetime.min.time()))
         if end_date:
-            query = query.filter(booking_models.Booking.booking_date <= end_date)
+            query = query.filter(booking_models.Booking.booking_date <= datetime.combine(end_date, datetime.max.time()))
+
 
         # Execute the query and get the results
         bookings = query.all()

@@ -96,11 +96,6 @@ class BookingManagement:
 
 
 
-
-
-        
-        
-
     def create_booking(self):
         self.clear_right_frame()
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
@@ -241,7 +236,7 @@ class BookingManagement:
             response = requests.get(api_url, params=params, headers=headers)
             if response.status_code == 200:
                 data = response.json()
-                print("API Response:", data)  # Debugging output
+                #print("API Response:", data)  # Debugging output
 
                 if isinstance(data, dict) and "bookings" in data:
                     bookings = data["bookings"]
@@ -252,7 +247,7 @@ class BookingManagement:
 
                 # Check if bookings list is empty
                 if not bookings:
-                    self.total_booking_cost_label.config(text="Total Booking Cost: $0.00")  # Reset label
+                    self.total_booking_cost_label.config(text="Total Booking Cost: ₦0.00")  # Reset label
                     messagebox.showinfo("No Results", "No bookings found for the selected filters.")
                     return
 
@@ -361,32 +356,36 @@ class BookingManagement:
     def fetch_bookings_by_status(self):
         """Fetch bookings based on status and date filters."""
         api_url = "http://127.0.0.1:8000/bookings/status"
-        
+
         params = {
-            "status": self.status_var.get(),
+            "status": self.status_var.get().strip(),
             "start_date": self.start_date.get_date().strftime("%Y-%m-%d"),
             "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
         }
 
         headers = {"Authorization": f"Bearer {self.token}"}
 
+        # Debugging: Print request parameters
+        print("Request Params:", params)
+
         try:
             response = requests.get(api_url, params=params, headers=headers)
-            print("API Response:", response.json())  # Debugging output
+            data = response.json()
 
-            if response.status_code == 200:
-                data = response.json()
+            # Debugging: Print API response
+            #print("API Response:", data)
 
-                # ✅ Ensure "bookings" exists before accessing it
-                if "bookings" in data and data["bookings"]:
-                    self.tree.delete(*self.tree.get_children())  # ✅ Clear table
+            # If the response contains bookings
+            if response.status_code == 200 and "bookings" in data:
+                bookings = data["bookings"]
 
-                    for booking in data["bookings"]:
-                        # Check if the booking is canceled and apply red text color if it is
+                if bookings:
+                    self.tree.delete(*self.tree.get_children())  # Clear previous data
+
+                    for booking in bookings:
                         is_canceled = booking.get("status", "").lower() == "cancelled"
                         tag = "cancelled" if is_canceled else "normal"
-                        
-                        # Insert the booking into the treeview, applying tags
+
                         self.tree.insert("", "end", values=(
                             booking.get("id", ""),
                             booking.get("room_number", ""),
@@ -397,11 +396,10 @@ class BookingManagement:
                             booking.get("number_of_days", ""),
                             booking.get("booking_type", ""),
                             booking.get("phone_number", ""),
-                            booking.get("booking_date", ""),
+                            booking.get("booking_date", ""),  
                             booking.get("payment_status", ""),
-                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
                         ), tags=(tag,))
-
                     # Configure the treeview to display canceled bookings in red text
                     self.tree.tag_configure("cancelled", foreground="red")  # Text color red
                     self.tree.tag_configure("normal", foreground="black")  # Text color black
