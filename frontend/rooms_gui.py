@@ -107,8 +107,7 @@ class RoomManagement:
             
             
             
-            
-            
+        
             
 
     def list_available_rooms(self):
@@ -120,16 +119,23 @@ class RoomManagement:
             return
 
         available_rooms = response["available_rooms"]
-        
+
         # Sort available rooms using natural sorting
         available_rooms.sort(key=self.natural_sort_key)  # Use self.natural_sort_key()
 
+        # Count total available rooms
+        total_available = len(available_rooms)
 
         available_window = tk.Toplevel(self.root)
         available_window.title("Available Rooms")
-        available_window.geometry("500x300")
+        available_window.geometry("500x350")
 
-        ttk.Label(available_window, text="Available Rooms", font=("Helvetica", 14, "bold")).pack(pady=10)
+        # Display total available rooms at the top
+        ttk.Label(
+            available_window,
+            text=f"Available Rooms ({total_available})",
+            font=("Helvetica", 14, "bold")
+        ).pack(pady=10)
 
         tree = ttk.Treeview(available_window, columns=("Room Number", "Room Type", "Amount"), show="headings")
         for col in ("Room Number", "Room Type", "Amount"):
@@ -138,12 +144,11 @@ class RoomManagement:
         tree.pack(pady=10, fill=tk.BOTH, expand=True)
 
         for room in available_rooms:
-            
             tree.insert("", tk.END, values=(room["room_number"], room["room_type"], room["amount"]))
 
         ttk.Button(available_window, text="Close", command=available_window.destroy).pack(pady=10)
 
-
+    
 
     def open_room_form(self):
         form = tk.Toplevel(self.root)
