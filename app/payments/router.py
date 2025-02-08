@@ -349,18 +349,38 @@ def total_payment(
 
 @router.get("/debtor_list")
 def get_debtor_list(
+    start_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="date format-yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
     try:
+        # Ensure that the start_date is not greater than end_date
+        if start_date and end_date and start_date > end_date:
+            raise HTTPException(
+                status_code=400,
+                detail="Start date cannot be later than end date, check your date entry"
+            )
+
+        # Set the start and end dates to the beginning and end of the day, if provided
+        start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
+        end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
+
         # Query all bookings that are not canceled and not complimentary
-        bookings = db.query(booking_models.Booking).filter(
+        query = db.query(booking_models.Booking).filter(
             booking_models.Booking.status != "cancelled",
             booking_models.Booking.payment_status != "complimentary"  # Exclude complimentary bookings
-        ).all()
+        )
+
+        if start_datetime:
+            query = query.filter(booking_models.Booking.booking_date >= start_datetime)
+        if end_datetime:
+            query = query.filter(booking_models.Booking.booking_date <= end_datetime)
+
+        bookings = query.all()
 
         if not bookings:
-            raise HTTPException(status_code=404, detail="No debtor bookings found.")
+            raise HTTPException(status_code=404, detail="No debtor bookings found in the given date range.")
 
         debtor_list = []
         total_debt_amount = 0  # Initialize total debt amount
@@ -410,13 +430,14 @@ def get_debtor_list(
                     "total_due": total_due,
                     "total_paid": total_paid,
                     "amount_due": balance_due,
+                    "booking_date": booking.booking_date,  # Added booking date for filtering
                     "last_payment_date": last_payment_date,  # Include last payment date for sorting
                 })
                 total_debt_amount += balance_due
 
         # Raise an exception if no debtors are found
         if not debtor_list:
-            raise HTTPException(status_code=404, detail="No debtors found.")
+            raise HTTPException(status_code=404, detail="No debtors found in the given date range.")
 
         # Sort debtor list in descending order based on the last payment date
         debtor_list.sort(
@@ -436,6 +457,7 @@ def get_debtor_list(
             status_code=500,
             detail="An error occurred while retrieving the debtor list.",
         )
+
 
 
 @router.get("/{payment_id}")

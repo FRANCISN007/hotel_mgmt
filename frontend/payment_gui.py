@@ -64,7 +64,7 @@ class PaymentManagement:
             ("🔍List Payment By ID", self.search_payment_by_id),
             ("📊List Payment By Status", self.list_payments_by_status),
             ("📅Total Daily Payment", self.list_total_daily_payments),
-            ("💸Debtor List", self.debtor_list),
+            ("🔍Debtor List", self.debtor_list),
             ("❌Void Payment", self.void_payment),
         ]
 
@@ -168,22 +168,19 @@ class PaymentManagement:
 
             # Fetch Payment Date and make it timezone-aware (set to UTC)
             payment_date = self.entries["Payment Date:"].get_date()  # get the date from the date picker
-            # Convert to a datetime object and make it timezone-aware in UTC
             payment_date = datetime(payment_date.year, payment_date.month, payment_date.day, 0, 0, 0, 0)
             payment_date = pytz.utc.localize(payment_date)  # Localize to UTC
+            payment_date_iso = payment_date.isoformat()  # Convert to ISO format
 
-            # Convert to ISO format string (with timezone info)
-            payment_date_iso = payment_date.isoformat()
-
-            # Prepare the payload for the API request (no booking_cost)
+            # Prepare the payload for the API request
             payload = {
                 "amount_paid": amount_paid,
                 "discount_allowed": discount_allowed,
                 "payment_method": payment_method,
-                "payment_date": payment_date_iso,  # Send the ISO formatted date with timezone
+                "payment_date": payment_date_iso,
             }
 
-            # URL for creating the payment (no need to append the booking_id here)
+            # URL for creating the payment
             url = f"http://127.0.0.1:8000/payments/{booking_id}"
 
             headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
@@ -193,12 +190,16 @@ class PaymentManagement:
             data = response.json()
 
             if response.status_code == 200:
-                messagebox.showinfo("Success", data.get("message", "Payment created successfully!"))
+                payment_details = data.get("payment_details")
+                if payment_details:
+                    payment_id = payment_details.get("payment_id")  # Updated key
+                    messagebox.showinfo("Success", f"Payment created successfully!\nPayment ID: {payment_id}")
+                else:
+                    messagebox.showerror("Error", "Payment ID missing in response.")
             else:
                 messagebox.showerror("Error", data.get("detail", "Payment failed."))
-
         except Exception as e:
-            messagebox.showerror("Error", f"An unexpected error occurred: {e}")
+            messagebox.showerror("Error", f"An unexpected error occurred: {e}")        
 
 
     def list_payments(self):
@@ -444,21 +445,33 @@ class PaymentManagement:
 
         tk.Label(frame, text="Debtor List", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
 
-        fetch_btn = ttk.Button(
-            frame,
-            text="Fetch Debtor List",
-            command=self.fetch_debtor_list
-        )
-        fetch_btn.pack(pady=5)
+        # Date range filter
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
 
-        # Update the total label with green text
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.set_date(datetime.today())  # Default to current date
+        self.end_date.grid(row=0, column=3, padx=5, pady=5)
+
+        fetch_btn = ttk.Button(filter_frame, text="Fetch Debtor List", command=self.fetch_debtor_list)
+        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
+
+        # Update the total label with blue text
         self.total_label = tk.Label(frame, text="Total Debt Amount: ₦0", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
         self.total_label.pack(pady=5)
 
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ("Booking ID", "Guest Name", "Room Number", "Room Price", "Number of Days", "Total Due", "Total Paid", "Amount Due", "Last Payment Date")
+        columns = (
+            "Booking ID", "Guest Name", "Room Number", "Room Price", "Number of Days",
+            "Total Due", "Total Paid", "Amount Due", "Booking Date", "Last Payment Date"
+        )
 
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
 
@@ -480,12 +493,17 @@ class PaymentManagement:
         api_url = "http://127.0.0.1:8000/payments/debtor_list"
         headers = {"Authorization": f"Bearer {self.token}"}
 
+        params = {
+            "start_date": self.start_date.get_date().strftime("%Y-%m-%d"),
+            "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
+        }
+
         try:
-            response = requests.get(api_url, headers=headers)
+            response = requests.get(api_url, headers=headers, params=params)
             if response.status_code == 200:
                 data = response.json()
 
-                # Update the total debt amount with green color
+                # Update the total debt amount
                 self.total_label.config(text=f"Total Debt Amount: ₦{data.get('total_debt_amount', 0):,.2f}")
 
                 debtors = data.get("debtors", [])
@@ -499,25 +517,25 @@ class PaymentManagement:
                     self.tree.insert("", "end", values=(
                         debtor.get("booking_id", ""),
                         debtor.get("guest_name", ""),
-                        debtor.get("room_number", ""),                       
-                        f"₦{float(debtor.get('room_price', 0)) :,.2f}",  # Format room_price
+                        debtor.get("room_number", ""),
+                        f"₦{float(debtor.get('room_price', 0)) :,.2f}",
                         debtor.get("number_of_days", ""),
-                        f"₦{float(debtor.get('total_due', 0)) :,.2f}",  # Format total_due
-                        f"₦{float(debtor.get('total_paid', 0)) :,.2f}",  # Format total_paid
-                        f"₦{float(debtor.get('amount_due', 0)) :,.2f}",  # Format amount_due
+                        f"₦{float(debtor.get('total_due', 0)) :,.2f}",
+                        f"₦{float(debtor.get('total_paid', 0)) :,.2f}",
+                        f"₦{float(debtor.get('amount_due', 0)) :,.2f}",
+                        debtor.get("booking_date", ""),
                         debtor.get("last_payment_date", "")
                     ))
-                    
-                    
             else:
-                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve debtor list."))
+                #messagebox.showinfo("info", response.json().get("detail", "Failed to retrieve debtor list."))
+                messagebox.showinfo("No Results", "No data found for the selected filters.")
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
 
+
     def clear_right_frame(self):
         for widget in self.right_frame.winfo_children():
-            widget.pack_forget()
-            
+            widget.pack_forget()   
             
             
             

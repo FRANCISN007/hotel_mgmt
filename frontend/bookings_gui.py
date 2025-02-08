@@ -151,7 +151,14 @@ class BookingManagement:
             response = requests.post(api_url, json=booking_data, headers=headers)
 
             if response.status_code == 200:
-                messagebox.showinfo("Success", "Booking created successfully!")
+                response_data = response.json()
+                booking_id = response_data.get("booking_details", {}).get("id")  # Extract booking ID
+
+                if booking_id:
+                    messagebox.showinfo("Success", f"Booking created successfully!\nBooking ID: {booking_id}")
+                else:
+                    messagebox.showerror("Error", "Booking ID missing in response.")
+
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Booking failed."))
 
@@ -159,6 +166,7 @@ class BookingManagement:
             messagebox.showerror("Error", f"Missing entry field: {e}")
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
 
     
     
@@ -840,6 +848,7 @@ class BookingManagement:
         self.subheading_label.config(text=text)
         command()
 
+    
     def cancel_booking(self):
         self.clear_right_frame()
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
@@ -850,6 +859,7 @@ class BookingManagement:
         # Labels & Entry fields
         fields = [
             ("Booking ID", tk.Entry),
+            ("Cancellation Reason (Optional)", tk.Entry),
         ]
 
         self.entries = {}
@@ -864,15 +874,19 @@ class BookingManagement:
         submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
 
     def submit_cancel_booking(self):
-        """Sends a request to cancel the booking by booking ID."""
+        """Sends a request to cancel the booking by booking ID, with an optional cancellation reason."""
         try:
             booking_id = self.entries["Booking ID"].get()
+            cancellation_reason = self.entries["Cancellation Reason (Optional)"].get()
 
             if not booking_id:  # Ensure booking ID is entered
                 messagebox.showerror("Error", "Please enter a booking ID.")
                 return
 
-            api_url = f"http://127.0.0.1:8000/bookings/cancel/{booking_id}/"  # Correct API URL
+            # Construct the API URL with optional cancellation reason
+            api_url = f"http://127.0.0.1:8000/bookings/cancel/{booking_id}/"
+            if cancellation_reason:  # Append reason as a query parameter if provided
+                api_url += f"?cancellation_reason={requests.utils.quote(cancellation_reason)}"
 
             headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
 
@@ -881,13 +895,15 @@ class BookingManagement:
             if response.status_code == 200:
                 canceled_booking = response.json().get("canceled_booking")
                 messagebox.showinfo("Success", f"Booking ID {canceled_booking['id']} has been canceled successfully!\n"
-                                              f"Room Status: {canceled_booking['room_status']}\n"
-                                              f"Booking Status: {canceled_booking['status']}")
+                                            f"Room Status: {canceled_booking['room_status']}\n"
+                                            f"Booking Status: {canceled_booking['status']}\n"
+                                            f"Cancellation Reason: {canceled_booking.get('cancellation_reason', 'None')}")
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Cancellation failed."))
 
         except requests.exceptions.RequestException as e:
-            messagebox.showerror("Error", f"Request failed: {e}")       
+            messagebox.showerror("Error", f"Request failed: {e}")
+        
             
     
     

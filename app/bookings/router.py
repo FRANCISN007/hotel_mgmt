@@ -196,7 +196,7 @@ def list_bookings(
 
         # Build the base query for bookings
         query = db.query(booking_models.Booking).filter(
-            booking_models.Booking.status != "cancelled"  # Exclude cancelled bookings
+            booking_models.Booking.status != "cancel"  # Exclude cancelled bookings
         )
 
         if start_datetime:
@@ -206,9 +206,12 @@ def list_bookings(
 
         # Retrieve the bookings sorted by booking_date in descending order
         bookings = query.order_by(booking_models.Booking.booking_date.desc()).all()
+        
+        # Filter only checked-in bookings for total cost calculation
+        checked_in_bookings = [booking for booking in bookings if booking.status == "checked-in"]
 
         # Calculate total booking cost (excluding cancelled bookings)
-        total_booking_cost = sum(booking.booking_cost for booking in bookings)
+        total_booking_cost = sum(booking.booking_cost for booking in checked_in_bookings)
 
         # Format bookings for response
         formatted_bookings = [
@@ -631,10 +634,10 @@ def guest_checkout(
 @router.post("/cancel/{booking_id}/")
 def cancel_booking(
     booking_id: int,
+    cancellation_reason: str = Query(None), 
     db: Session = Depends(get_db),
     current_user: schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
@@ -669,6 +672,7 @@ def cancel_booking(
         # Update the booking status to 'cancelled'
         booking.status = "cancelled"
         booking.deleted = True  # Mark as soft deleted, indicating cancellation
+        booking.cancellation_reason = cancellation_reason  # Store the reason for cancellation
 
         # Update the room status to 'available'
         room = db.query(room_models.Room).filter(
@@ -685,6 +689,7 @@ def cancel_booking(
                 "room_number": booking.room_number,
                 "guest_name": booking.guest_name,
                 "status": booking.status,  # Showing the updated status as 'cancelled'
+                "cancellation_reason": booking.cancellation_reason,  # Showing the cancellation reason
                 "room_status": room.status if room else "N/A",  # Showing the updated room status
             },
         }
@@ -694,6 +699,3 @@ def cancel_booking(
             status_code=500,
             detail=f"An error occurred while canceling the booking: {str(e)}"
         )
-
-
-
