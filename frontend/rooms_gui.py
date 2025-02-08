@@ -284,7 +284,7 @@ class RoomManagement:
             data = {
                 "room_number": new_room_number,
                 "room_type": new_room_type,
-             "amount": new_amount,
+                "amount": new_amount,
                 "status": new_status
             }
 

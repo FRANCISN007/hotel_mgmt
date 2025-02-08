@@ -94,7 +94,7 @@ class BookingManagement:
 
         command()
 
-
+    
 
     def create_booking(self):
         self.clear_right_frame()

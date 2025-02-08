@@ -778,22 +778,39 @@ class PaymentManagement:
             return
 
         try:
-            api_url = f"http://127.0.0.1:8000/payments/void/{payment_id}"
+            # Fetch payment details first to check the status
+            check_url = f"http://127.0.0.1:8000/payments/{payment_id}"
             headers = {"Authorization": f"Bearer {self.token}"}
-
-            response = requests.put(api_url, headers=headers)
+            
+            response = requests.get(check_url, headers=headers)
 
             if response.status_code == 200:
-                data = response.json()
-                messagebox.showinfo("Success", data.get("message", "Payment has been voided."))
+                payment_data = response.json()
+                payment_status = payment_data.get("status", "").lower()  # Use "status" instead of "payment_status"
+
+                if payment_status == "voided":
+                    messagebox.showerror("Error", f"This Payment ID {payment_id} has already been voided before.")
+                    return  # Stop further execution
                 
-                # Fetch updated payment and booking data
-                self.fetch_voided_payment_by_id(payment_id)
+                # Proceed with voiding the payment if not already voided
+                api_url = f"http://127.0.0.1:8000/payments/void/{payment_id}"
+                void_response = requests.put(api_url, headers=headers)
+
+                if void_response.status_code == 200:
+                    data = void_response.json()
+                    messagebox.showinfo("Success", data.get("message", "Payment has been voided."))
+                    
+                    # Fetch updated payment and booking data
+                    self.fetch_voided_payment_by_id(payment_id)
+                else:
+                    messagebox.showerror("Error", void_response.json().get("detail", "Failed to void payment."))
             else:
-                messagebox.showerror("Error", response.json().get("detail", "Failed to void payment."))
+                messagebox.showerror("Error", response.json().get("detail", "Payment record not found."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
+
 
 
     def fetch_voided_payment_by_id(self, payment_id=None):
