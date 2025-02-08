@@ -70,7 +70,7 @@ class BookingManagement:
         for text, command in buttons:
             btn = tk.Button(self.left_frame, text=text, 
                             command=lambda t=text, c=command: self.update_subheading(t, c),
-                            width=17, font=("Helvetica", 10, "bold"), anchor="w", padx=10, 
+                            width=18, font=("Helvetica", 10, "bold"), anchor="w", padx=10, 
                             bg="#e0e0e0", fg="black")  # Light Gray Background (Same as Payment Management)
 
             # Bind hover effects (Same as Payment Management)
@@ -386,7 +386,7 @@ class BookingManagement:
             data = response.json()
 
             # Debugging: Print API response
-            print("API Response:", data)
+            #print("API Response:", data)
 
             # If the response contains bookings
             if response.status_code == 200 and "bookings" in data:

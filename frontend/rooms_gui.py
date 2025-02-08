@@ -168,7 +168,7 @@ class RoomManagement:
         amount_entry.pack()
 
         tk.Label(form, text="Status:").pack()
-        status_options = ["available", "checked-in", "reserved"]
+        status_options = ["available"]
         status_entry = ttk.Combobox(form, values=status_options, state="readonly")
         status_entry.pack()
         status_entry.current(0)
@@ -217,7 +217,7 @@ class RoomManagement:
         response = api_request(f"/rooms/{room_number}", "GET", token=self.token)
 
 # # Debugging: Print response to see what is returned
-        print("API Response:", response)
+        #print("API Response:", response)
 
 # Ensure the response contains valid data
         if not response or not isinstance(response, dict) or "room_number" not in response:
@@ -256,7 +256,7 @@ class RoomManagement:
 
     # Status Dropdown
         tk.Label(update_window, text="Select New Status:").pack()
-        status_options = ["available", "checked-in", "reserved"]
+        status_options = ["available"]
         status_entry = ttk.Combobox(update_window, values=status_options, state="readonly")
         status_entry.pack()
         status_entry.set(room_data["status"])  # Set current status as default
