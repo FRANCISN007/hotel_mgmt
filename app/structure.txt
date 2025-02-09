@@ -57,32 +57,74 @@ HOTEL MGMT SYS/
 
 
 
+📂 Updated Backend Structure
+bash
+Copy
+Edit
+HOTEL MGMT SYS/
+│
+├── app/                    
+│   ├── __init__.py
+│   ├── main.py
+│   ├── database.py
+│   ├── users/                
+│   ├── rooms/                
+│   ├── bookings/             
+│   ├── payments/             
+│   ├── license/              # 🔹 New module for license key verification
+│   │   ├── __init__.py
+│   │   ├── router.py         # API endpoints for license validation
+│   │   ├── models.py         # Database model for license keys
+│   │   ├── schemas.py        # Pydantic schemas for API requests
+│   │   ├── services.py       # Logic for license validation & expiration
+│
+├── env/                    
+│
+├── .gitignore
+├── requirements.txt        
+├── README.md  
+📌 Explanation (Backend)
+license/models.py → Defines license key database model.
+license/schemas.py → Defines request/response validation for API.
+license/router.py → API endpoints for validating the license key.
+license/services.py → Contains logic to generate, validate, and expire licenses.
+Frontend (Tkinter) - License Validation
+Since the frontend (Tkinter) will request the license key, create a license_gui.py file in frontend/.
+
+📂 Updated Frontend Structure
+bash
+Copy
+Edit
+HOTEL MGMT SYS/
+│
+├── frontend/              
+│   ├── __init__.py       
+│   ├── main.py           
+│   ├── users_gui.py      
+│   ├── rooms_gui.py      
+│   ├── bookings_gui.py   
+│   ├── payments_gui.py   
+│   ├── license_gui.py    # 🔹 New file for the license verification window
+│   ├── utils.py          
+│
+├── env/                 
+│
+├── .gitignore
+├── requirements.txt     
+├── README.md  
+📌 Explanation (Frontend)
+license_gui.py → Handles the license entry window in Tkinter.
+utils.py → Handles API calls to the backend.
+
+
+
+
+
 docker build -t hotel-management-system .
 docker run -p 8000:8000 hotel-management-system
 
 
 
-hotel-management-frontend/
-├── src/
-│   ├── api/
-│   │   ├── users.js       # API functions for users
-│   │   ├── rooms.js       # API functions for rooms
-│   │   ├── bookings.js    # API functions for bookings
-│   │   └── payments.js    # API functions for payments
-│   ├── components/
-│   │   ├── Users/
-│   │   │   ├── Login.jsx
-│   │   │   ├── Register.jsx
-│   │   │   └── UsersList.jsx
-│   │   ├── Rooms/
-│   │   ├── Bookings/
-│   │   └── Payments/
-│   ├── App.js
-│   ├── index.js
-│   └── styles.css
-├── .env                # Environment variables
-├── package.json
-└── README.md
 
 
 
@@ -95,26 +137,6 @@ cd hotel-management-frontend
 Install required dependencies (e.g., Axios for API requests):
 npm install axios
 
-
-hotel-management-frontend/
-│
-├── public/                 # Static files like index.html, images, etc.
-│   └── index.html
-│
-├── src/                    # Source files for the React app
-│   ├── assets/             # Images, fonts, styles
-│   ├── components/         # Reusable UI components (e.g., buttons, form inputs)
-│   ├── contexts/           # React context for state management (e.g., auth context)
-│   │   └── authContext.js  # Auth context to manage authentication state
-│   ├── pages/              # Pages like Login, Dashboard, etc.
-│   │   ├── LoginPage.js    # Login page component
-│   │   └── DashboardPage.js # Dashboard page component
-│   ├── App.js              # Main App component where routes and context are provided
-│   ├── index.js            # Entry point for React app, renders App component
-│   └── styles/             # Global styles
-│       └── main.css        # Base CSS file for the app
-│
-└── package.json            # Project dependencies and scripts
 
 
 

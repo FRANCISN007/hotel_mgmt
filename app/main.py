@@ -5,7 +5,10 @@ from app.users.router import router as user_router
 from app.rooms.router import router as rooms_router
 from app.bookings.router import router as bookings_router
 from app.payments.router import router as payments_router
+from app.license.router import router as license_router  # 🔹 Import the license router
 import uvicorn
+import logging
+import sys
 
 app = FastAPI(
     title="Hotel Management System",
@@ -27,13 +30,12 @@ app.include_router(user_router, prefix="/users", tags=["Users"])
 app.include_router(rooms_router, prefix="/rooms", tags=["Rooms"])
 app.include_router(bookings_router, prefix="/bookings", tags=["Bookings"])
 app.include_router(payments_router, prefix="/payments", tags=["Payments"])
+app.include_router(license_router, prefix="/license", tags=["License"])  # 🔹 Added License Router
 
 # Database initialization
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
 
-
-# Entry point for running directly
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, log_level="info", log_config=None)
