@@ -36,18 +36,31 @@ class Dashboard:
         header_frame = tk.Frame(self.root, bg="#004080", height=60)
         header_frame.pack(fill=tk.X)
 
-        title_label = tk.Label(header_frame, text="Hotel Management Dashboard", fg="white", 
-                               bg="#004080", font=("Helvetica", 18, "bold"))
+        title_label = tk.Label(header_frame, text="Hotel Management Dashboard", fg="white",
+                            bg="#004080", font=("Helvetica", 18, "bold"))
         title_label.pack(pady=10)
-        
+
         # User Role Display
         role_label = tk.Label(self.root, text=f"Logged in as: {self.user_role.capitalize()}",
-                              font=("Arial", 12, "italic"), fg="#333", bg="#f0f0f0")
+                            font=("Arial", 12, "italic"), fg="#333", bg="#f0f0f0")
         role_label.pack(pady=10)
 
         # Main Buttons Frame (Centered)
         button_frame = tk.Frame(self.root, bg="#f0f0f0")
         button_frame.pack(pady=20)
+
+        # Button Configurations
+        button_font = ("Helvetica", 14, "bold")
+        button_bg = "#0078D7"
+        hover_bg = "#005BBB"
+        text_color = "white"
+        shadow_color = "#003E80"
+
+        def on_enter(event):
+            event.widget.config(bg=hover_bg, relief="sunken")
+
+        def on_leave(event):
+            event.widget.config(bg=button_bg, relief="raised")
 
         buttons = [
             ("Manage Users", self.manage_users),
@@ -55,14 +68,46 @@ class Dashboard:
             ("Manage Bookings", self.manage_bookings),
             ("Manage Payments", self.manage_payments),
         ]
-        
+
         for text, command in buttons:
-            btn = ttk.Button(button_frame, text=text, command=command, width=25)
+            btn = tk.Button(button_frame, text=text, command=command,
+                            font=button_font, width=20, height=1,
+                            bg=button_bg, fg=text_color, bd=3, relief="raised",
+                            highlightbackground=shadow_color, highlightthickness=2)
             btn.pack(pady=10)
 
-        # Logout Button at Bottom
-        logout_button = ttk.Button(self.root, text="Logout", command=self.logout, width=20)
-        logout_button.pack(pady=30)
+            btn.bind("<Enter>", on_enter)
+            btn.bind("<Leave>", on_leave)
+
+            # Circular Logout Button (Smaller)
+        logout_frame = tk.Frame(self.root, bg="#f0f0f0")
+        logout_frame.pack(pady=20)
+
+        logout_button = tk.Button(logout_frame, text="Logout", command=self.logout,
+                                font=("Helvetica", 12, "bold"), width=10, height=0,  # Smaller size
+                                bg="#8B0000", fg="white", bd=3, relief="ridge",  # Shadow effect
+                                highlightbackground="black", highlightthickness=2,
+                                cursor="hand2")  # Changes cursor to hand on hover
+
+        # Making the button circular while keeping it small
+        logout_button.pack(ipadx=10, ipady=8)  # Adjusted padding for a compact circular shape
+
+        # Hover Effect for Logout Button (Color Change + Raised Effect)
+        def logout_hover_enter(event):
+            logout_button.config(bg="darkred", relief="sunken")  # Darker red with pressed effect
+
+        def logout_hover_leave(event):
+            logout_button.config(bg="#8B0000", relief="ridge")  # Back to original color with shadow
+
+        logout_button.bind("<Enter>", logout_hover_enter)
+        logout_button.bind("<Leave>", logout_hover_leave)
+
+
+
+
+
+
+
 
     def manage_users(self):
         if self.user_role != "admin":

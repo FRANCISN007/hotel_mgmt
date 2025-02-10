@@ -400,7 +400,7 @@ class BookingManagement:
             data = response.json()
 
             # ✅ Debugging: Print the API response
-            print("API Response:", data)
+            #print("API Response:", data)
 
             if response.status_code == 200:
                 if "bookings" in data and isinstance(data["bookings"], list):

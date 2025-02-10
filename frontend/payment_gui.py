@@ -394,15 +394,15 @@ class PaymentManagement:
         headers = {"Authorization": f"Bearer {self.token}"}
 
         # Debugging: Print the API request details
-        print("Fetching payments with parameters:", params)
+        #print("Fetching payments with parameters:", params)
 
         try:
             response = requests.get(api_url, params=params, headers=headers)
-            print("API Response Status:", response.status_code)  # Debugging
+            #print("API Response Status:", response.status_code)  # Debugging
 
             if response.status_code == 200:
                 data = response.json()
-                print("API Response Data:", data)  # Debugging
+                #print("API Response Data:", data)  # Debugging
 
                 if "payments" in data and data["payments"]:
                     self.payment_tree.delete(*self.payment_tree.get_children())  # Clear previous data
