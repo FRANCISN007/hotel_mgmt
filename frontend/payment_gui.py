@@ -5,6 +5,8 @@ import requests
 from utils import BASE_URL
 from datetime import datetime
 import pytz
+from tkinter import ttk, Tk
+import tkinter as tk
 
 class PaymentManagement:
     def __init__(self, root, token):
@@ -117,7 +119,7 @@ class PaymentManagement:
         self.entries = {}
 
         for i, label_text in enumerate(labels):
-            label = tk.Label(form_frame, text=label_text, font=("Helvetica", 14), bg="#ffffff")
+            label = tk.Label(form_frame, text=label_text, font=("Helvetica", 12), bg="#ffffff")
             label.grid(row=i, column=0, sticky="w", pady=5, padx=5)
 
             if label_text == "Payment Date:":
@@ -193,13 +195,17 @@ class PaymentManagement:
                 payment_details = data.get("payment_details")
                 if payment_details:
                     payment_id = payment_details.get("payment_id")  # Updated key
-                    messagebox.showinfo("Success", f"Payment created successfully!\nPayment ID: {payment_id}")
+                    created_by = payment_details.get("created_by")  # Retrieve created_by field
+                    messagebox.showinfo(
+                        "Success", 
+                        f"Payment created successfully!\nPayment ID: {payment_id}\nCreated By: {created_by}"
+                    )
                 else:
                     messagebox.showerror("Error", "Payment ID missing in response.")
             else:
                 messagebox.showerror("Error", data.get("detail", "Payment failed."))
         except Exception as e:
-            messagebox.showerror("Error", f"An unexpected error occurred: {e}")        
+            messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 
 
     def list_payments(self):
@@ -231,9 +237,16 @@ class PaymentManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
         
-        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed", "Balance Due", "Payment Method", "Payment Date", "Status", "Booking ID")
-        
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Arial", 12, "bold"))  # Set the font to bold
+
+        columns = (
+        "ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed",
+        "Balance Due", "Payment Method", "Payment Date", "Status", "Booking ID", "Created_by"
+        )
+
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
         
         for col in columns:
             self.tree.heading(col, text=col)
@@ -259,6 +272,9 @@ class PaymentManagement:
 
         try:
             response = requests.get(api_url, params=params, headers=headers)
+            
+            #print(response.json())  # Debugging: Check the response from the API
+
             if response.status_code == 200:
                 data = response.json()
 
@@ -276,9 +292,6 @@ class PaymentManagement:
                     messagebox.showinfo("No Results", "No payments found for the selected date range.")
                     total_amount = 0  # No payments means total is 0
                 else:
-                    # Filter out voided payments
-                    #payments = [payment for payment in payments if payment.get("status") != "voided"]
-
                     # Calculate the total excluding voided payments
                     total_amount = sum(payment.get("amount_paid", 0) for payment in payments if payment.get("status") != "voided")
 
@@ -294,6 +307,7 @@ class PaymentManagement:
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
                             payment.get("booking_id", ""),
+                            payment.get("created_by", "N/A"),  # Ensure there's a fallback if "created_by" is missing
                         ))
 
                 # Ensure any previous total label is removed before adding a new one
@@ -335,7 +349,7 @@ class PaymentManagement:
 
         # Bind the selection event to update self.payment_status_var
         def on_payment_status_change(event):
-            print("Selected Payment Status:", self.payment_status_var.get())  # Debugging: Check what is selected
+            #print("Selected Payment Status:", self.payment_status_var.get())  # Debugging: Check what is selected
             self.payment_status_var.set(status_menu.get())  # Ensure value updates
 
         status_menu.bind("<<ComboboxSelected>>", on_payment_status_change)  # Event binding
@@ -357,7 +371,7 @@ class PaymentManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
         
-        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount", "Balance Due", "Payment Method", "Payment Date", "Status", "Booking ID")
+        columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount", "Balance Due", "Payment Method", "Payment Date", "Status", "Booking ID", "Created_by")
         
         if hasattr(self, "payment_tree"):
             self.payment_tree.destroy()
@@ -427,6 +441,7 @@ class PaymentManagement:
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
                             payment.get("booking_id", ""),
+                            payment.get("created_by", ""),
                         ), tags=(tag,))
 
                     self.payment_tree.tag_configure("voided", foreground="red")
@@ -670,7 +685,7 @@ class PaymentManagement:
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = ("ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed", "Balance Due", 
-                "Payment Method", "Payment Date", "Status", "Booking ID")
+                "Payment Method", "Payment Date", "Status", "Booking ID", "Created_by")
 
         self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -719,6 +734,7 @@ class PaymentManagement:
                         payment_date = data.get("payment_date", "")
                         status = data.get("status", "").lower()  # Normalize status
                         booking_id = data.get("booking_id", "")
+                        created_by = data.get("created_by", "")
 
                         # ✅ Define tag for voided payments
                         tag = "voided" if status == "voided" else "normal"
@@ -727,7 +743,7 @@ class PaymentManagement:
                         self.search_tree.insert("", "end", values=(
                             payment_id, guest_name, room_number, amount_paid, 
                             discount_allowed, balance_due, payment_method, 
-                            payment_date, status, booking_id
+                            payment_date, status, booking_id, created_by,
                         ), tags=(tag,))
 
                         # ✅ Apply color formatting
@@ -773,7 +789,7 @@ class PaymentManagement:
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = ("Payment ID", "Guest Name", "Room Number", "Amount Paid", "Discount Allowed",
-                "Balance Due", "Payment Method", "Payment Date", "Payment Status", "Booking ID", "Booking Payment Status")
+                "Balance Due", "Payment Method", "Payment Date", "Payment Status", "Booking ID", "Booking Payment Status", "Created_by")
 
         self.void_payment_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -868,6 +884,7 @@ class PaymentManagement:
                         data.get("status", ""),  # Payment status (should be "voided")
                         data.get("booking_id", ""),
                         data.get("booking_payment_status", "N/A"),  # Display updated booking payment_status
+                        data.get("created_by", ""),
                     ))
                 else:
                     messagebox.showinfo("No Results", "No payment found with the provided ID.")

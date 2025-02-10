@@ -9,6 +9,8 @@ class BookingManagement:
         self.root = tk.Toplevel(root)
         self.root.title("Booking Management")
         self.root.geometry("1000x600")
+        
+        self.username = "current_user"
 
         # Get the position of the parent window (dashboard)
         parent_width = root.winfo_width()
@@ -115,13 +117,13 @@ class BookingManagement:
 
         self.entries = {}
         for i, (label, field_type) in enumerate(fields):
-            tk.Label(frame, text=label, font=("Arial", 15), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            tk.Label(frame, text=label, font=("Arial", 12), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
             if field_type == ttk.Combobox:
                 entry = field_type(frame, values=["checked-in", "reservation", "complimentary"], state="readonly", font=("Arial", 15))
             elif field_type == DateEntry:
-                entry = field_type(frame, font=("Arial", 15), width=12, background='darkblue', foreground='white', borderwidth=2)
+                entry = field_type(frame, font=("Arial", 12), width=12, background='darkblue', foreground='white', borderwidth=2)
             else:
-                entry = field_type(frame, font=("Arial", 15), width=25)
+                entry = field_type(frame, font=("Arial", 12), width=25)
             entry.grid(row=i+1, column=1, padx=10, pady=5)
             self.entries[label] = entry
 
@@ -132,6 +134,9 @@ class BookingManagement:
     def submit_booking(self):
         """Collects form data and sends a request to create a booking."""
         try:
+            # Assuming 'self.username' holds the current user's username or ID
+            created_by = self.username  # Adjust this based on how you store the current user's info
+
             booking_data = {
                 "room_number": self.entries["Room Number"].get(),
                 "guest_name": self.entries["Guest Name"].get(),
@@ -139,6 +144,7 @@ class BookingManagement:
                 "arrival_date": self.entries["Arrival Date"].get_date().strftime("%Y-%m-%d"),
                 "departure_date": self.entries["Departure Date"].get_date().strftime("%Y-%m-%d"),
                 "booking_type": self.entries["Booking Type"].get(),
+                "created_by": created_by,  # Add the created_by field to the data
             }
 
             if not all(booking_data.values()):  # Ensure all fields are filled
@@ -203,7 +209,7 @@ class BookingManagement:
 
         # Define Treeview columns
         columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost", "Created_by")
 
         # Create a Treeview widget
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
@@ -274,7 +280,9 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                       f"₦{float(booking.get('booking_cost', 0)) :,.2f}"
+                       f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
+                        booking.get("created_by", ""),
+                    
 
                     ))
 
@@ -324,7 +332,7 @@ class BookingManagement:
 
         # Bind the selection event to a function that updates self.status_var
         def on_status_change(event):
-            print("Selected Status:", self.status_var.get())  # Debugging: Check what is selected
+            #print("Selected Status:", self.status_var.get())  # Debugging: Check what is selected
             self.status_var.set(status_menu.get())  # Ensure value updates
 
         status_menu.bind("<<ComboboxSelected>>", on_status_change)  # Event binding
@@ -349,7 +357,7 @@ class BookingManagement:
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days",
-               "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+               "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost", "Created_by")
 
 
         # ✅ Prevent recreation of table on every call
@@ -385,7 +393,7 @@ class BookingManagement:
         selected_status = self.status_var.get().strip().lower()  # Ensure correct status retrieval
 
         # ✅ Debugging: Print the selected status before sending
-        print(f"Selected Status from Dropdown: '{selected_status}'")
+        #print(f"Selected Status from Dropdown: '{selected_status}'")
 
         params = {
             "status": selected_status,  # Ensure correct status is passed
@@ -431,6 +439,7 @@ class BookingManagement:
                                 booking.get("booking_date", ""),
                                 booking.get("payment_status", ""),
                                 f"₦{booking_cost:,.2f}",
+                                booking.get("created_by", ""),
                             ), tags=(tag,))
 
                         self.tree.tag_configure("cancelled", foreground="red")
@@ -558,7 +567,7 @@ class BookingManagement:
         table_frame.pack(fill=tk.BOTH, expand=True)
         
         columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost", "Created_by")
         
         self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -612,6 +621,7 @@ class BookingManagement:
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
                         f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                        booking.get("created_by", ""),
                     ))
                 else:
                     messagebox.showinfo("No Results", "No booking found with the provided ID.")
@@ -624,19 +634,19 @@ class BookingManagement:
     #def search_by_room(self):
     def search_booking_by_room(self):
         self.clear_right_frame()
-        
+
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True)
-        
+
         tk.Label(frame, text="Search Booking by Room Number", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
-        
+
         search_frame = tk.Frame(frame, bg="#ffffff")
         search_frame.pack(pady=5)
-        
+
         tk.Label(search_frame, text="Room Number:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
         self.room_number_entry = tk.Entry(search_frame, font=("Arial", 11))
         self.room_number_entry.grid(row=0, column=1, padx=5, pady=5)
-        
+
         # Date input fields
         tk.Label(search_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=0, padx=5, pady=5)
         self.start_date_entry = DateEntry(search_frame, font=("Arial", 11), width=12, background="darkblue", foreground="white", borderwidth=2)
@@ -645,73 +655,74 @@ class BookingManagement:
         tk.Label(search_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=1, column=2, padx=5, pady=5)
         self.end_date_entry = DateEntry(search_frame, font=("Arial", 11), width=12, background="darkblue", foreground="white", borderwidth=2)
         self.end_date_entry.grid(row=1, column=3, padx=5, pady=5)
-        
+
         search_btn = ttk.Button(
             search_frame, text="Search", command=self.fetch_booking_by_room
         )
         search_btn.grid(row=2, column=0, columnspan=4, padx=10, pady=10)
-        
+
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
                 "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
-        
+
         self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
             self.search_tree.heading(col, text=col)
             self.search_tree.column(col, width=120, anchor="center")
-        
+
         self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
+
         y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
         y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.search_tree.configure(yscroll=y_scroll.set)
-        
+
         x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
         x_scroll.pack(fill=tk.X)
         self.search_tree.configure(xscroll=x_scroll.set)
-        
-        
 
     def fetch_booking_by_room(self):
         room_number = self.room_number_entry.get().strip()
-        
-        # Ensure room number is not empty
+
         if not room_number:
             messagebox.showerror("Error", "Please enter a room number.")
             return
-        
-        # Ensure dates are selected
-        start_date = self.start_date_entry.get_date()  # Use the DateEntry widget for the start date
-        end_date = self.end_date_entry.get_date()  # Use the DateEntry widget for the end date
-
-        if not start_date or not end_date:
-            messagebox.showerror("Error", "Please select both start and end dates.")
-            return
-        
-        api_url = f"http://127.0.0.1:8000/bookings/room/{room_number}"
-
-        # Sending the start and end dates as parameters
-        params = {
-            "start_date": start_date.strftime("%Y-%m-%d"),
-            "end_date": end_date.strftime("%Y-%m-%d"),
-        }
-        
-        headers = {"Authorization": f"Bearer {self.token}"}
 
         try:
+            start_date = self.start_date_entry.get_date()
+            end_date = self.end_date_entry.get_date()
+
+            if not start_date or not end_date:
+                messagebox.showerror("Error", "Please select both start and end dates.")
+                return
+
+            # Ensure date format matches backend expectation
+            formatted_start_date = start_date.strftime("%Y-%m-%d")
+            formatted_end_date = end_date.strftime("%Y-%m-%d")
+
+            # Construct API URL
+            api_url = f"http://127.0.0.1:8000/bookings/room/{room_number}"
+            params = {"start_date": formatted_start_date, "end_date": formatted_end_date}
+            headers = {"Authorization": f"Bearer {self.token}"}
+
+            # Debugging output
+            print(f"Fetching bookings for Room: {room_number}, Start Date: {formatted_start_date}, End Date: {formatted_end_date}")
+            print(f"API URL: {api_url}, Headers: {headers}")
+
+            # Make the request
             response = requests.get(api_url, params=params, headers=headers)
-            print("API Response:", response.json())  # Debugging output
+            response_data = response.json()
 
+            # Print full API response for debugging
+            print("API Response:", response_data)
+
+            # Handle response
             if response.status_code == 200:
-                data = response.json()
+                if "bookings" in response_data and response_data["bookings"]:
+                    self.search_tree.delete(*self.search_tree.get_children())  # Clear table
 
-                # Ensure "bookings" exists before accessing it
-                if "bookings" in data and data["bookings"]:
-                    self.search_tree.delete(*self.search_tree.get_children())  # Clear table before inserting new data
-
-                    for booking in data["bookings"]:
+                    for booking in response_data["bookings"]:
                         self.search_tree.insert("", "end", values=(
                             booking.get("id", ""),
                             booking.get("room_number", ""),
@@ -724,15 +735,21 @@ class BookingManagement:
                             booking.get("phone_number", ""),
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
                         ))
                 else:
-                    messagebox.showinfo("No Results", "No bookings found for the selected filters.")
+                    messagebox.showinfo("No Results", f"No bookings found for Room {room_number} between {formatted_start_date} and {formatted_end_date}.")
             else:
-                messagebox.showinfo("info", response.json().get("detail", "Failed to retrieve bookings."))
+                error_message = response_data.get("detail", "Failed to retrieve bookings.")
+                messagebox.showerror("Error", error_message)
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Unexpected error: {e}")
+
+
 
     
     def update_subheading(self, text, command):

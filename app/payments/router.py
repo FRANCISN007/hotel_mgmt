@@ -206,6 +206,7 @@ def list_payments(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "booking_id": payment.booking_id,
+                "created_by": payment.created_by,
             })
 
             # Add to total_payment_amount if payment status is not "voided" or "cancelled"
@@ -273,6 +274,7 @@ def list_payments_by_status(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "booking_id": payment.booking_id,
+                "created_by": payment.created_by,
             }
             for payment in payments
         ]
@@ -335,6 +337,7 @@ def total_payment(
                 "payment_date": payment.payment_date.isoformat(),
                 "status": payment.status,
                 "booking_id": payment.booking_id,
+                "created_by": payment.created_by,
             })
 
         return {
@@ -505,6 +508,7 @@ def get_payment_by_id(
             "payment_date": payment.payment_date.isoformat(),
             "status": payment.status,
             "booking_id": payment.booking_id,
+            "created_by": payment.created_by,
         }
 
     except HTTPException as e:

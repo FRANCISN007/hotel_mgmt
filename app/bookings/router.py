@@ -184,6 +184,7 @@ def list_bookings(
                 "status": booking.status,
                 "payment_status": booking.payment_status,
                 "booking_cost": booking.booking_cost,
+                "created_by": booking.created_by,
             }
             for booking in bookings
         ]
@@ -251,6 +252,7 @@ def list_bookings_by_status(
                 "booking_type": booking.booking_type,
                 "payment_status": booking.payment_status,  # Includes payment status
                 "booking_cost": booking.booking_cost,
+                "created_by": booking.created_by,
             }
             for booking in bookings
         ]
@@ -306,6 +308,7 @@ def search_guest_name(
                 "status": booking.status,
                 "payment_status": booking.payment_status,
                 "booking_cost":booking.booking_cost,
+                "created_by": booking.created_by,
             })
 
         return {
@@ -351,9 +354,12 @@ def list_booking_by_id(
         "status": booking.status,
         "payment_status": booking.payment_status,
         "booking_cost": booking.booking_cost,
+        "created_by": booking.created_by,
     }
 
     return {"message": f"Booking details for ID {booking_id} retrieved successfully.", "booking": formatted_booking}
+
+
 
 
 @router.get("/room/{room_number}")
@@ -366,6 +372,7 @@ def list_bookings_by_room(
 ):
     """
     List all bookings associated with a specific room number within an optional date range.
+    The query ensures that any booking **active** within the specified dates is retrieved.
     """
     try:
         # Normalize room_number to lowercase
@@ -387,11 +394,14 @@ def list_bookings_by_room(
             func.lower(booking_models.Booking.room_number) == normalized_room_number
         )
 
-        # Apply date range filters based on booking_date
-        if start_date:
-            bookings_query = bookings_query.filter(booking_models.Booking.booking_date >= start_date)
-        if end_date:
-            bookings_query = bookings_query.filter(booking_models.Booking.booking_date <= end_date)
+        # Apply date range filter: Check if the booking **overlaps** with the given date range
+        if start_date and end_date:
+            bookings_query = bookings_query.filter(
+                and_(
+                    booking_models.Booking.arrival_date <= end_date,  # Booking starts before or on end_date
+                    booking_models.Booking.departure_date >= start_date  # Booking ends after or on start_date
+                )
+            )
 
         # Fetch bookings
         bookings = bookings_query.all()
@@ -399,7 +409,7 @@ def list_bookings_by_room(
         if not bookings:
             raise HTTPException(
                 status_code=404,
-                detail=f"No bookings found for room number {room_number}.",
+                detail=f"No bookings found for room number {room_number} within the selected date range.",
             )
 
         # Format the bookings for response
@@ -417,6 +427,7 @@ def list_bookings_by_room(
                 "status": booking.status,
                 "payment_status": booking.payment_status,
                 "booking_cost": booking.booking_cost,
+                "created_by": booking.created_by,
             }
             for booking in bookings
         ]
@@ -426,6 +437,7 @@ def list_bookings_by_room(
             "total_bookings": len(formatted_bookings),
             "bookings": formatted_bookings,
         }
+
     except Exception as e:
         logger.error(f"Error retrieving bookings for room {room_number}: {str(e)}")
         raise HTTPException(
@@ -647,6 +659,7 @@ def cancel_booking(
                 "status": booking.status,  # Showing the updated status as 'cancelled'
                 "cancellation_reason": booking.cancellation_reason,  # Showing the cancellation reason
                 "room_status": room.status if room else "N/A",  # Showing the updated room status
+                "created_by": booking.created_by,
             },
         }
     except Exception as e:
