@@ -117,7 +117,7 @@ class PaymentManagement:
         self.entries = {}
 
         for i, label_text in enumerate(labels):
-            label = tk.Label(form_frame, text=label_text, font=("Helvetica", 11), bg="#ffffff")
+            label = tk.Label(form_frame, text=label_text, font=("Helvetica", 14), bg="#ffffff")
             label.grid(row=i, column=0, sticky="w", pady=5, padx=5)
 
             if label_text == "Payment Date:":
@@ -324,12 +324,22 @@ class PaymentManagement:
         filter_frame = tk.Frame(frame, bg="#ffffff")
         filter_frame.pack(pady=5)
         
+        # Payment Status Dropdown
         tk.Label(filter_frame, text="Status:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
-        status_options = ["Payment Completed", "Payment Incomplete", "Voided"]
-        self.payment_status_var = tk.StringVar()
-        self.payment_status_var.set(status_options[0])  # Default selection
-        status_menu = ttk.Combobox(filter_frame, textvariable=self.payment_status_var, values=status_options, state="readonly")
+
+        payment_status_options = ["payment completed", "payment incomplete", "voided"]
+        self.payment_status_var = tk.StringVar(value=payment_status_options[0])  # Default selection
+
+        status_menu = ttk.Combobox(filter_frame, textvariable=self.payment_status_var, values=payment_status_options, state="readonly")
         status_menu.grid(row=0, column=1, padx=5, pady=5)
+
+        # Bind the selection event to update self.payment_status_var
+        def on_payment_status_change(event):
+            print("Selected Payment Status:", self.payment_status_var.get())  # Debugging: Check what is selected
+            self.payment_status_var.set(status_menu.get())  # Ensure value updates
+
+        status_menu.bind("<<ComboboxSelected>>", on_payment_status_change)  # Event binding
+
         
         tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
         self.payment_start_date = DateEntry(filter_frame, font=("Arial", 11))
@@ -341,6 +351,7 @@ class PaymentManagement:
         
         fetch_btn = ttk.Button(filter_frame, text="Fetch Payments", command=self.fetch_payments_by_status)
         fetch_btn.grid(row=0, column=6, padx=10, pady=5)
+        
         
         # Table Frame
         table_frame = tk.Frame(frame, bg="#ffffff")
@@ -370,39 +381,48 @@ class PaymentManagement:
         """Fetch payments based on status and date filters."""
         api_url = "http://127.0.0.1:8000/payments/by-status"
 
+        selected_status = self.payment_status_var.get().lower()  # Ensure it's lowercase if required by the backend
+        start_date = self.payment_start_date.get_date().strftime("%Y-%m-%d")
+        end_date = self.payment_end_date.get_date().strftime("%Y-%m-%d")
+
         params = {
-            "status": self.payment_status_var.get().lower(),
-            "start_date": self.payment_start_date.get_date().strftime("%Y-%m-%d"),
-            "end_date": self.payment_end_date.get_date().strftime("%Y-%m-%d"),
+            "status": selected_status,
+            "start_date": start_date,
+            "end_date": end_date,
         }
 
         headers = {"Authorization": f"Bearer {self.token}"}
 
+        # Debugging: Print the API request details
+        print("Fetching payments with parameters:", params)
+
         try:
             response = requests.get(api_url, params=params, headers=headers)
+            print("API Response Status:", response.status_code)  # Debugging
 
             if response.status_code == 200:
                 data = response.json()
+                print("API Response Data:", data)  # Debugging
 
                 if "payments" in data and data["payments"]:
-                    self.payment_tree.delete(*self.payment_tree.get_children())
-
-                    total_payment = 0  # Initialize total payment sum
+                    self.payment_tree.delete(*self.payment_tree.get_children())  # Clear previous data
+                    
+                    total_payment = 0  # Initialize total sum
 
                     for payment in data["payments"]:
                         is_voided = payment.get("status", "").lower() == "voided"
                         tag = "voided" if is_voided else "normal"
 
                         amount_paid = float(payment.get("amount_paid", 0))
-                        total_payment += amount_paid  # Add to total payment sum
+                        total_payment += amount_paid
 
                         self.payment_tree.insert("", "end", values=(
                             payment.get("payment_id", ""),
                             payment.get("guest_name", ""),
                             payment.get("room_number", ""),
-                            f"₦{amount_paid:,.2f}",  # Format amount_paid
-                            f"₦{float(payment.get('discount_allowed', 0)):,.2f}",  # Format discount_allowed
-                            f"₦{float(payment.get('balance_due', 0)):,.2f}",  # Format balance_due
+                            f"₦{amount_paid:,.2f}",
+                            f"₦{float(payment.get('discount_allowed', 0)):,.2f}",
+                            f"₦{float(payment.get('balance_due', 0)):,.2f}",
                             payment.get("payment_method", ""),
                             payment.get("payment_date", ""),
                             payment.get("status", ""),
@@ -412,7 +432,7 @@ class PaymentManagement:
                     self.payment_tree.tag_configure("voided", foreground="red")
                     self.payment_tree.tag_configure("normal", foreground="black")
 
-                    # Display total payment amount below the table
+                    # Display total payment sum below the table
                     if hasattr(self, "total_payment_label"):
                         self.total_payment_label.destroy()
 
@@ -427,7 +447,8 @@ class PaymentManagement:
                 else:
                     messagebox.showinfo("No Results", "No payments found for the selected filters.")
             else:
-                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
+                error_message = response.json().get("detail", "Failed to retrieve payments.")
+                messagebox.showerror("Error", f"API Error: {error_message}")
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")

@@ -67,8 +67,8 @@ class LicenseGUI(tk.Frame):  # Inherit from tk.Frame
             )
 
             # Check for response status code to debug error
-            print(f"Response status: {response.status_code}")
-            print(f"Response body: {response.text}")
+            #print(f"Response status: {response.status_code}")
+            #rint(f"Response body: {response.text}")
 
             response.raise_for_status()  # Check if the request was successful (status code 200)
             new_license = response.json()  # Parse the response JSON
@@ -76,7 +76,12 @@ class LicenseGUI(tk.Frame):  # Inherit from tk.Frame
             messagebox.showinfo("License Generated", f"New License Key: {new_license['key']}")
 
         except requests.exceptions.HTTPError as err:
-            messagebox.showerror("Error", f"Error generating license: {err}")
+        # ✅ Check for incorrect password response
+            if response.status_code == 401:  # Assuming 401 is returned for wrong password
+                messagebox.showerror("Error", "Wrong password entered.")
+            else:
+                messagebox.showerror("Error", "Wrong password entered.")
+
         except Exception as e:
             messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 
@@ -107,7 +112,7 @@ class LicenseGUI(tk.Frame):  # Inherit from tk.Frame
                 messagebox.showwarning("Invalid License", result["message"])
 
         except requests.exceptions.HTTPError as err:
-            messagebox.showerror("Error", f"Error verifying license: {err}")
+            messagebox.showerror("Error","Invalid license key")
         except Exception as e:
             messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 

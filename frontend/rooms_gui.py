@@ -24,8 +24,8 @@ class RoomManagement:
         self.fetch_rooms()
 
         style = ttk.Style()
-        style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
-        style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
+        style.configure("Treeview.Heading", font=("Helvetica", 18, "bold"))
+        style.configure("Treeview", font=("Helvetica", 18))  # Increase row font size
 
     def natural_sort_key(self, room):
         """Sort room numbers correctly, handling both numeric and alphanumeric values."""

@@ -115,13 +115,13 @@ class BookingManagement:
 
         self.entries = {}
         for i, (label, field_type) in enumerate(fields):
-            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            tk.Label(frame, text=label, font=("Arial", 15), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
             if field_type == ttk.Combobox:
-                entry = field_type(frame, values=["checked-in", "reservation", "complimentary"], state="readonly", font=("Arial", 11))
+                entry = field_type(frame, values=["checked-in", "reservation", "complimentary"], state="readonly", font=("Arial", 15))
             elif field_type == DateEntry:
-                entry = field_type(frame, font=("Arial", 11), width=12, background='darkblue', foreground='white', borderwidth=2)
+                entry = field_type(frame, font=("Arial", 15), width=12, background='darkblue', foreground='white', borderwidth=2)
             else:
-                entry = field_type(frame, font=("Arial", 11), width=25)
+                entry = field_type(frame, font=("Arial", 15), width=25)
             entry.grid(row=i+1, column=1, padx=10, pady=5)
             self.entries[label] = entry
 
@@ -305,40 +305,52 @@ class BookingManagement:
         # Create a new frame for the table with scrollable functionality
         frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
         frame.pack(fill=tk.BOTH, expand=True)
-        
+
         tk.Label(frame, text="List Bookings by Status", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
-        
+
+        # Filter Frame
         filter_frame = tk.Frame(frame, bg="#ffffff")
         filter_frame.pack(pady=5)
-        
+
+        # Status Dropdown
+       # Status Dropdown
         tk.Label(filter_frame, text="Status:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+
         status_options = ["checked-in", "reserved", "checked-out", "cancelled", "complimentary"]
-        self.status_var = tk.StringVar()
-        self.status_var.set(status_options[0])  # Default to first status
+        self.status_var = tk.StringVar(value=status_options[0])  # Default selection
+
         status_menu = ttk.Combobox(filter_frame, textvariable=self.status_var, values=status_options, state="readonly")
         status_menu.grid(row=0, column=1, padx=5, pady=5)
-        
+
+        # Bind the selection event to a function that updates self.status_var
+        def on_status_change(event):
+            print("Selected Status:", self.status_var.get())  # Debugging: Check what is selected
+            self.status_var.set(status_menu.get())  # Ensure value updates
+
+        status_menu.bind("<<ComboboxSelected>>", on_status_change)  # Event binding
+
+
+        # Start Date
         tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
         self.start_date = DateEntry(filter_frame, font=("Arial", 11))
         self.start_date.grid(row=0, column=3, padx=5, pady=5)
-        
+
+        # End Date
         tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=4, padx=5, pady=5)
         self.end_date = DateEntry(filter_frame, font=("Arial", 11))
         self.end_date.grid(row=0, column=5, padx=5, pady=5)
-        
-        fetch_btn = ttk.Button(
-            filter_frame,
-            text="Fetch Bookings",
-            command=self.fetch_bookings_by_status
-        )
+
+        # Fetch Button
+        fetch_btn = ttk.Button(filter_frame, text="Fetch Bookings", command=self.fetch_bookings_by_status)
         fetch_btn.grid(row=0, column=6, padx=10, pady=5)
-        
+
         # Table Frame
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
-        
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+
+        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days",
+               "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+
 
         # ✅ Prevent recreation of table on every call
         if hasattr(self, "tree"):
@@ -370,73 +382,75 @@ class BookingManagement:
         """Fetch bookings based on status and date filters."""
         api_url = "http://127.0.0.1:8000/bookings/status"
 
+        selected_status = self.status_var.get().strip().lower()  # Ensure correct status retrieval
+
+        # ✅ Debugging: Print the selected status before sending
+        print(f"Selected Status from Dropdown: '{selected_status}'")
+
         params = {
-            "status": self.status_var.get().strip(),
+            "status": selected_status,  # Ensure correct status is passed
             "start_date": self.start_date.get_date().strftime("%Y-%m-%d"),
             "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
         }
 
         headers = {"Authorization": f"Bearer {self.token}"}
 
-        # Debugging: Print request parameters
-        #print("Request Params:", params)
-
         try:
             response = requests.get(api_url, params=params, headers=headers)
             data = response.json()
 
-            # Debugging: Print API response
-            #print("API Response:", data)
+            # ✅ Debugging: Print the API response
+            print("API Response:", data)
 
-            # If the response contains bookings
-            if response.status_code == 200 and "bookings" in data:
-                bookings = data["bookings"]
+            if response.status_code == 200:
+                if "bookings" in data and isinstance(data["bookings"], list):
+                    bookings = data["bookings"]
 
-                if bookings:
                     self.tree.delete(*self.tree.get_children())  # Clear previous data
 
                     total_cost = 0  # Initialize total booking cost
 
-                    for booking in bookings:
-                        is_canceled = booking.get("status", "").lower() == "cancelled"
-                        tag = "cancelled" if is_canceled else "normal"
+                    if bookings:
+                        for booking in bookings:
+                            is_canceled = booking.get("status", "").lower() == "cancelled"
+                            tag = "cancelled" if is_canceled else "normal"
 
-                        # Convert booking_cost to float and add to total cost
-                        booking_cost = float(booking.get("booking_cost", 0))
-                        total_cost += booking_cost
+                            booking_cost = float(booking.get("booking_cost", 0))
+                            total_cost += booking_cost
 
-                        self.tree.insert("", "end", values=(
-                            booking.get("id", ""),
-                            booking.get("room_number", ""),
-                            booking.get("guest_name", ""),
-                            booking.get("arrival_date", ""),
-                            booking.get("departure_date", ""),
-                            booking.get("status", ""),
-                            booking.get("number_of_days", ""),
-                            booking.get("booking_type", ""),
-                            booking.get("phone_number", ""),
-                            booking.get("booking_date", ""),
-                            booking.get("payment_status", ""),
-                            f"₦{booking_cost:,.2f}",
-                        ), tags=(tag,))
+                            self.tree.insert("", "end", values=(
+                                booking.get("id", ""),
+                                booking.get("room_number", ""),
+                                booking.get("guest_name", ""),
+                                booking.get("arrival_date", ""),
+                                booking.get("departure_date", ""),
+                                booking.get("status", ""),
+                                booking.get("number_of_days", ""),
+                                booking.get("booking_type", ""),
+                                booking.get("phone_number", ""),
+                                booking.get("booking_date", ""),
+                                booking.get("payment_status", ""),
+                                f"₦{booking_cost:,.2f}",
+                            ), tags=(tag,))
 
-                    # Configure the treeview to display canceled bookings in red text
-                    self.tree.tag_configure("cancelled", foreground="red")  # Text color red
-                    self.tree.tag_configure("normal", foreground="black")  # Text color black
+                        self.tree.tag_configure("cancelled", foreground="red")
+                        self.tree.tag_configure("normal", foreground="black")
+                        self.total_cost_label.config(text=f"Total Booking Cost: ₦{total_cost:,.2f}")
+                    else:
+                        self.tree.delete(*self.tree.get_children())
+                        self.total_cost_label.config(text="Total Booking Cost: ₦0.00")
+                        messagebox.showinfo("No Results", "No bookings found for the selected filters.")
 
-                    # ✅ Update total booking cost label
-                    self.total_cost_label.config(text=f"Total Booking Cost: ₦{total_cost:,.2f}")
+                elif "message" in data:
+                    messagebox.showinfo("Info", data["message"])
+                    self.tree.delete(*self.tree.get_children())
+                    self.total_cost_label.config(text="Total Booking Cost: ₦0.00")
 
-                else:
-                    self.tree.delete(*self.tree.get_children())  # Clear table if no results
-                    self.total_cost_label.config(text="Total Booking Cost: ₦0.00")  # Reset total cost label
-                    messagebox.showinfo("No Results", "No bookings found for the selected filters.")
             else:
-                messagebox.showinfo("Wrong Details", response.json().get("detail", "Failed to retrieve bookings."))
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve bookings."))
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
-
 
             
     
