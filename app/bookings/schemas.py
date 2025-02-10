@@ -20,6 +20,7 @@ class BookingSchema(BaseModel):
     phone_number: str
     #payment_status: Optional[str] = "pending"  # Optional for check-ins
     number_of_days: Optional[int] = None  # Optional for input
+    created_by: Optional[str] = None  # Remove manual input, get from `current_user`
     #booking_cost: Optional[float]
     #booking_date: datetime
 
@@ -59,6 +60,7 @@ class BookingSchemaResponse(BaseModel):
     booking_cost: Optional[float] = None
     is_checked_out: Optional[bool] = False
     cancellation_reason: Optional[str] = None
+    created_by: str  # Add this field
 
     class Config:
         orm_mode = True

@@ -17,6 +17,7 @@ class Payment(Base):
     payment_method = Column(String)
     payment_date = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="pending")
+    created_by = Column(String, nullable=False)  # Track who created the booking
     
     # Foreign key relationship to the booking
     booking = relationship("Booking", back_populates="payments")

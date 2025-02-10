@@ -32,10 +32,9 @@ def create_payment(
     """
     Create a new payment for a booking, considering discounts and payment history.
     """
-    # Get the current system time as a timezone-aware datetime
     transaction_time = datetime.now(timezone.utc)
 
-    # Ensure payment_date in the request is timezone-aware
+    # Validate that payment_date is timezone-aware
     if payment_request.payment_date.tzinfo is None:
         raise HTTPException(
             status_code=400,
@@ -72,29 +71,33 @@ def create_payment(
             status_code=400,
             detail=f"Booking ID {booking_id} must be checked-in or reserved to make a payment.",
         )
+    
+    # Prevent duplicate payments by checking for existing complete payments
+    if booking_record.payment_status == "payment completed":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Booking ID {booking_id} already has a completed payment."
+        )
 
-    # Calculate the total due based on the number of days and room price (exclude booking cost)
-    num_days = booking_record.number_of_days
-    total_due = (num_days * room.amount)  # Exclude booking cost if not needed
+    # Calculate total due based on number of days and room price
+    total_due = booking_record.number_of_days * room.amount
 
-    # Fetch all previous payments for this booking
+    # Fetch previous valid payments for this booking
     existing_payments = db.query(payment_models.Payment).filter(
         payment_models.Payment.booking_id == booking_id,
         payment_models.Payment.status != "voided",
     ).all()
 
-    # Calculate the total amount already paid, considering any previous discount allowed
+    # Compute total amount already paid
     total_existing_payment = sum(
         payment.amount_paid + (payment.discount_allowed or 0) for payment in existing_payments
     )
 
-    # Add the new payment to the total existing payments
+    # Calculate new total payment after the current transaction
     new_total_payment = total_existing_payment + payment_request.amount_paid + (payment_request.discount_allowed or 0)
+    balance_due = total_due - new_total_payment
 
-    # Calculate balance due
-    balance_due = total_due - new_total_payment  # Can be positive or negative
-
-    # Determine payment status based on balance due
+    # Determine payment status
     if balance_due > 0:
         status = "payment incomplete"
     elif balance_due < 0:
@@ -103,21 +106,22 @@ def create_payment(
         status = "payment completed"
 
     try:
-        # Create the new payment with system-generated payment_date
+        # Create the new payment record
         new_payment = crud.create_payment(
             db=db,
             payment=payment_schemas.PaymentCreateSchema(
                 amount_paid=payment_request.amount_paid,
                 discount_allowed=payment_request.discount_allowed,
                 payment_method=payment_request.payment_method,
-                payment_date=payment_request.payment_date.isoformat(),  # System-generated payment_date in UTC
+                payment_date=payment_request.payment_date.isoformat(),
             ),
             booking_id=booking_id,
             balance_due=balance_due,
             status=status,
+             created_by=current_user.username,
         )
 
-        # Update the booking payment status
+        # Update booking payment status
         booking_record.payment_status = status
         db.commit()
 
@@ -130,6 +134,7 @@ def create_payment(
                 "payment_date": new_payment.payment_date,
                 "balance_due": new_payment.balance_due,
                 "status": new_payment.status,
+                "created_by": current_user.username,  # Track who processed the payment
             },
         }
 
@@ -137,7 +142,7 @@ def create_payment(
         db.rollback()
         logger.error(f"Error creating payment: {e}")
         raise HTTPException(status_code=500, detail="Error creating payment.")
-    
+
     
 
 

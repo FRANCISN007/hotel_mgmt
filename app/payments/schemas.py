@@ -9,6 +9,7 @@ class PaymentCreateSchema(BaseModel):
     discount_allowed: Optional[float]   # New discount field, default to 0.0
     payment_method: str  # E.g., 'credit_card', 'cash', 'bank_transfer'
     payment_date: datetime
+    created_by: Optional[str] = None  # Remove manual input, get from `current_user`
     #booking_cost: Optional[float]  # Update booking cost if provided
     class Config:
         orm_mode = True

@@ -26,6 +26,7 @@ class Booking(Base):
     is_checked_out = Column(Boolean, default=False)
     cancellation_reason = Column(String, nullable=True)
     deleted = Column(Boolean, default=False)  # Soft delete flag
+    created_by = Column(String, nullable=False)  # Track who created the booking
 
     # Relationships
     room = relationship("Room", back_populates="bookings")

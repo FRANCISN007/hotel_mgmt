@@ -18,7 +18,8 @@ def create_payment(
     payment: payment_schemas.PaymentCreateSchema,
     booking_id: int,
     balance_due: float,
-    status: str
+    status: str,
+    created_by: str
 ):
     """
     Create a new payment for a booking and associate it with the booking.
@@ -39,7 +40,9 @@ def create_payment(
         discount_allowed=payment.discount_allowed,
         payment_method=payment.payment_method,
         payment_date=payment.payment_date.isoformat(),
-        status=status
+        status=status,
+        created_by=created_by  # Track who created the payment
+        
     )
 
     # Step 3: Add and commit the payment to the database
