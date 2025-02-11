@@ -4,6 +4,11 @@ import pandas as pd
 import subprocess
 from tkinter import filedialog, messagebox
 
+from openpyxl import load_workbook
+from openpyxl.styles import Font, Alignment
+
+
+
 TOKEN_FILE = "token.txt"
 API_BASE_URL = "http://127.0.0.1:8000"  # Update this if needed
 BASE_URL = f"{API_BASE_URL}/bookings"  # For booking-related endpoints
@@ -81,31 +86,55 @@ def perform_booking_action(endpoint, data, token):
     except Exception as e:
         return {"error": str(e)}
     
-def export_to_excel(data, default_filename="report.xlsx"):
-    """Export data (list of dictionaries) to an Excel file."""
+
+
+def export_to_excel(data, filename="payments_report.xlsx"):
+    """Export data to a well-formatted Excel file."""
+    
     if not data:
-        messagebox.showwarning("No Data", "No data available to export.")
-        return
-
-    file_path = filedialog.asksaveasfilename(
-        defaultextension=".xlsx",
-        filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")],
-        title="Save Report As",
-        initialfile=default_filename
-    )
-
-    if not file_path:
-        return  # User canceled
+        return None  # No data to export
 
     try:
         df = pd.DataFrame(data)
-        df.to_excel(file_path, index=False)
-        messagebox.showinfo("Success", f"Report saved as {file_path}")
-        return file_path
+
+        # Ensure filename has .xlsx extension
+        if not filename.endswith(".xlsx"):
+            filename += ".xlsx"
+
+        # Write to Excel with formatting
+        df.to_excel(filename, index=False, sheet_name="Payments")
+
+        # Load the workbook and sheet to apply styling
+        wb = load_workbook(filename)
+        ws = wb["Payments"]
+
+        # Format header row: Bold and Centered
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Auto-adjust column width based on content
+        for col in ws.columns:
+            max_length = 0
+            col_letter = col[0].column_letter  # Get the column letter (A, B, C...)
+            for cell in col:
+                try:
+                    if cell.value:
+                        max_length = max(max_length, len(str(cell.value)))
+                except:
+                    pass
+            adjusted_width = max_length + 2
+            ws.column_dimensions[col_letter].width = adjusted_width
+
+        # Save the formatted file
+        wb.save(filename)
+
+        return filename
 
     except Exception as e:
-        messagebox.showerror("Error", f"Failed to export: {str(e)}")
+        print(f"Error exporting to Excel: {e}")
         return None
+
 
 def print_excel(file_path):
     """Open and print an Excel file."""

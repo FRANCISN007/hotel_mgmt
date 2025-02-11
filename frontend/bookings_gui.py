@@ -7,6 +7,8 @@ from utils import BASE_URL
 from tkinter import Tk, Button, messagebox
 from utils import export_to_excel, print_excel
 import requests
+import os
+import pandas as pd
 
 
 
@@ -98,10 +100,36 @@ class BookingManagement:
             messagebox.showerror("Error", f"API Error: {str(e)}")
 
     def export_report(self):
-        """Export bookings report to Excel"""
-        file_path = export_to_excel(self.bookings_data, "bookings_report.xlsx")
-        if file_path:
+        """Export only the visible bookings from the Treeview to Excel"""
+        if not hasattr(self, "tree") or not self.tree.get_children():
+            messagebox.showwarning("Warning", "No data available to export.")
+            return
+
+        # Extract column headers
+        columns = [self.tree.heading(col)["text"] for col in self.tree["columns"]]
+
+        # Extract row data from Treeview
+        rows = []
+        for item in self.tree.get_children():
+            row_data = [self.tree.item(item)["values"][i] for i in range(len(columns))]
+            rows.append(row_data)
+
+        # Convert to DataFrame for better formatting
+        df = pd.DataFrame(rows, columns=columns)
+
+        # Save in user's Downloads folder
+        download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        file_path = os.path.join(download_dir, "bookings_report.xlsx")
+
+        try:
+            df.to_excel(file_path, index=False)  # Export properly formatted Excel
             self.last_exported_file = file_path
+            messagebox.showinfo("Success", f"Report exported successfully!\nSaved at: {file_path}")
+        except PermissionError:
+            messagebox.showerror("Error", "Permission denied! Close the file if it's open and try again.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error exporting to Excel: {e}")
+
 
     def print_report(self):
         """Print the exported Excel report"""
