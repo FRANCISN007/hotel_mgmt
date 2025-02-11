@@ -8,11 +8,18 @@ import pytz
 from tkinter import ttk, Tk
 import tkinter as tk
 
+from tkinter import Tk, Button, messagebox
+from utils import export_to_excel, print_excel
+import requests
+
 class PaymentManagement:
     def __init__(self, root, token):
         self.root = tk.Toplevel(root)
         self.root.title("Payment Management")
         self.root.geometry("1000x600")
+        
+        self.payments_data = []  # ✅ Initialize payments_data to prevent AttributeError
+        self.last_exported_file = None
 
         # Get the position of the parent window (dashboard)
         parent_width = root.winfo_width()
@@ -44,6 +51,17 @@ class PaymentManagement:
         self.header_label = tk.Label(self.header_frame, text="Payment Management", 
                                      fg="black", bg="#d9d9d9", font=("Helvetica", 16, "bold"))
         self.header_label.pack(pady=10)
+        
+        self.fetch_and_display_paymentss()
+        # Export and Print Buttons in Header Section
+        self.export_button = tk.Button(self.header_frame, text="Export to Excel", 
+                               command=self.export_report, bg="#007BFF", fg="white", font=("Helvetica", 10, "bold"))
+        self.export_button.pack(side=tk.RIGHT, padx=10, pady=5)
+
+        self.print_button = tk.Button(self.header_frame, text="Print Report", 
+                              command=self.print_report, bg="#28A745", fg="white", font=("Helvetica", 10, "bold"))
+        self.print_button.pack(side=tk.RIGHT, padx=10, pady=5)
+
 
         # Sidebar Section (Lighter gray to match the theme)
         self.left_frame = tk.Frame(self.root, bg="#d9d9d9", width=200)
@@ -82,6 +100,40 @@ class PaymentManagement:
 
             btn.pack(pady=5, padx=10, anchor="w", fill="x")
             self.buttons.append(btn)
+            
+            
+    def fetch_and_display_paymentss(self):
+        """Fetch booking data from the API"""
+        url = "http://127.0.0.1:8000/payments/list"
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                self.payments_data = response.json()
+            else:
+                self.payments_data = []
+                messagebox.showerror("Error", "Failed to fetch payments.")
+
+        except Exception as e:
+            self.payments_data = []
+            messagebox.showerror("Error", f"API Error: {str(e)}")
+
+    def export_report(self):
+        """Export bookings report to Excel"""
+        file_path = export_to_excel(self.payments_data, "payments_report.xlsx")
+        if file_path:
+            self.last_exported_file = file_path
+
+    def print_report(self):
+        """Print the exported Excel report"""
+        if hasattr(self, 'last_exported_file') and self.last_exported_file:
+            print_excel(self.last_exported_file)
+        else:
+            messagebox.showwarning("Warning", "Please export the report before printing.")
+
+       
+            
 
     def update_subheading(self, text, command):
         """Updates the subheading label and calls the selected function."""

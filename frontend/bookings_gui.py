@@ -4,6 +4,12 @@ from tkcalendar import DateEntry
 import requests
 from utils import BASE_URL
 
+from tkinter import Tk, Button, messagebox
+from utils import export_to_excel, print_excel
+import requests
+
+
+
 class BookingManagement:
     def __init__(self, root, token):
         self.root = tk.Toplevel(root)
@@ -11,51 +17,34 @@ class BookingManagement:
         self.root.geometry("1000x600")
         
         self.username = "current_user"
-
-        # Get the position of the parent window (dashboard)
-        parent_width = root.winfo_width()
-        parent_height = root.winfo_height()
-
-        # Position the BookingManagement window just behind the dashboard heading
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
-
-        # Calculate the position to center the BookingManagement window below the dashboard heading
-        position_top = 65  # Fixed space for the header of the dashboard
-        position_left = (screen_width - 1000) // 2  # Center the window horizontally
-
-        # Set the position
-        self.root.geometry(f"1000x600+{position_left}+{position_top}")
-
         self.token = token
-        self.root.configure(bg="#f0f0f0")  # Very Light Gray (Same as Payment Management)
+        self.root.configure(bg="#f0f0f0")
 
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
-        style.configure("Treeview", font=("Helvetica", 11))  # Increase row font size
+        style.configure("Treeview", font=("Helvetica", 11))
 
         # Header Section
         self.header_frame = tk.Frame(self.root, bg="#d9d9d9", height=50)
         self.header_frame.pack(fill=tk.X)
-
         self.header_label = tk.Label(self.header_frame, text="Booking Management", 
                                      fg="black", bg="#d9d9d9", font=("Helvetica", 16, "bold"))
         self.header_label.pack(pady=10)
 
-        # Sidebar Section 
+        # Sidebar Section
         self.left_frame = tk.Frame(self.root, bg="#d9d9d9", width=200)
         self.left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
-        # Right Section (Light Gray Background)
+        # Right Section
         self.right_frame = tk.Frame(self.root, bg="#f0f0f0", width=700)
         self.right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Subheading for dynamic section title 
+        # Subheading for dynamic section title
         self.subheading_label = tk.Label(self.right_frame, text="Select an option", 
                                          font=("Helvetica", 12, "bold"), fg="#333333", bg="#f0f0f0")
         self.subheading_label.pack(pady=10)
 
-        # Booking action buttons 
+        # Booking action buttons
         self.buttons = []
         buttons = [
             ("➕Create Booking", self.create_booking),
@@ -73,14 +62,53 @@ class BookingManagement:
             btn = tk.Button(self.left_frame, text=text, 
                             command=lambda t=text, c=command: self.update_subheading(t, c),
                             width=18, font=("Helvetica", 10, "bold"), anchor="w", padx=10, 
-                            bg="#e0e0e0", fg="black")  # Light Gray Background (Same as Payment Management)
-
-            # Bind hover effects (Same as Payment Management)
-            btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  # Hover effect
-            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#e0e0e0", fg="black"))  # Restore default
-
+                            bg="#e0e0e0", fg="black")
+            btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#007BFF", fg="white"))  
+            btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#e0e0e0", fg="black"))
             btn.pack(pady=5, padx=10, anchor="w", fill="x")
             self.buttons.append(btn)
+            
+        self.fetch_and_display_bookings()
+
+        # ✅ Attach buttons to self.right_frame (Booking Management window)
+        # Export and Print Buttons in Header Section
+        self.export_button = tk.Button(self.header_frame, text="Export to Excel", 
+                               command=self.export_report, bg="#007BFF", fg="white", font=("Helvetica", 10, "bold"))
+        self.export_button.pack(side=tk.RIGHT, padx=10, pady=5)
+
+        self.print_button = tk.Button(self.header_frame, text="Print Report", 
+                              command=self.print_report, bg="#28A745", fg="white", font=("Helvetica", 10, "bold"))
+        self.print_button.pack(side=tk.RIGHT, padx=10, pady=5)
+
+    def fetch_and_display_bookings(self):
+        """Fetch booking data from the API"""
+        url = "http://127.0.0.1:8000/bookings/list"
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                self.bookings_data = response.json()
+            else:
+                self.bookings_data = []
+                messagebox.showerror("Error", "Failed to fetch bookings.")
+
+        except Exception as e:
+            self.bookings_data = []
+            messagebox.showerror("Error", f"API Error: {str(e)}")
+
+    def export_report(self):
+        """Export bookings report to Excel"""
+        file_path = export_to_excel(self.bookings_data, "bookings_report.xlsx")
+        if file_path:
+            self.last_exported_file = file_path
+
+    def print_report(self):
+        """Print the exported Excel report"""
+        if hasattr(self, 'last_exported_file') and self.last_exported_file:
+            print_excel(self.last_exported_file)
+        else:
+            messagebox.showwarning("Warning", "Please export the report before printing.")
 
     def update_subheading(self, text, command):
         """Updates the subheading label and calls the selected function."""

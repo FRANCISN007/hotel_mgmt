@@ -1,5 +1,8 @@
 import os
 import requests
+import pandas as pd
+import subprocess
+from tkinter import filedialog, messagebox
 
 TOKEN_FILE = "token.txt"
 API_BASE_URL = "http://127.0.0.1:8000"  # Update this if needed
@@ -77,5 +80,45 @@ def perform_booking_action(endpoint, data, token):
         return response.json()
     except Exception as e:
         return {"error": str(e)}
+    
+def export_to_excel(data, default_filename="report.xlsx"):
+    """Export data (list of dictionaries) to an Excel file."""
+    if not data:
+        messagebox.showwarning("No Data", "No data available to export.")
+        return
+
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".xlsx",
+        filetypes=[("Excel Files", "*.xlsx"), ("All Files", "*.*")],
+        title="Save Report As",
+        initialfile=default_filename
+    )
+
+    if not file_path:
+        return  # User canceled
+
+    try:
+        df = pd.DataFrame(data)
+        df.to_excel(file_path, index=False)
+        messagebox.showinfo("Success", f"Report saved as {file_path}")
+        return file_path
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to export: {str(e)}")
+        return None
+
+def print_excel(file_path):
+    """Open and print an Excel file."""
+    if not os.path.exists(file_path):
+        messagebox.showerror("Error", "File not found!")
+        return
+
+    try:
+        os.startfile(file_path, "print")  # Windows
+        # subprocess.run(["lp", file_path])  # Mac/Linux alternative
+        messagebox.showinfo("Printing", "Report is being printed.")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to print: {str(e)}")
     
    
