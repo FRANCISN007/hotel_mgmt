@@ -4,6 +4,7 @@ from users_gui import UserManagement
 from rooms_gui import RoomManagement
 from bookings_gui import BookingManagement
 from payment_gui import PaymentManagement
+from event_gui import EventManagement  # Import Event Management
 from utils import load_token, get_user_role
 from tkinter import messagebox  # For access control popups
 
@@ -11,7 +12,7 @@ class Dashboard:
     def __init__(self, root, token):
         self.root = root
         self.token = token
-        self.root.title("Dashboard - Hotel Management System")
+        self.root.title("Dashboard - Hotel & Event Management System")
         
         # Make the window full screen
         self.root.state("zoomed")
@@ -36,7 +37,7 @@ class Dashboard:
         header_frame = tk.Frame(self.root, bg="#004080", height=60)
         header_frame.pack(fill=tk.X)
 
-        title_label = tk.Label(header_frame, text="Hotel Management Dashboard", fg="white",
+        title_label = tk.Label(header_frame, text="Hotel & Event Management Dashboard", fg="white",
                             bg="#004080", font=("Helvetica", 18, "bold"))
         title_label.pack(pady=10)
 
@@ -79,35 +80,42 @@ class Dashboard:
             btn.bind("<Enter>", on_enter)
             btn.bind("<Leave>", on_leave)
 
-            # Circular Logout Button (Smaller)
+        # Manage Events Button (Bigger & Different Color)
+        event_button = tk.Button(button_frame, text="📅 Manage Events", command=self.manage_events,
+                                 font=("Helvetica", 16, "bold"), width=25, height=2,
+                                 bg="#FF5733", fg="white", bd=4, relief="raised",
+                                 highlightbackground="#8B0000", highlightthickness=3)
+        event_button.pack(pady=20)
+
+        def event_on_enter(event):
+            event.widget.config(bg="#D84315", relief="sunken")
+
+        def event_on_leave(event):
+            event.widget.config(bg="#FF5733", relief="raised")
+
+        event_button.bind("<Enter>", event_on_enter)
+        event_button.bind("<Leave>", event_on_leave)
+
+        # Circular Logout Button (Smaller)
         logout_frame = tk.Frame(self.root, bg="#f0f0f0")
         logout_frame.pack(pady=20)
 
         logout_button = tk.Button(logout_frame, text="Logout", command=self.logout,
-                                font=("Helvetica", 12, "bold"), width=10, height=0,  # Smaller size
-                                bg="#8B0000", fg="white", bd=3, relief="ridge",  # Shadow effect
+                                font=("Helvetica", 12, "bold"), width=10, height=0,
+                                bg="#8B0000", fg="white", bd=3, relief="ridge",
                                 highlightbackground="black", highlightthickness=2,
-                                cursor="hand2")  # Changes cursor to hand on hover
+                                cursor="hand2")
 
-        # Making the button circular while keeping it small
-        logout_button.pack(ipadx=10, ipady=8)  # Adjusted padding for a compact circular shape
+        logout_button.pack(ipadx=10, ipady=8)
 
-        # Hover Effect for Logout Button (Color Change + Raised Effect)
         def logout_hover_enter(event):
-            logout_button.config(bg="darkred", relief="sunken")  # Darker red with pressed effect
+            logout_button.config(bg="darkred", relief="sunken")
 
         def logout_hover_leave(event):
-            logout_button.config(bg="#8B0000", relief="ridge")  # Back to original color with shadow
+            logout_button.config(bg="#8B0000", relief="ridge")
 
         logout_button.bind("<Enter>", logout_hover_enter)
         logout_button.bind("<Leave>", logout_hover_leave)
-
-
-
-
-
-
-
 
     def manage_users(self):
         if self.user_role != "admin":
@@ -123,6 +131,9 @@ class Dashboard:
 
     def manage_payments(self):
         PaymentManagement(self.root, self.token)
+    
+    def manage_events(self):
+        EventManagement(self.root, self.token)  # Open Event Management window
 
     def logout(self):
         self.root.destroy()

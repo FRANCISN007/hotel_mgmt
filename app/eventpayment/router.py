@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from app.database import get_db
@@ -7,6 +7,13 @@ from app.eventpayment import models as eventpayment_models, schemas as eventpaym
 from app.users import schemas as user_schemas
 from app.users.auth import get_current_user
 from typing import List
+from sqlalchemy import and_
+from datetime import datetime, timedelta, date
+from sqlalchemy.sql import  case
+from sqlalchemy.orm import aliased
+from typing import Optional 
+
+
 
 
 
@@ -52,6 +59,7 @@ def create_event_payment(
     new_payment = eventpayment_models.EventPayment(
         event_id=payment_data.event_id,
         organiser=payment_data.organiser,
+        event_amount= event.event_amount,
         amount_paid=payment_data.amount_paid,
         discount_allowed=payment_data.discount_allowed,
         balance_due=balance_due,
@@ -66,49 +74,161 @@ def create_event_payment(
     return new_payment
 
 
-# List all Event Payments
-@router.get("/", response_model=list[eventpayment_schemas.EventPaymentResponse])
+
+
+@router.get("/", response_model=List[eventpayment_schemas.EventPaymentResponse])
 def list_event_payments(
+    start_date: str = Query(None, description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(None, description="End date in YYYY-MM-DD format"),
     db: Session = Depends(get_db),
-    current_user: user_schemas.UserDisplaySchema = Depends(get_current_user),                       
+    current_user: user_schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    
-    return db.query(eventpayment_models.EventPayment).all()
+    query = db.query(eventpayment_models.EventPayment)
 
+    # Apply date filter if both start_date and end_date are provided
+    if start_date and end_date:
+        try:
+            start_date_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_date_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
+            # Extending end_date to include the whole day (23:59:59)
+            
+            query = query.filter(
+                and_(
+                    eventpayment_models.EventPayment.payment_date >= start_date_dt,
+                    eventpayment_models.EventPayment.payment_date <= end_date_dt,
+                )
+            )
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
 
+    payments = query.all()
 
-# List Payment by ID
-@router.get("/{payment_id}", response_model=eventpayment_schemas.EventPaymentResponse)
+    # Process and format the response
+    formatted_payments = []
+    for payment in payments:
+        event = db.query(event_models.Event).filter(
+            event_models.Event.id == payment.event_id
+        ).first()
+
+        if not event:
+            continue  # Skip if event is not found
+
+        # Compute balance_due correctly
+        total_paid = (
+            db.query(func.sum(eventpayment_models.EventPayment.amount_paid))
+            .filter(eventpayment_models.EventPayment.event_id == payment.event_id)
+            .scalar()
+        ) or 0
+
+        total_discount = (
+            db.query(func.sum(eventpayment_models.EventPayment.discount_allowed))
+            .filter(eventpayment_models.EventPayment.event_id == payment.event_id)
+            .scalar()
+        ) or 0
+
+        balance_due = event.event_amount - (total_paid + total_discount)
+
+        # Construct response object
+        formatted_payments.append({
+            "id": payment.id,  # ✅ Ensure 'id' is included
+            "event_id": payment.event_id,
+            "organiser": payment.organiser,
+            "event_amount": event.event_amount,
+            "amount_paid": payment.amount_paid,
+            "discount_allowed": payment.discount_allowed,
+            "balance_due": balance_due,
+            "payment_method": payment.payment_method,
+            "payment_status": payment.payment_status,
+            "payment_date": payment.payment_date,  # ✅ Ensure 'payment_date' is included
+            "created_by": payment.created_by,
+        })
+
+    return formatted_payments
 def get_event_payment_by_id(
     payment_id: int,
     db: Session = Depends(get_db),
     current_user: user_schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    payment = db.query(eventpayment_models.EventPayment).filter(eventpayment_models.EventPayment.id == payment_id).first()
+    # Fetch the payment record
+    payment = db.query(eventpayment_models.EventPayment).filter(
+        eventpayment_models.EventPayment.id == payment_id
+    ).first()
     
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
-    return payment
+    # Fetch related event details
+    event = db.query(event_models.Event).filter(
+        event_models.Event.id == payment.event_id
+    ).first()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Compute balance_due correctly
+    total_paid = (
+        db.query(func.sum(eventpayment_models.EventPayment.amount_paid))
+        .filter(eventpayment_models.EventPayment.event_id == payment.event_id)
+        .scalar()
+    ) or 0
+
+    total_discount = (
+        db.query(func.sum(eventpayment_models.EventPayment.discount_allowed))
+        .filter(eventpayment_models.EventPayment.event_id == payment.event_id)
+        .scalar()
+    ) or 0
+
+    balance_due = event.event_amount - (total_paid + total_discount)
+
+    # Construct response including required fields
+    formatted_payment = {
+        "id": payment.id,  # ✅ Add the missing 'id' field
+        "event_id": payment.event_id,
+        "organiser": payment.organiser,
+        "event_amount": event.event_amount,
+        "amount_paid": payment.amount_paid,
+        "discount_allowed": payment.discount_allowed,
+        "balance_due": balance_due,
+        "payment_method": payment.payment_method,
+        "payment_status": payment.payment_status,
+        "payment_date": payment.payment_date,  # ✅ Add the missing 'payment_date' field
+        "created_by": payment.created_by,
+    }
+
+    return formatted_payment
 
 
 
 
-# List Payments by Status (Active, Complete, Void)
-@router.get("/status/{status}", response_model=List[eventpayment_schemas.EventPaymentResponse])
+
+
+@router.get("/status", response_model=List[eventpayment_schemas.EventPaymentResponse])
 def list_event_payments_by_status(
-    status: str,
+    status: Optional[str] = Query(None, description="Payment status to filter by (pending, complete, incomplete, void)"),
+    start_date: Optional[date] = Query(None, description="Filter by payment date (start) in format yyyy-mm-dd"),
+    end_date: Optional[date] = Query(None, description="Filter by payment date (end) in format yyyy-mm-dd"),
     db: Session = Depends(get_db),
     current_user: user_schemas.UserDisplaySchema = Depends(get_current_user),
 ):
-    valid_statuses = {"pending", "complete", "void"}
-    if status not in valid_statuses:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Choose from: {valid_statuses}")
+    query = db.query(eventpayment_models.EventPayment)
 
-    payments = db.query(eventpayment_models.EventPayment).filter(eventpayment_models.EventPayment.payment_status == status).all()
+    if status:
+        valid_statuses = {"pending", "complete", "incomplete", "void"}
+        if status.lower() not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Choose from: {valid_statuses}")
+        query = query.filter(eventpayment_models.EventPayment.payment_status == status)
+
+    if start_date:
+        query = query.filter(eventpayment_models.EventPayment.payment_date >= datetime.combine(start_date, datetime.min.time()))
+    if end_date:
+        query = query.filter(eventpayment_models.EventPayment.payment_date <= datetime.combine(end_date, datetime.max.time()))
+
+    payments = query.all()
     
-    return payments
+    if not payments:
+        return []  # ✅ Return an empty list if no records are found
 
+    return payments  # ✅ Return list as expected
 
 
 
