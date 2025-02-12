@@ -29,7 +29,8 @@ def create_event(
         location=event.location,
         phone_number=event.phone_number,
         address=event.address,
-        status=event.status or "active",
+        #payment_status=event.payment_status or "active",
+        payment_status=event.payment_status or "active",
         created_by=current_user.username
     )
 

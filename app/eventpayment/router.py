@@ -40,8 +40,14 @@ def create_event_payment(
     # Compute balance due (excluding caution fee)
     balance_due = event.event_amount - (new_total_paid + new_total_discount)
 
-    # Determine payment status
-    payment_status = "incomplete" if balance_due > 0 else "complete"
+# Determine payment status
+    if balance_due > 0:
+        payment_status = "incomplete"
+    elif balance_due == 0:
+        payment_status = "complete"
+    else:
+        payment_status = "excess"  # Payment exceeded the event amount
+
 
     new_payment = eventpayment_models.EventPayment(
         event_id=payment_data.event_id,
@@ -50,7 +56,7 @@ def create_event_payment(
         discount_allowed=payment_data.discount_allowed,
         balance_due=balance_due,
         payment_method=payment_data.payment_method,
-        status=payment_status,  # Automatically set status
+        payment_status=payment_status,  # Automatically set status
         created_by=current_user.username
     )
 
@@ -107,6 +113,8 @@ def list_event_payments_by_status(
 
 
 
+from sqlalchemy.sql import func
+
 # Void a Payment
 @router.put("/{payment_id}/void", response_model=dict)
 def void_event_payment(
@@ -123,10 +131,55 @@ def void_event_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
-    if payment.status == "void":
+    if payment.payment_status == "void":
         raise HTTPException(status_code=400, detail="Payment has already been voided")
 
-    payment.status = "void"
+    # Store voided payment amount before changing status
+    voided_amount = payment.amount_paid
+    voided_discount = payment.discount_allowed  # Consider if discount should be reversed too
+
+    # Mark payment as void
+    payment.payment_status = "void"
+    db.commit()
+
+    # Recalculate total amount paid and balance for the event
+    event = db.query(event_models.Event).filter(event_models.Event.id == payment.event_id).first()
+    
+    if not event:
+        raise HTTPException(status_code=404, detail="Associated event not found")
+
+    # Recalculate total paid and discount excluding voided payments
+    total_paid = db.query(func.coalesce(func.sum(eventpayment_models.EventPayment.amount_paid), 0)).filter(
+        eventpayment_models.EventPayment.event_id == payment.event_id,
+        eventpayment_models.EventPayment.payment_status != "void"
+    ).scalar()
+
+    total_discount = db.query(func.coalesce(func.sum(eventpayment_models.EventPayment.discount_allowed), 0)).filter(
+        eventpayment_models.EventPayment.event_id == payment.event_id,
+        eventpayment_models.EventPayment.payment_status != "void"
+    ).scalar()
+
+    # Add back the voided amount to balance due
+    balance_due = event.event_amount - (total_paid + total_discount)
+
+    # Determine updated payment status
+    if balance_due > 0:
+        updated_payment_status = "incomplete"
+    elif balance_due == 0:
+        updated_payment_status = "complete"
+    else:
+        updated_payment_status = "excess"
+
+    # Update the event’s payment status and balance due
+    db.query(event_models.Event).filter(event_models.Event.id == payment.event_id).update({
+        "payment_status": updated_payment_status,
+        "balance_due": balance_due  # Ensure the event reflects the new balance
+    })
     db.commit()
     
-    return {"message": "Payment voided successfully"}
+    return {
+        "message": "Payment voided successfully",
+        "voided_amount": voided_amount,
+        "updated_balance_due": balance_due,
+        "updated_payment_status": updated_payment_status
+    }

@@ -14,7 +14,7 @@ class EventBase(BaseModel):
     location: Optional[str] = None
     phone_number: str
     address: str
-    status: Optional[str] = "active"
+    payment_status: Optional[str] = "active"
     created_by: Optional[str] = None
 
     class Config:
