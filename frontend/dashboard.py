@@ -133,7 +133,9 @@ class Dashboard:
         PaymentManagement(self.root, self.token)
     
     def manage_events(self):
-        EventManagement(self.root, self.token)  # Open Event Management window
+        EventManagement(self.root, self.token)  # Ensure username is passed
+
+
 
     def logout(self):
         self.root.destroy()

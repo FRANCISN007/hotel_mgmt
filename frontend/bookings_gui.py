@@ -21,6 +21,15 @@ class BookingManagement:
         self.username = "current_user"
         self.token = token
         self.root.configure(bg="#f0f0f0")
+        
+        # Set window size and position at the center
+        window_width = 1200
+        window_height = 600
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        x_coordinate = (screen_width // 2) - (window_width // 2)
+        y_coordinate = (screen_height // 2) - (window_height // 2)
+        self.root.geometry(f"{window_width}x{window_height}+{x_coordinate}+{y_coordinate}")
 
         style = ttk.Style()
         style.configure("Treeview.Heading", font=("Helvetica", 12, "bold"))
