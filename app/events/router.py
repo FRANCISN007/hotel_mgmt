@@ -18,6 +18,18 @@ def create_event(
     db: Session = Depends(get_db), 
     current_user: user_schemas.UserDisplaySchema = Depends(get_current_user),
 ):
+    # Check if an event already exists on the requested start date
+    existing_event = db.query(event_models.Event).filter(
+        event_models.Event.start_datetime == event.start_datetime
+    ).first()
+
+    if existing_event:
+        raise HTTPException(
+            status_code=400,
+            detail=f"An event has already been booked on {event.start_datetime}. Please choose a different date."
+        )
+
+    # Proceed with creating the event if no conflict exists
     db_event = event_models.Event(
         organizer=event.organizer,
         title=event.title,
@@ -29,7 +41,6 @@ def create_event(
         location=event.location,
         phone_number=event.phone_number,
         address=event.address,
-        #payment_status=event.payment_status or "active",
         payment_status=event.payment_status or "active",
         created_by=current_user.username
     )
@@ -108,7 +119,7 @@ def cancel_event(
     if not db_event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    db_event.status = "canceled"
+    db_event.payment_status = "canceled"
     db_event.cancellation_reason = cancellation_reason  # Store reason in the column
 
     db.commit()

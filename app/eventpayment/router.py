@@ -27,9 +27,18 @@ def create_event_payment(
     db: Session = Depends(get_db),
     current_user: user_schemas.UserDisplaySchema = Depends(get_current_user),
 ):
+    # Fetch the event using event_id
     event = db.query(event_models.Event).filter(event_models.Event.id == payment_data.event_id).first()
+
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    # 🚨 Check if the event is canceled before proceeding with payment
+    if event.payment_status.lower() == "canceled":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payment cannot be processed because Event ID {payment_data.event_id} is canceled."
+        )
 
     # Fetch all previous payments for this event
     total_paid = db.query(func.coalesce(func.sum(eventpayment_models.EventPayment.amount_paid), 0)).filter(
@@ -47,7 +56,7 @@ def create_event_payment(
     # Compute balance due (excluding caution fee)
     balance_due = event.event_amount - (new_total_paid + new_total_discount)
 
-# Determine payment status
+    # Determine payment status
     if balance_due > 0:
         payment_status = "incomplete"
     elif balance_due == 0:
@@ -55,11 +64,11 @@ def create_event_payment(
     else:
         payment_status = "excess"  # Payment exceeded the event amount
 
-
+    # Proceed to create the payment since the event is active
     new_payment = eventpayment_models.EventPayment(
         event_id=payment_data.event_id,
         organiser=payment_data.organiser,
-        event_amount= event.event_amount,
+        event_amount=event.event_amount,
         amount_paid=payment_data.amount_paid,
         discount_allowed=payment_data.discount_allowed,
         balance_due=balance_due,
@@ -72,7 +81,6 @@ def create_event_payment(
     db.commit()
     db.refresh(new_payment)
     return new_payment
-
 
 
 
