@@ -51,7 +51,6 @@ class EventManagement:
         event_buttons = [
             ("➕Create Event", self.create_event),
             ("📑List Events", self.list_events),
-            ("📑List By Status", self.list_bookings_by_status),
             ("🔎Search by Event ID", self.search_event_by_id),
             ("✏️Update Event", self.update_event),
             ("❌Cancel Event", self.cancel_event),
@@ -186,8 +185,98 @@ class EventManagement:
             widget.destroy()
    
         
-        
-        
+    
+    
+    def list_events(self):
+        """List events with filtering by date."""
+        self.clear_right_frame()
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="📅 List Events", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        # ---------------- Filter Section ---------------- #
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
+
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.grid(row=0, column=3, padx=5, pady=5)
+
+        fetch_btn = ttk.Button(filter_frame, text="🔍 Fetch Events", command=lambda: self.fetch_events(self.start_date, self.end_date))
+        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
+
+        # ---------------- Event Table ---------------- #
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ("ID", "Organizer", "Title", "Start Date", "End Date", "Location", "Phone", "Status")
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=140, anchor="center")
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Scrollbars
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+
+    def fetch_events(self, start_date_entry, end_date_entry):
+        """Fetch events from API and populate the table."""
+        api_url = api_url = "http://127.0.0.1:8000/events"
+        params = {
+            "start_date": start_date_entry.get_date().strftime("%Y-%m-%d"),
+            "end_date": end_date_entry.get_date().strftime("%Y-%m-%d"),
+        }
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            if response.status_code == 200:
+                events = response.json()
+                self.tree.delete(*self.tree.get_children())  # Clear table
+
+                for event in events:
+                    self.tree.insert("", "end", values=(
+                        event.get("id", ""),
+                        event.get("organizer", ""),
+                        event.get("title", ""),
+                        event.get("start_datetime", ""),
+                        event.get("end_datetime", ""),
+                        event.get("location", ""),
+                        event.get("phone_number", ""),
+                        event.get("payment_status", "")
+                    ))
+
+                if not events:
+                    messagebox.showinfo("No Results", "No events found for the selected filters.")
+
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve events."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def clear_right_frame(self):
+        """Clears the right frame before rendering new content."""
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()
+
+
+      
         
         
         
@@ -203,11 +292,9 @@ class EventManagement:
     #def create_event(self):
         #pass
     
-    def list_events(self):
-        pass
+    #def list_events(self):
+        #pass
     
-    def list_bookings_by_status(self):
-        pass
     
     def search_event_by_id(self):
         pass
@@ -217,6 +304,10 @@ class EventManagement:
     
     def cancel_event(self):
         pass
+    
+    
+    
+    
     
     def create_event_payment(self):
         pass
@@ -232,3 +323,11 @@ class EventManagement:
     
     def void_payment(self):
         pass
+
+
+
+# Main Execution
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = EventManagement(root)
+    root.mainloop()    
