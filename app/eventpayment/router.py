@@ -34,10 +34,10 @@ def create_event_payment(
         raise HTTPException(status_code=404, detail="Event not found")
 
     # 🚨 Check if the event is canceled before proceeding with payment
-    if event.payment_status.lower() == "canceled":
+    if event.payment_status.lower() == "cancelled":
         raise HTTPException(
             status_code=400,
-            detail=f"Payment cannot be processed because Event ID {payment_data.event_id} is canceled."
+            detail=f"Payment cannot be processed because Event ID {payment_data.event_id} is cancelled."
         )
 
     # Fetch all previous payments for this event

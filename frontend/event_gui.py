@@ -215,7 +215,7 @@ class EventManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ("ID", "Organizer", "Title", "Start Date", "End Date", "Location", "Phone", "Status")
+        columns = ("ID", "Organizer", "Title", "Event_Amount", "Caution_Fee", "Start Date", "End Date", "Location", "Phone", "Status", "created_by")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
 
         for col in columns:
@@ -254,11 +254,14 @@ class EventManagement:
                         event.get("id", ""),
                         event.get("organizer", ""),
                         event.get("title", ""),
+                        event.get("event_amount", ""),
+                        event.get("caution_fee", ""),
                         event.get("start_datetime", ""),
                         event.get("end_datetime", ""),
                         event.get("location", ""),
                         event.get("phone_number", ""),
-                        event.get("payment_status", "")
+                        event.get("payment_status", ""),
+                        event.get("created_by", ""),
                     ))
 
                 if not events:
@@ -276,11 +279,172 @@ class EventManagement:
             widget.pack_forget()
 
 
-      
+    
+    
+    def search_event_by_id(self):
+        self.clear_right_frame()
+        
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        tk.Label(frame, text="Search Event by ID", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+        
+        search_frame = tk.Frame(frame, bg="#ffffff")
+        search_frame.pack(pady=5)
+        
+        tk.Label(search_frame, text="Event ID:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.event_id_entry = tk.Entry(search_frame, font=("Arial", 11))
+        self.event_id_entry.grid(row=0, column=1, padx=5, pady=5)
+        
+        search_btn = ttk.Button(
+            search_frame, text="Search", command=self.fetch_event_by_id
+        )
+        search_btn.grid(row=0, column=2, padx=10, pady=5)
+        
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        columns = ("ID", "Organizer", "Title", "Event_Amount", "Caution_Fee", "Start Date", "End Date", 
+                "Location", "Phone Number", "Payment Status", "Created_by")
+
+        self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.search_tree.heading(col, text=col)
+            self.search_tree.column(col, width=140, anchor="center")
+        
+        self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.search_tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.search_tree.configure(xscroll=x_scroll.set)
+
+    def fetch_event_by_id(self):
+        event_id = self.event_id_entry.get().strip()
+
+        if not event_id.isdigit():  # Ensure input is numeric
+            messagebox.showerror("Error", "Please enter a valid numeric event ID.")
+            return
+        
+        try:
+            api_url = f"http://127.0.0.1:8000/events/{event_id}"
+            headers = {"Authorization": f"Bearer {self.token}"}
+        
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                event = response.json()
+                
+                # Ensure the event details exist
+                if event:
+                    self.search_tree.delete(*self.search_tree.get_children())
+                    self.search_tree.insert("", "end", values=(
+                        event.get("id", ""),
+                        event.get("organizer", ""),
+                        event.get("title", ""),
+                        event.get("event_amount", ""),
+                        event.get("caution_fee", ""),
+                        event.get("start_datetime", ""),
+                        event.get("end_datetime", ""),
+                        event.get("location", ""),
+                        event.get("phone_number", ""),
+                        event.get("payment_status", ""),
+                        event.get("created_by", ""),
+                    ))
+                else:
+                    messagebox.showinfo("No Results", "No event found with the provided ID.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "No event found."))
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+  
         
         
         
-        
+    def update_event(self):
+        """Creates a form to update an event."""
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Update Event Form", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Labels & Entry fields (based on Create Event fields)
+        fields = [
+            ("Event ID", tk.Entry),
+            ("Organizer", tk.Entry),
+            ("Title", tk.Entry),
+            ("Description", tk.Entry),
+            ("Location", tk.Entry),
+            ("Phone Number", tk.Entry),
+            ("Address", tk.Entry),
+            ("Start Date", DateEntry),
+            ("End Date", DateEntry),
+            ("Event Amount", tk.Entry),
+            ("Caution Fee", tk.Entry),
+            ("Payment Status", ttk.Combobox)
+        ]
+
+        self.entries = {}
+        for i, (label, field_type) in enumerate(fields):
+            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            if field_type == ttk.Combobox:
+                entry = field_type(frame, values=["pending", "complete", "incomplete", "cancelled"], state="readonly", font=("Arial", 11))
+            elif field_type == DateEntry:
+                entry = field_type(frame, font=("Arial", 11), width=12, background='darkblue', foreground='white', borderwidth=2)
+            else:
+                entry = field_type(frame, font=("Arial", 11), width=25)
+            entry.grid(row=i+1, column=1, padx=10, pady=5)
+            self.entries[label] = entry
+
+        # Submit Button
+        submit_btn = ttk.Button(frame, text="Submit Update", command=self.submit_update_event, style="Bold.TButton")
+        submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
+
+    def submit_update_event(self):
+        """Collects form data and sends a request to update an event."""
+        try:
+            event_data = {
+                "organizer": self.entries["Organizer"].get(),
+                "title": self.entries["Title"].get(),
+                "description": self.entries["Description"].get(),
+                "location": self.entries["Location"].get(),
+                "phone_number": self.entries["Phone Number"].get(),
+                "address": self.entries["Address"].get(),
+                "start_datetime": self.entries["Start Date"].get_date().strftime("%Y-%m-%d"),
+                "end_datetime": self.entries["End Date"].get_date().strftime("%Y-%m-%d"),
+                "event_amount": float(self.entries["Event Amount"].get() or 0),
+                "caution_fee": float(self.entries["Caution Fee"].get() or 0),
+                "payment_status": self.entries["Payment Status"].get(),
+            }
+
+            event_id = self.entries["Event ID"].get()
+            if not event_id or not all(event_data.values()):  # Ensure all fields are filled
+                messagebox.showerror("Error", "Please fill in all fields")
+                return
+
+            api_url = f"http://127.0.0.1:8000/events/{event_id}"
+            headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+            response = requests.put(api_url, json=event_data, headers=headers)
+
+            if response.status_code == 200:
+                messagebox.showinfo("Success", "Event updated successfully!")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Update failed."))
+
+        except KeyError as e:
+            messagebox.showerror("Error", f"Missing entry field: {e}")
+        except ValueError:
+            messagebox.showerror("Error", "Invalid numeric input for Event Amount or Caution Fee.")
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def update_subheading(self, text, command):
+        self.subheading_label.config(text=text)
+        command()   
         
         
         
@@ -296,11 +460,11 @@ class EventManagement:
         #pass
     
     
-    def search_event_by_id(self):
-        pass
+    #def search_event_by_id(self):
+        #pass
     
-    def update_event(self):
-        pass
+    #def update_event(self):
+        #pass
     
     def cancel_event(self):
         pass

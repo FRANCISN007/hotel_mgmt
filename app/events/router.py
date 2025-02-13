@@ -119,7 +119,7 @@ def cancel_event(
     if not db_event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    db_event.payment_status = "canceled"
+    db_event.payment_status = "cancelled"
     db_event.cancellation_reason = cancellation_reason  # Store reason in the column
 
     db.commit()
