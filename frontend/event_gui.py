@@ -74,7 +74,7 @@ class EventManagement:
         payment_buttons = [
             ("➕Create Event Payment", self.create_event_payment),
             ("📑List Event Payments", self.list_events_payment),
-            ("📑List Payment By Status", self.list_Payment_by_status),
+            ("📑List Payment By Status", self.list_payment_by_status),
             ("🔎Search by Payment ID", self.search_Payment_by_id),
             ("❌Void Payment", self.void_payment),
         ]
@@ -752,9 +752,143 @@ class EventManagement:
 
 
 
+    def list_payment_by_status(self):
+        """Displays the List Payments by Status UI."""
+        self.clear_right_frame()  # Ensure old UI elements are removed
 
-  
-    
+        # Create a new frame for the table with scrollable functionality
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="List Payments by Status", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        # Filter Frame
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
+
+        # Status Dropdown
+        tk.Label(filter_frame, text="Status:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+
+        status_options = ["pending", "complete", "incomplete", "void"]
+        self.status_var = tk.StringVar(value=status_options[0])  # Default selection
+
+        status_menu = ttk.Combobox(filter_frame, textvariable=self.status_var, values=status_options, state="readonly")
+        status_menu.grid(row=0, column=1, padx=5, pady=5)
+        #status_menu.bind("<<ComboboxSelected>>", lambda event: self.status_var.set(status_menu.get()))
+        
+        # Bind the selection event to a function that updates self.status_var
+        def on_status_change(event):
+            #print("Selected Status:", self.status_var.get())  # Debugging: Check what is selected
+            self.status_var.set(status_menu.get())  # Ensure value updates
+
+        status_menu.bind("<<ComboboxSelected>>", on_status_change)  # Event binding
+
+        # Start Date
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=3, padx=5, pady=5)
+
+        # End Date
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=4, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.grid(row=0, column=5, padx=5, pady=5)
+
+        # Fetch Button
+        fetch_btn = ttk.Button(filter_frame, text="Fetch Payments", command=self.fetch_payments_by_status)
+        fetch_btn.grid(row=0, column=6, padx=10, pady=5)
+
+        
+
+        # Table Frame
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Total Payment Amount Label
+        self.total_cost_label = tk.Label(frame, text="Total Payment Amount: ₦0.00", 
+                                 font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
+        self.total_cost_label.pack(pady=5)
+
+        
+
+        columns = ("Payment ID", "Event ID", "Guest Name", "Event Amount", "Amount Paid", "Discount Allowed", "Balance Due", "Payment Date", "Status", "Payment Method", "Created By")
+        
+        if hasattr(self, "tree"):
+            self.tree.destroy()
+
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+        
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+        
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+
+
+    def fetch_payments_by_status(self):
+        """Fetch payments based on status and date filters."""
+        api_url = "http://127.0.0.1:8000/eventpayment/status"
+
+        # Ensure only valid query parameters are sent
+        params = {
+            "status": self.status_var.get().strip().lower(),
+            "start_date": self.start_date.get_date().strftime("%Y-%m-%d"),
+            "end_date": self.end_date.get_date().strftime("%Y-%m-%d"),
+        }
+
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            data = response.json()
+
+            if response.status_code == 200:
+                self.tree.delete(*self.tree.get_children())  # Clear existing table data
+                total_amount = 0
+
+                if isinstance(data, list):  # Ensure response is a list
+                    for payment in data:
+                        # Extract values safely
+                        event_amount = float(payment.get("event_amount", 0))
+                        amount_paid = float(payment.get("amount_paid", 0))  # <-- Update to amount_paid
+                        discount_allowed = float(payment.get("discount_allowed", 0))
+                        balance_due = float(payment.get("balance_due", 0))
+
+                        total_amount += amount_paid  # Sum total amount paid
+
+                        # Insert data into table
+                        self.tree.insert("", "end", values=(
+                            payment.get("id", ""),
+                            payment.get("event_id", ""),
+                            payment.get("guest_name", ""),
+                            f"₦{event_amount:,.2f}",
+                            f"₦{amount_paid:,.2f}",
+                            f"₦{discount_allowed:,.2f}",
+                            f"₦{balance_due:,.2f}",
+                            payment.get("payment_date", ""),
+                            payment.get("payment_status", ""),
+                            payment.get("payment_method", ""),
+                            payment.get("created_by", ""),
+                        ))
+
+                    # Update Total Payment Label
+                    self.total_cost_label.config(text=f"Total Payment Amount: ₦{total_amount:,.2f}")
+                else:
+                    messagebox.showinfo("No Results", "No payments found for the selected filters.")
+            else:
+                messagebox.showerror("Error", data.get("detail", "Failed to retrieve payments."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+        
     #def create_event(self):
         #pass
     
@@ -781,8 +915,8 @@ class EventManagement:
     #def list_events_payment(self):
         #pass
     
-    def list_Payment_by_status(self):
-        pass
+    #def list_payment_by_status(self):
+        #pass
     
     def search_Payment_by_id(self):
         pass
