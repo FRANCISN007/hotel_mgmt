@@ -233,28 +233,34 @@ class EventManagement:
         x_scroll.pack(fill=tk.X)
         self.tree.configure(xscroll=x_scroll.set)
 
+        # Total Amount Label
+        self.total_label = tk.Label(frame, text="Total Event Amount: ₦0.00", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
+        self.total_label.pack(pady=10)
+
     def fetch_events(self, start_date_entry, end_date_entry):
         """Fetch events from API and populate the table."""
-        api_url = api_url = "http://127.0.0.1:8000/events"
+        api_url = "http://127.0.0.1:8000/events"
         params = {
             "start_date": start_date_entry.get_date().strftime("%Y-%m-%d"),
             "end_date": end_date_entry.get_date().strftime("%Y-%m-%d"),
         }
         headers = {"Authorization": f"Bearer {self.token}"}
 
-
         try:
             response = requests.get(api_url, params=params, headers=headers)
             if response.status_code == 200:
                 events = response.json()
                 self.tree.delete(*self.tree.get_children())  # Clear table
+                total_amount = 0
 
                 for event in events:
+                    event_amount = float(event.get("event_amount", 0))
+                    total_amount += event_amount
                     self.tree.insert("", "end", values=(
                         event.get("id", ""),
                         event.get("organizer", ""),
                         event.get("title", ""),
-                        f"₦{float(event.get('event_amount', 0)) :,.2f}",
+                        f"₦{event_amount:,.2f}",
                         f"₦{float(event.get('caution_fee', 0)) :,.2f}",
                         event.get("start_datetime", ""),
                         event.get("end_datetime", ""),
@@ -264,8 +270,11 @@ class EventManagement:
                         event.get("created_by", ""),
                     ))
 
+                self.total_label.config(text=f"Total Event Amount: ₦{total_amount:,.2f}")
+
                 if not events:
                     messagebox.showinfo("No Results", "No events found for the selected filters.")
+                    self.total_label.config(text="Total Event Amount: ₦0.00")
 
             else:
                 messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve events."))
@@ -277,6 +286,7 @@ class EventManagement:
         """Clears the right frame before rendering new content."""
         for widget in self.right_frame.winfo_children():
             widget.pack_forget()
+
 
 
     
@@ -629,6 +639,116 @@ class EventManagement:
             messagebox.showerror("Error", f"An unexpected error occurred: {e}")
 
 
+    
+    def list_events_payment(self):
+        self.clear_right_frame()
+        
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="List Event Payments", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        filter_frame = tk.Frame(frame, bg="#ffffff")
+        filter_frame.pack(pady=5)
+
+        tk.Label(filter_frame, text="Start Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.start_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.start_date.grid(row=0, column=1, padx=5, pady=5)
+
+        tk.Label(filter_frame, text="End Date:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=2, padx=5, pady=5)
+        self.end_date = DateEntry(filter_frame, font=("Arial", 11))
+        self.end_date.grid(row=0, column=3, padx=5, pady=5)
+
+        fetch_btn = ttk.Button(
+            filter_frame,
+            text="Fetch Payments",
+            command=lambda: self.fetch_event_payments(self.start_date, self.end_date)
+        )
+        fetch_btn.grid(row=0, column=4, padx=10, pady=5)
+
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = ("Payment ID", "Event ID", "Organiser", "Event Amount", "Amount Paid", "Discount Allowed", 
+                   "Balance Due", "Payment Method", "Payment Status", "Payment Date", "Created By")
+
+        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+
+        for col in columns:
+            self.tree.heading(col, text=col)
+            self.tree.column(col, width=120, anchor="center")
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscroll=y_scroll.set)
+
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.tree.configure(xscroll=x_scroll.set)
+
+        self.total_payment_label = tk.Label(frame, text="", font=("Arial", 12, "bold"), bg="#ffffff", fg="blue")
+        self.total_payment_label.pack(pady=10)
+
+    def fetch_event_payments(self, start_date_entry, end_date_entry):
+        api_url = "http://127.0.0.1:8000/eventpayment/"  
+        params = {
+            "start_date": start_date_entry.get_date().strftime("%Y-%m-%d"),
+            "end_date": end_date_entry.get_date().strftime("%Y-%m-%d"),
+        }
+        headers = {"Authorization": f"Bearer {self.token}"}
+
+        try:
+            response = requests.get(api_url, params=params, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                
+                if not isinstance(data, list):
+                    messagebox.showerror("Error", "Unexpected API response format")
+                    return
+                
+                if not data:
+                    self.total_payment_label.config(text="Total Payments: ₦0.00")
+                    messagebox.showinfo("No Results", "No payments found for the selected filters.")
+                    return
+                
+                self.tree.delete(*self.tree.get_children())
+                total_amount_paid = 0
+                
+                for payment in data:
+                    if payment.get("payment_status", "").lower() == "voided":
+                        continue  # Exclude voided payments
+                    
+                    total_amount_paid += float(payment.get("amount_paid", 0))
+                    
+                    self.tree.insert("", "end", values=(
+                        payment.get("id", ""),
+                        payment.get("event_id", ""),
+                        payment.get("organiser", ""),
+                        f"₦{float(payment.get('event_amount', 0)) :,.2f}",
+                        f"₦{float(payment.get('amount_paid', 0)) :,.2f}",
+                        f"₦{float(payment.get('discount_allowed', 0)) :,.2f}",
+                        f"₦{float(payment.get('balance_due', 0)) :,.2f}",
+                        payment.get("payment_method", ""),
+                        payment.get("payment_status", ""),
+                        payment.get("payment_date", ""),
+                        payment.get("created_by", ""),
+                    ))
+                
+                self.total_payment_label.config(
+                    text=f"Total Payments: ₦{total_amount_paid:,.2f}"
+                )
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Failed to retrieve payments."))
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+    def clear_right_frame(self):
+        for widget in self.right_frame.winfo_children():
+            widget.pack_forget()
+
 
 
 
@@ -658,8 +778,8 @@ class EventManagement:
     #def create_event_payment(self):
         #pass
     
-    def list_events_payment(self):
-        pass
+    #def list_events_payment(self):
+        #pass
     
     def list_Payment_by_status(self):
         pass

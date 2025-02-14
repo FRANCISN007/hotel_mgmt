@@ -152,6 +152,9 @@ def list_event_payments(
         })
 
     return formatted_payments
+
+
+@router.get("/{payment_id}")
 def get_event_payment_by_id(
     payment_id: int,
     db: Session = Depends(get_db),
