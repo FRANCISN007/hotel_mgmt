@@ -255,7 +255,7 @@ class EventManagement:
                         event.get("organizer", ""),
                         event.get("title", ""),
                         f"₦{float(event.get('event_amount', 0)) :,.2f}",
-                        f"₦{float(event.get('event_amount', 0)) :,.2f}",
+                        f"₦{float(event.get('caution_fee', 0)) :,.2f}",
                         event.get("start_datetime", ""),
                         event.get("end_datetime", ""),
                         event.get("location", ""),
@@ -534,7 +534,106 @@ class EventManagement:
 
                 
         
-        
+    def create_event_payment(self):
+        """Displays the create event payment form inside the right frame."""
+        self.clear_right_frame()  # Clear previous content
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create subheading label
+        tk.Label(frame, text="Create Event Payment", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Form frame
+        form_frame = tk.Frame(frame, bg="#ffffff", padx=10, pady=10)
+        form_frame.grid(row=1, columnspan=2, pady=10, padx=10, sticky="ew")
+
+        # Labels and Entry fields
+        labels = ["Event ID:", "Organiser Name:", "Amount Paid:", "Discount Allowed:", "Payment Method:"]
+        self.entries = {}
+
+        for i, label_text in enumerate(labels):
+            label = tk.Label(form_frame, text=label_text, font=("Helvetica", 12), bg="#ffffff")
+            label.grid(row=i, column=0, sticky="w", pady=5, padx=5)
+
+            if label_text == "Payment Method:":
+                entry = ttk.Combobox(form_frame, values=["Cash", "POS Card", "Bank Transfer"], state="readonly")
+                entry.current(0)
+            else:
+                entry = tk.Entry(form_frame)
+
+            entry.grid(row=i, column=1, pady=5, padx=5, sticky="ew")
+            self.entries[label_text] = entry
+
+        # Submit Button
+        submit_btn = ttk.Button(form_frame, text="Submit Payment", command=self.submit_event_payment)
+        submit_btn.grid(row=len(labels), column=0, columnspan=2, pady=15)
+
+
+    def submit_event_payment(self):
+        """Handles submission of event payment to backend."""
+        try:
+            # Validate and fetch Event ID
+            event_id_str = self.entries["Event ID:"].get().strip()
+            if not event_id_str.isdigit():
+                messagebox.showerror("Error", "Event ID must be a valid integer.")
+                return
+            event_id = int(event_id_str)
+
+            # Fetch and validate Organiser Name
+            organiser = self.entries["Organiser Name:"].get().strip()
+            if not organiser:
+                messagebox.showerror("Error", "Organiser name is required.")
+                return
+
+            # Fetch and validate Amount Paid
+            amount_paid_str = self.entries["Amount Paid:"].get().strip()
+            if not amount_paid_str.replace(".", "", 1).isdigit():
+                messagebox.showerror("Error", "Amount Paid must be a valid number.")
+                return
+            amount_paid = float(amount_paid_str)
+
+            # Fetch and validate Discount Allowed (default to 0 if empty)
+            discount_allowed_str = self.entries["Discount Allowed:"].get().strip()
+            discount_allowed = float(discount_allowed_str) if discount_allowed_str.replace(".", "", 1).isdigit() else 0.0
+
+            # Fetch Payment Method
+            payment_method = self.entries["Payment Method:"].get().strip()
+            if not payment_method:
+                messagebox.showerror("Error", "Payment Method is required.")
+                return
+
+            # Prepare API payload
+            payload = {
+                "event_id": event_id,
+                "organiser": organiser,
+                "amount_paid": amount_paid,
+                "discount_allowed": discount_allowed,
+                "payment_method": payment_method,
+                "created_by": self.username  # Ensure `self.username` holds the correct username
+            }
+
+            # API URL for creating event payment
+            url = "http://127.0.0.1:8000/eventpayment/"
+            headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+
+            # Send request to API
+            response = requests.post(url, json=payload, headers=headers)
+            data = response.json()
+
+            if response.status_code == 200:
+                messagebox.showinfo("Success", f"Event Payment successful!\nEvent ID: {event_id}\nOrganiser: {organiser}")
+            else:
+                messagebox.showerror("Error", data.get("detail", "Payment failed."))
+        except Exception as e:
+            messagebox.showerror("Error", f"An unexpected error occurred: {e}")
+
+
+
+
+
+
+  
     
     #def create_event(self):
         #pass
@@ -556,8 +655,8 @@ class EventManagement:
     
     
     
-    def create_event_payment(self):
-        pass
+    #def create_event_payment(self):
+        #pass
     
     def list_events_payment(self):
         pass
