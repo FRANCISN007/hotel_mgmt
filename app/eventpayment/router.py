@@ -184,6 +184,7 @@ def list_event_payments_by_status(
 
 
 
+
 # Void a Payment
 @router.put("/{payment_id}/void", response_model=dict)
 def void_event_payment(
