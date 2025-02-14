@@ -273,8 +273,8 @@ class BookingManagement:
         table_frame.pack(fill=tk.BOTH, expand=True)
 
         # Define Treeview columns
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost", "Created_by")
+        columns = ("ID", "Room", "Guest", "Booking Cost", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Created_by")
 
         # Create a Treeview widget
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings")
@@ -337,6 +337,7 @@ class BookingManagement:
                         booking.get("id", ""),
                         booking.get("room_number", ""),
                         booking.get("guest_name", ""),
+                        f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
                         booking.get("arrival_date", ""),
                         booking.get("departure_date", ""),
                         booking.get("status", ""),
@@ -344,8 +345,7 @@ class BookingManagement:
                         booking.get("booking_type", ""),
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
-                        booking.get("payment_status", ""),
-                       f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
+                        booking.get("payment_status", ""),                    
                         booking.get("created_by", ""),
                     
 
@@ -421,8 +421,8 @@ class BookingManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days",
-               "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost", "Created_by")
+        columns = ("ID", "Room", "Guest", "Booking Cost", "Arrival", "Departure", "Status", "Number of Days",
+               "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Created_by")
 
 
         # ✅ Prevent recreation of table on every call
@@ -495,6 +495,7 @@ class BookingManagement:
                                 booking.get("id", ""),
                                 booking.get("room_number", ""),
                                 booking.get("guest_name", ""),
+                                f"₦{booking_cost:,.2f}",
                                 booking.get("arrival_date", ""),
                                 booking.get("departure_date", ""),
                                 booking.get("status", ""),
@@ -502,8 +503,7 @@ class BookingManagement:
                                 booking.get("booking_type", ""),
                                 booking.get("phone_number", ""),
                                 booking.get("booking_date", ""),
-                                booking.get("payment_status", ""),
-                                f"₦{booking_cost:,.2f}",
+                                booking.get("payment_status", ""),                               
                                 booking.get("created_by", ""),
                             ), tags=(tag,))
 
@@ -551,8 +551,8 @@ class BookingManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
         
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+        columns = ("ID", "Room", "Guest", "Booking Cost", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status")
         
         self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -592,6 +592,7 @@ class BookingManagement:
                         booking.get("id", ""),
                         booking.get("room_number", ""),
                         booking.get("guest_name", ""),
+                         f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                         booking.get("arrival_date", ""),
                         booking.get("departure_date", ""),
                         booking.get("status", ""),
@@ -600,7 +601,7 @@ class BookingManagement:
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
                         booking.get("payment_status", ""),
-                        f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                       
                     ))
             else:
                 messagebox.showinfo("No result", response.json().get("detail", "No bookings found."))
@@ -631,8 +632,8 @@ class BookingManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
         
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost", "Created_by")
+        columns = ("ID", "Room", "Guest", "Booking Cost", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Created_by")
         
         self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -677,6 +678,7 @@ class BookingManagement:
                         booking.get("id", ""),
                         booking.get("room_number", ""),
                         booking.get("guest_name", ""),
+                        f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
                         booking.get("arrival_date", ""),
                         booking.get("departure_date", ""),
                         booking.get("status", ""),
@@ -684,8 +686,7 @@ class BookingManagement:
                         booking.get("booking_type", ""),
                         booking.get("phone_number", ""),
                         booking.get("booking_date", ""),
-                        booking.get("payment_status", ""),
-                        f"₦{float(booking.get('booking_cost', 0)) :,.2f}",  # Format booking_cost
+                        booking.get("payment_status", ""),                       
                         booking.get("created_by", ""),
                     ))
                 else:
@@ -729,8 +730,8 @@ class BookingManagement:
         table_frame = tk.Frame(frame, bg="#ffffff")
         table_frame.pack(fill=tk.BOTH, expand=True)
 
-        columns = ("ID", "Room", "Guest", "Arrival", "Departure", "Status", "Number of Days", 
-                "Booking Type", "Phone Number", "Booking Date", "Payment Status", "Booking Cost")
+        columns = ("ID", "Room", "Guest", "Booking Cost", "Arrival", "Departure", "Status", "Number of Days", 
+                "Booking Type", "Phone Number", "Booking Date", "Payment Status")
 
         self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
         for col in columns:
@@ -792,6 +793,7 @@ class BookingManagement:
                             booking.get("id", ""),
                             booking.get("room_number", ""),
                             booking.get("guest_name", ""),
+                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
                             booking.get("arrival_date", ""),
                             booking.get("departure_date", ""),
                             booking.get("status", ""),
@@ -800,7 +802,7 @@ class BookingManagement:
                             booking.get("phone_number", ""),
                             booking.get("booking_date", ""),
                             booking.get("payment_status", ""),
-                            f"₦{float(booking.get('booking_cost', 0)) :,.2f}",
+                            
                         ))
                 else:
                     messagebox.showinfo("No Results", f"No bookings found for Room {room_number} between {formatted_start_date} and {formatted_end_date}.")
@@ -1000,8 +1002,6 @@ class BookingManagement:
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
         
-            
-    
     
     
     
