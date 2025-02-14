@@ -4,6 +4,10 @@ import requests
 from utils import BASE_URL
 from tkcalendar import DateEntry
 
+from utils import export_to_excel, print_excel
+import os
+import pandas as pd
+
 
 class EventManagement:
     def __init__(self, root, token):
@@ -88,10 +92,63 @@ class EventManagement:
             btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#e0e0e0", fg="black"))
             btn.pack(pady=5, padx=10, anchor="w", fill="x")
             self.buttons.append(btn)
+            
+        self.export_button = tk.Button(self.header_frame, text="Export to Excel", 
+                               command=self.export_report, bg="#007BFF", fg="white", font=("Helvetica", 10, "bold"))
+        self.export_button.pack(side=tk.RIGHT, padx=10, pady=5)
+
+        self.print_button = tk.Button(self.header_frame, text="Print Report", 
+                              command=self.print_report, bg="#28A745", fg="white", font=("Helvetica", 10, "bold"))
+        self.print_button.pack(side=tk.RIGHT, padx=10, pady=5)        
 
     def update_subheading(self, text, command):
         self.subheading_label.config(text=text)
         command()
+     
+    def export_report(self):
+        """Export only the visible bookings from the Treeview to Excel"""
+        if not hasattr(self, "tree") or not self.tree.get_children():
+            messagebox.showwarning("Warning", "No data available to export.")
+            return
+
+        # Extract column headers
+        columns = [self.tree.heading(col)["text"] for col in self.tree["columns"]]
+
+        # Extract row data from Treeview
+        rows = []
+        for item in self.tree.get_children():
+            row_data = [self.tree.item(item)["values"][i] for i in range(len(columns))]
+            rows.append(row_data)
+
+        # Convert to DataFrame for better formatting
+        df = pd.DataFrame(rows, columns=columns)
+
+        # Save in user's Downloads folder
+        download_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        file_path = os.path.join(download_dir, "event_report.xlsx")
+
+        try:
+            df.to_excel(file_path, index=False)  # Export properly formatted Excel
+            self.last_exported_file = file_path
+            messagebox.showinfo("Success", f"Report exported successfully!\nSaved at: {file_path}")
+        except PermissionError:
+            messagebox.showerror("Error", "Permission denied! Close the file if it's open and try again.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error exporting to Excel: {e}")
+
+
+    def print_report(self):
+        """Print the exported Excel report"""
+        if hasattr(self, 'last_exported_file') and self.last_exported_file:
+            print_excel(self.last_exported_file)
+        else:
+            messagebox.showwarning("Warning", "Please export the report before printing.")
+
+     
+     
+     
+     
+     
         
         
     def create_event(self):

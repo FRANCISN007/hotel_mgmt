@@ -773,8 +773,8 @@ class BookingManagement:
             headers = {"Authorization": f"Bearer {self.token}"}
 
             # Debugging output
-            print(f"Fetching bookings for Room: {room_number}, Start Date: {formatted_start_date}, End Date: {formatted_end_date}")
-            print(f"API URL: {api_url}, Headers: {headers}")
+            #print(f"Fetching bookings for Room: {room_number}, Start Date: {formatted_start_date}, End Date: {formatted_end_date}")
+            #print(f"API URL: {api_url}, Headers: {headers}")
 
             # Make the request
             response = requests.get(api_url, params=params, headers=headers)
