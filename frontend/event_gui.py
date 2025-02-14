@@ -75,7 +75,7 @@ class EventManagement:
             ("➕Create Event Payment", self.create_event_payment),
             ("📑List Event Payments", self.list_events_payment),
             ("📑List Payment By Status", self.list_payment_by_status),
-            ("🔎Search by Payment ID", self.search_Payment_by_id),
+            ("🔎Search by Payment ID", self.search_payment_by_id),
             ("❌Void Payment", self.void_payment),
         ]
 
@@ -810,7 +810,7 @@ class EventManagement:
 
         
 
-        columns = ("Payment ID", "Event ID", "Guest Name", "Event Amount", "Amount Paid", "Discount Allowed", "Balance Due", "Payment Date", "Status", "Payment Method", "Created By")
+        columns = ("Payment ID", "Event ID", "Organiser Name", "Event Amount", "Amount Paid", "Discount Allowed", "Balance Due", "Payment Date", "Status", "Payment Method", "Created By")
         
         if hasattr(self, "tree"):
             self.tree.destroy()
@@ -867,7 +867,7 @@ class EventManagement:
                         self.tree.insert("", "end", values=(
                             payment.get("id", ""),
                             payment.get("event_id", ""),
-                            payment.get("guest_name", ""),
+                            payment.get("organiser", ""),
                             f"₦{event_amount:,.2f}",
                             f"₦{amount_paid:,.2f}",
                             f"₦{discount_allowed:,.2f}",
@@ -887,6 +887,105 @@ class EventManagement:
 
         except requests.exceptions.RequestException as e:
             messagebox.showerror("Error", f"Request failed: {e}")
+            
+            
+            
+
+
+    def search_payment_by_id(self):
+        """GUI for searching a payment by ID."""
+        self.clear_right_frame()
+
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=10, pady=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Search Payment by ID", font=("Arial", 14, "bold"), bg="#ffffff").pack(pady=10)
+
+        # Search Input Frame
+        search_frame = tk.Frame(frame, bg="#ffffff")
+        search_frame.pack(pady=5)
+
+        tk.Label(search_frame, text="Payment ID:", font=("Arial", 11), bg="#ffffff").grid(row=0, column=0, padx=5, pady=5)
+        self.payment_id_entry = tk.Entry(search_frame, font=("Arial", 11))
+        self.payment_id_entry.grid(row=0, column=1, padx=5, pady=5)
+
+        search_btn = ttk.Button(
+            search_frame, text="Search", command=self.fetch_payment_by_id
+        )
+        search_btn.grid(row=0, column=2, padx=10, pady=5)
+
+        # Table Frame
+        table_frame = tk.Frame(frame, bg="#ffffff")
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        columns = (
+            "ID", "Event ID", "Organiser", "Event Amount", "Amount Paid", 
+            "Discount Allowed", "Balance Due", "Payment Method", "Status", 
+            "Payment Date", "Created By"
+        )
+
+        self.search_tree = ttk.Treeview(table_frame, columns=columns, show="headings")
+        for col in columns:
+            self.search_tree.heading(col, text=col)
+            self.search_tree.column(col, width=120, anchor="center")
+
+        self.search_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        y_scroll = ttk.Scrollbar(table_frame, orient="vertical", command=self.search_tree.yview)
+        y_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.search_tree.configure(yscroll=y_scroll.set)
+
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=self.search_tree.xview)
+        x_scroll.pack(fill=tk.X)
+        self.search_tree.configure(xscroll=x_scroll.set)
+
+
+    def fetch_payment_by_id(self):
+        """Fetch and display payment details by ID."""
+        payment_id = self.payment_id_entry.get().strip()
+
+        if not payment_id.isdigit():
+            messagebox.showerror("Error", "Please enter a valid numeric payment ID.")
+            return
+
+        try:
+            api_url = f"http://127.0.0.1:8000/eventpayment/{payment_id}"
+            headers = {"Authorization": f"Bearer {self.token}"}
+
+            response = requests.get(api_url, headers=headers)
+            if response.status_code == 200:
+                payment = response.json()
+
+                if payment:
+                    self.search_tree.delete(*self.search_tree.get_children())
+
+                    # Format amounts
+                    event_amount = f"₦{float(payment.get('event_amount', 0)) :,.2f}"
+                    amount_paid = f"₦{float(payment.get('amount_paid', 0)) :,.2f}"
+                    discount_allowed = f"₦{float(payment.get('discount_allowed', 0)) :,.2f}"
+                    balance_due = f"₦{float(payment.get('balance_due', 0)) :,.2f}"
+
+                    self.search_tree.insert("", "end", values=(
+                        payment.get("id", ""),
+                        payment.get("event_id", ""),
+                        payment.get("organiser", ""),
+                        event_amount,
+                        amount_paid,
+                        discount_allowed,
+                        balance_due,
+                        payment.get("payment_method", ""),
+                        payment.get("payment_status", ""),
+                        payment.get("payment_date", ""),
+                        payment.get("created_by", ""),
+                    ))
+                else:
+                    messagebox.showinfo("No Results", "No payment found with the provided ID.")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "No payment found."))
+        
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+            
 
         
     #def create_event(self):
@@ -918,8 +1017,8 @@ class EventManagement:
     #def list_payment_by_status(self):
         #pass
     
-    def search_Payment_by_id(self):
-        pass
+    #def search_Payment_by_id(self):
+        #pass
     
     def void_payment(self):
         pass
