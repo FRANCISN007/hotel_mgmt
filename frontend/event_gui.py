@@ -446,10 +446,92 @@ class EventManagement:
         self.subheading_label.config(text=text)
         command()   
         
+      
+    def cancel_event(self):
+        """Creates a form to cancel an event."""
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Cancel Event Form", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Labels & Entry fields
+        fields = [
+            ("Event ID", tk.Entry),
+            ("Cancellation Reason (Required)", tk.Entry),
+        ]
+
+        self.entries = {}
+        for i, (label, field_type) in enumerate(fields):
+            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            entry = field_type(frame, font=("Arial", 11), width=25)
+            entry.grid(row=i+1, column=1, padx=10, pady=5)
+            self.entries[label] = entry
+
+        # Submit Button
+        submit_btn = ttk.Button(frame, text="Cancel Event", command=self.submit_cancel_event, style="Bold.TButton")
+        submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
+
+    def cancel_event(self):
+        """Create a UI form to cancel an event."""
+        self.clear_right_frame()
+        frame = tk.Frame(self.right_frame, bg="#ffffff", padx=20, pady=20)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(frame, text="Cancel Event Form", font=("Arial", 14, "bold"), bg="#ffffff").grid(row=0, columnspan=2, pady=10)
+
+        # Labels & Entry fields
+        fields = [
+            ("Event ID", tk.Entry),
+            ("Cancellation Reason", tk.Entry),  # Ensure this key matches what is used in submit_cancel_event
+        ]
+
+        self.entries = {}
+        for i, (label, field_type) in enumerate(fields):
+            tk.Label(frame, text=label, font=("Arial", 11), bg="#ffffff").grid(row=i+1, column=0, sticky="w", pady=5)
+            entry = field_type(frame, font=("Arial", 11), width=25)
+            entry.grid(row=i+1, column=1, padx=10, pady=5)
+            self.entries[label] = entry  # Ensure the exact key name is used
+
+        # Submit Button
+        submit_btn = ttk.Button(frame, text="Cancel Event", command=self.submit_cancel_event, style="Bold.TButton")
+        submit_btn.grid(row=len(fields)+1, columnspan=2, pady=10)
+
         
-        
-        
-        
+    def submit_cancel_event(self):
+        """Sends a request to cancel an event by event ID, including the cancellation reason."""
+        try:
+            event_id = self.entries["Event ID"].get().strip()  # Ensure input is stripped
+            cancellation_reason = self.entries["Cancellation Reason"].get().strip()  # Ensure proper retrieval
+
+            if not event_id:
+                messagebox.showerror("Error", "Please enter an Event ID.")
+                return
+
+            if not cancellation_reason:
+                messagebox.showerror("Error", "Cancellation reason is required.")
+                return
+
+            # Construct the API URL with cancellation reason as a query parameter
+            api_url = f"http://127.0.0.1:8000/events/{event_id}/cancel?cancellation_reason={requests.utils.quote(cancellation_reason)}"
+
+            headers = {"Authorization": f"Bearer {self.token}"}
+
+            # Send PUT request without JSON body since params are in the URL
+            response = requests.put(api_url, headers=headers)
+
+            if response.status_code == 200:
+                messagebox.showinfo("Success", f"Event ID {event_id} has been successfully canceled!\n"
+                                            f"Cancellation Reason: {cancellation_reason}")
+            else:
+                messagebox.showerror("Error", response.json().get("detail", "Cancellation failed."))
+
+        except KeyError as e:
+            messagebox.showerror("Error", f"Missing entry field: {e}")  # Handle missing key errors
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Request failed: {e}")
+
+                
         
         
     
@@ -466,8 +548,8 @@ class EventManagement:
     #def update_event(self):
         #pass
     
-    def cancel_event(self):
-        pass
+    #def cancel_event(self):
+        #pass
     
     
     
