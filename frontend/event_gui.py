@@ -145,11 +145,7 @@ class EventManagement:
             messagebox.showwarning("Warning", "Please export the report before printing.")
 
      
-     
-     
-     
-     
-        
+
         
     def create_event(self):
         self.clear_right_frame()

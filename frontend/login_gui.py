@@ -19,8 +19,10 @@ class LoginGUI:
         self.main_frame = tk.Frame(self.canvas, bg="#D3D3D3")
         self.main_frame.place(relx=0.5, rely=0.5, anchor="center")  # ✅ Always centered
 
-        # Show login UI initially
+        # Show login UI initially*****
         self.show_login_ui()
+        
+        
 
     def show_login_ui(self):
         """Displays the login UI (hides registration UI if open)."""
@@ -30,7 +32,18 @@ class LoginGUI:
         self.frame = tk.Frame(self.main_frame, bg="white", padx=30, pady=30, relief="raised", bd=3)
         self.frame.pack()
 
-        title_label = tk.Label(self.frame, text="Login", font=("Arial", 15, "bold"), bg="white")
+        # ✅ Modified Login Title with Light Gray Border
+        title_label = tk.Label(
+            self.frame,
+            text="Login",
+            font=("Arial", 15, "bold"),
+            bg="#D3D3D3",  # Light gray background for the title
+            fg="black",
+            borderwidth=2,  # Light border thickness
+            relief="solid",  # Gives a bordered effect
+            padx=10,  # Adds horizontal padding
+            pady=5  # Adds vertical padding (increases height)
+        )
         title_label.pack(pady=15)
 
         username_label = tk.Label(self.frame, text="Username:", font=("Arial", 12), bg="white")
@@ -51,6 +64,10 @@ class LoginGUI:
             fg="blue", borderwidth=0, bg="white", font=("Arial", 12, "underline")
         )
         register_button.pack(pady=5)
+
+        
+        
+    
 
     def show_register_ui(self):
         """Displays the registration UI (hides login UI)."""

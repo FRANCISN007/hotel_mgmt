@@ -908,7 +908,7 @@ class PaymentManagement:
                 payment_data = response.json()
                 payment_status = payment_data.get("status", "").lower()  # Use "status" instead of "payment_status"
 
-                if payment_status == "voided":
+                if payment_status == "void":
                     messagebox.showerror("Error", f"This Payment ID {payment_id} has already been voided before.")
                     return  # Stop further execution
                 
@@ -979,4 +979,4 @@ class PaymentManagement:
         
         
 
-   
+    

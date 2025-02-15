@@ -14,6 +14,23 @@ class LicenseGUI(tk.Frame):  # Inherit from tk.Frame
         self.master.title("License Management")
         self.master.geometry("500x400")  # Increase window size for better layout
         
+        
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        
+        # Maximize the window (like login window)
+        root.state('zoomed')
+# Set window width and height
+        window_width = 500
+        window_height = 400
+
+# Calculate position to center the window
+        x_position = (screen_width - window_width) // 2
+        y_position = (screen_height - window_height) // 2
+
+# Set the geometry of the window
+        root.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+        
         # Generate License Section
         self.generate_frame = tk.LabelFrame(self, text="Generate License Key", padx=10, pady=10)
         self.generate_frame.pack(padx=10, pady=10, fill="both", expand=True)
