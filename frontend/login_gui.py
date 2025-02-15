@@ -10,6 +10,8 @@ class LoginGUI:
         self.root.geometry("700x500")
         self.root.state("zoomed")  # ✅ Ensures full-screen mode
         self.api_base_url = "http://127.0.0.1:8000"
+        
+        
 
         # ✅ Gray background (Zoomed to full screen)
         self.canvas = tk.Canvas(self.root, bg="#D3D3D3")
@@ -46,15 +48,24 @@ class LoginGUI:
         )
         title_label.pack(pady=15)
 
+        # Username Field with a Frame
         username_label = tk.Label(self.frame, text="Username:", font=("Arial", 12), bg="white")
         username_label.pack(anchor="w")
-        self.username_entry = ttk.Entry(self.frame, width=40)
-        self.username_entry.pack(pady=6)
 
+        username_frame = tk.Frame(self.frame, bg="#D3D3D3", relief="sunken", borderwidth=2)
+        username_frame.pack(pady=6, fill="x", padx=5)
+        self.username_entry = tk.Entry(username_frame, width=38, borderwidth=0, bg="white")
+        self.username_entry.pack(padx=2, pady=2)
+
+        # Password Field with a Frame
         password_label = tk.Label(self.frame, text="Password:", font=("Arial", 12), bg="white")
         password_label.pack(anchor="w")
-        self.password_entry = ttk.Entry(self.frame, width=40, show="*")
-        self.password_entry.pack(pady=8)
+
+        password_frame = tk.Frame(self.frame, bg="#D3D3D3", relief="sunken", borderwidth=2)
+        password_frame.pack(pady=8, fill="x", padx=5)
+        self.password_entry = tk.Entry(password_frame, width=38, show="*", borderwidth=0, bg="white")
+        self.password_entry.pack(padx=2, pady=2)
+
 
         login_button = ttk.Button(self.frame, text="Login", command=self.login)
         login_button.pack(pady=15, ipadx=20, ipady=5)
@@ -67,8 +78,6 @@ class LoginGUI:
 
         
         
-    
-
     def show_register_ui(self):
         """Displays the registration UI (hides login UI)."""
         self.clear_window()
@@ -80,16 +89,25 @@ class LoginGUI:
         title_label = tk.Label(self.frame, text="Register", font=("Arial", 15, "bold"), bg="white")
         title_label.pack(pady=15)
 
+        # ✅ Username Field with a Frame (Sinking Effect)
         username_label = tk.Label(self.frame, text="Username:", font=("Arial", 12), bg="white")
         username_label.pack(anchor="w")
-        self.reg_username_entry = ttk.Entry(self.frame, width=40)
-        self.reg_username_entry.pack(pady=8)
 
+        username_frame = tk.Frame(self.frame, bg="#D3D3D3", relief="sunken", borderwidth=2)
+        username_frame.pack(pady=6, fill="x", padx=5)
+        self.reg_username_entry = tk.Entry(username_frame, width=38, borderwidth=0, bg="white")
+        self.reg_username_entry.pack(padx=2, pady=2)
+
+        # ✅ Password Field with a Frame
         password_label = tk.Label(self.frame, text="Password:", font=("Arial", 12), bg="white")
         password_label.pack(anchor="w")
-        self.reg_password_entry = ttk.Entry(self.frame, width=40, show="*")
-        self.reg_password_entry.pack(pady=8)
 
+        password_frame = tk.Frame(self.frame, bg="#D3D3D3", relief="sunken", borderwidth=2)
+        password_frame.pack(pady=8, fill="x", padx=5)
+        self.reg_password_entry = tk.Entry(password_frame, width=38, show="*", borderwidth=0, bg="white")
+        self.reg_password_entry.pack(padx=2, pady=2)
+
+        # ✅ Role Dropdown (No Sinking Needed)
         role_label = tk.Label(self.frame, text="Role:", font=("Arial", 12), bg="white")
         role_label.pack(anchor="w")
         self.role_combobox = ttk.Combobox(self.frame, values=["user", "admin"], state="readonly", font=("Arial", 12))
@@ -97,11 +115,19 @@ class LoginGUI:
         self.role_combobox.current(0)
         self.role_combobox.bind("<<ComboboxSelected>>", self.toggle_admin_password)
 
-        # Admin Password (Initially Hidden)
+        # ✅ Admin Password Field (Initially Hidden)
         self.admin_password_frame = tk.Frame(self.frame, bg="white")
-        
+
         self.reg_admin_password_label = tk.Label(self.admin_password_frame, text="Admin Password:", font=("Arial", 12), bg="white")
-        self.reg_admin_password_entry = ttk.Entry(self.admin_password_frame, width=40, show="*")
+
+        admin_password_frame = tk.Frame(self.admin_password_frame, bg="#D3D3D3", relief="sunken", borderwidth=2)
+        self.reg_admin_password_entry = tk.Entry(admin_password_frame, width=38, show="*", borderwidth=0, bg="white")
+
+        # Packing Admin Password Fields (Initially Hidden)
+        self.admin_password_frame.pack_forget()
+        self.reg_admin_password_label.pack_forget()
+        admin_password_frame.pack_forget()
+        self.reg_admin_password_entry.pack_forget()
 
         register_button = ttk.Button(self.frame, text="Register", command=self.register)
         register_button.pack(pady=15, ipadx=20, ipady=5)
@@ -117,13 +143,22 @@ class LoginGUI:
         if self.role_combobox.get() == "admin":
             self.admin_password_frame.pack(pady=8, anchor="w", fill="x")
             self.reg_admin_password_label.pack(anchor="w")
-            self.reg_admin_password_entry.pack()
+
+            # Pack the sinking frame and entry
+            self.reg_admin_password_entry.master.pack(pady=6, fill="x", padx=5)
+            self.reg_admin_password_entry.pack(padx=2, pady=2)
         else:
             self.admin_password_frame.pack_forget()
             self.reg_admin_password_label.pack_forget()
+            self.reg_admin_password_entry.master.pack_forget()
             self.reg_admin_password_entry.pack_forget()
 
 
+    
+    
+    
+    
+    
     def clear_window(self):
         """Removes all widgets from the window to switch between forms."""
         for widget in self.main_frame.winfo_children():
