@@ -14,8 +14,13 @@ class LicenseGUI(tk.Frame):  # Inherit from tk.Frame
         self.master.title("License Management")
         self.master.geometry("500x400")  # Increase window size for better layout
         
-        
-        screen_width = root.winfo_screenwidth()
+        if not root or not root.winfo_exists():
+            print("Error: Tkinter root window does not exist.")
+            return  # Stop execution if root is destroyed
+
+        screen_width = root.winfo_screenwidth()  # Now safe to call
+
+        #screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
         
         # Maximize the window (like login window)

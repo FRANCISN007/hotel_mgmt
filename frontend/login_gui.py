@@ -156,9 +156,6 @@ class LoginGUI:
 
     
     
-    
-    
-    
     def clear_window(self):
         """Removes all widgets from the window to switch between forms."""
         for widget in self.main_frame.winfo_children():
