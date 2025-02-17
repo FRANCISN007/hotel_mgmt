@@ -4,6 +4,9 @@ import threading
 import sys
 import os
 
+# -*- coding: utf-8 -*-
+
+
 # Function to start the FastAPI backend
 def start_backend():
     with open("backend_log.txt", "w") as log_file:
@@ -37,7 +40,7 @@ backend_thread.start()
 
 # Ensure backend is running before launching frontend
 if is_backend_running():
-    print("✅ Backend is running, launching frontend...")
+    print(" Backend is running, launching frontend...")
     start_frontend()
 else:
-    print("❌ Backend failed to start. Check backend_log.txt for errors.")
+    print(" Backend failed to start. Check backend_log.txt for errors.")
